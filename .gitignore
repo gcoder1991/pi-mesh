@@ -1,0 +1,5 @@
+node_modules/
+.pi/mesh/
+.pi-subagents/
+*.tgz
+.DS_Store

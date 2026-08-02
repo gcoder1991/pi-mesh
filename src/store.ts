@@ -1,0 +1,186 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
+
+export interface ControlMessage {
+  id: string;
+  runId: string;
+  from: string;
+  to: string;
+  content: string;
+  replyTo?: string;
+  createdAt: number;
+  senderAttempt?: number;
+  ackedAt?: number;
+}
+
+export interface GrowthProposal<T = unknown> {
+  id: string;
+  runId: string;
+  requester: string;
+  reason: string;
+  tasks: T;
+  status: "proposed" | "denied" | "committed";
+  baseRevision: number;
+  requesterAttempt: number;
+  createdAt: number;
+  decidedAt?: number;
+  error?: string;
+}
+
+export function meshDir(cwd: string): string {
+  return path.join(cwd, CONFIG_DIR_NAME, "mesh");
+}
+
+export function atomicWriteContent(file: string, content: string | Buffer): void {
+  const dir = path.dirname(file);
+  fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+  const temp = `${file}.${process.pid}.${Date.now()}.tmp`;
+  try {
+    const handle = fs.openSync(temp, "w", 0o600);
+    try {
+      fs.writeFileSync(handle, content);
+      fs.fsyncSync(handle);
+    } finally { fs.closeSync(handle); }
+    fs.renameSync(temp, file);
+    try {
+      const directory = fs.openSync(dir, "r");
+      try { fs.fsyncSync(directory); } finally { fs.closeSync(directory); }
+    } catch (error) {
+      if (process.platform !== "win32") throw error;
+    }
+  } finally { fs.rmSync(temp, { force: true }); }
+}
+
+export function atomicWrite(file: string, value: unknown): void {
+  atomicWriteContent(file, `${JSON.stringify(value, null, 2)}\n`);
+}
+
+export function readJson<T>(file: string): T | undefined {
+  try { return JSON.parse(fs.readFileSync(file, "utf8")) as T; }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw new Error(`Invalid JSON state ${file}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+export function runFile(cwd: string, runId: string): string {
+  return path.join(meshDir(cwd), "runs", `${runId}.json`);
+}
+
+export function attemptDir(cwd: string, runId: string, nodeId: string, attempt: number): string {
+  return path.join(meshDir(cwd), "artifacts", runId, nodeId, `attempt-${attempt}`);
+}
+
+export function attemptResultFile(cwd: string, runId: string, nodeId: string, attempt: number): string {
+  return path.join(attemptDir(cwd, runId, nodeId, attempt), "attempt-result.json");
+}
+
+export function putNodeOutput(cwd: string, runId: string, nodeId: string, attempt: number, output: string): string {
+  const file = path.join(attemptDir(cwd, runId, nodeId, attempt), "output.md");
+  atomicWriteContent(file, output);
+  return file;
+}
+
+export function putAttemptResult(cwd: string, runId: string, nodeId: string, attempt: number, result: unknown): string {
+  const file = attemptResultFile(cwd, runId, nodeId, attempt);
+  atomicWrite(file, result);
+  return file;
+}
+
+export function putDiagnosticExplanation(cwd: string, runId: string, nodeId: string, attempt: number, content: string): string {
+  const file = path.join(attemptDir(cwd, runId, nodeId, attempt), "diagnostic.md");
+  atomicWriteContent(file, content);
+  return file;
+}
+
+export function appendDebugEvent(cwd: string, event: unknown): string {
+  const file = path.join(meshDir(cwd), "debug.jsonl");
+  fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
+  fs.appendFileSync(file, `${JSON.stringify(event)}\n`, { mode: 0o600 });
+  return file;
+}
+
+export function listRunFiles(cwd: string): string[] {
+  try {
+    return fs.readdirSync(path.join(meshDir(cwd), "runs"))
+      .filter((name) => name.endsWith(".json"))
+      .map((name) => path.join(meshDir(cwd), "runs", name));
+  } catch {
+    return [];
+  }
+}
+
+function spoolDir(cwd: string, kind: "messages" | "growth", runId: string): string {
+  return path.join(meshDir(cwd), kind, runId);
+}
+
+export function putMessage(cwd: string, message: ControlMessage, limits?: { payloadMaxBytes: number; recipientUnreadMaxBytes: number }): void {
+  const payloadBytes = Buffer.byteLength(message.content, "utf8");
+  if (limits && payloadBytes > limits.payloadMaxBytes) throw new Error(`Message payload exceeds ${limits.payloadMaxBytes} bytes`);
+  const dir = spoolDir(cwd, "messages", message.runId);
+  fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+  const lock = path.join(dir, `.recipient-${Buffer.from(message.to).toString("hex")}.lock`);
+  let handle: number | undefined;
+  try {
+    if (limits) {
+      try { handle = fs.openSync(lock, "wx", 0o600); }
+      catch (error) { if ((error as NodeJS.ErrnoException).code === "EEXIST") throw new Error(`Recipient ${message.to} mailbox is busy`); throw error; }
+      const unreadBytes = messages(cwd, message.runId).filter((item) => item.to === message.to && !item.ackedAt)
+        .reduce((total, item) => total + Buffer.byteLength(item.content, "utf8"), 0);
+      if (unreadBytes + payloadBytes > limits.recipientUnreadMaxBytes) throw new Error(`Recipient ${message.to} unread mailbox exceeds ${limits.recipientUnreadMaxBytes} bytes`);
+    }
+    atomicWrite(path.join(dir, `${message.id}.json`), message);
+  } finally {
+    if (handle !== undefined) fs.closeSync(handle);
+    fs.rmSync(lock, { force: true });
+  }
+}
+
+export function messages(cwd: string, runId: string): ControlMessage[] {
+  const dir = spoolDir(cwd, "messages", runId);
+  let names: string[];
+  try { names = fs.readdirSync(dir); }
+  catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return []; throw error; }
+  return names.filter((name) => name.endsWith(".json"))
+    .map((name) => readJson<ControlMessage>(path.join(dir, name)))
+    .filter((item): item is ControlMessage => Boolean(item))
+    .sort((a, b) => a.createdAt - b.createdAt);
+}
+
+export function ackMessage(cwd: string, runId: string, messageId: string, recipient: string): boolean {
+  const file = path.join(spoolDir(cwd, "messages", runId), `${messageId}.json`);
+  const claim = `${file}.${recipient}.ack`;
+  let handle: number;
+  try { handle = fs.openSync(claim, "wx", 0o600); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+    try {
+      if (Date.now() - fs.statSync(claim).mtimeMs < 60_000) return false;
+      fs.rmSync(claim, { force: true });
+      handle = fs.openSync(claim, "wx", 0o600);
+    } catch { return false; }
+  }
+  try {
+    const message = readJson<ControlMessage>(file);
+    if (!message || message.to !== recipient || message.ackedAt) return false;
+    message.ackedAt = Date.now();
+    atomicWrite(file, message);
+    return true;
+  } finally { fs.closeSync(handle); fs.rmSync(claim, { force: true }); }
+}
+
+export function putGrowth<T>(cwd: string, proposal: GrowthProposal<T>): void {
+  atomicWrite(path.join(spoolDir(cwd, "growth", proposal.runId), `${proposal.id}.json`), proposal);
+}
+
+export function growthProposals<T>(cwd: string, runId: string): GrowthProposal<T>[] {
+  const dir = spoolDir(cwd, "growth", runId);
+  let names: string[];
+  try { names = fs.readdirSync(dir); }
+  catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return []; throw error; }
+  return names.filter((name) => name.endsWith(".json"))
+    .map((name) => readJson<GrowthProposal<T>>(path.join(dir, name)))
+    .filter((item): item is GrowthProposal<T> => Boolean(item))
+    .sort((a, b) => a.createdAt - b.createdAt);
+}

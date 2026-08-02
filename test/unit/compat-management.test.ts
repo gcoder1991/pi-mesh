@@ -1,0 +1,37 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import test from "node:test";
+import { extensionHarness, context } from "../support/extension-harness.ts";
+
+function ui(choices: Array<string | undefined>, inputs: Array<string | undefined> = [], editors: Array<string | undefined> = []) {
+  const notifications: string[] = [];
+  return {
+    notifications,
+    api: {
+      notify(message: string) { notifications.push(message); },
+      select: async () => choices.shift(), input: async () => inputs.shift(), editor: async () => editors.shift(), setWidget() {},
+    },
+  };
+}
+
+test("/agents creates, edits, disables, deletes, ejects, and updates settings", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-management-"));
+  try {
+    const harness = extensionHarness(); const command = harness.commands.get("agents");
+    let surface = ui(["Create project agent"], ["custom", "Custom routing"], ["Custom prompt"]);
+    await command.handler("", context(root, { ui: surface.api }));
+    const custom = path.join(root, ".pi", "agents", "custom.md"); assert.equal(fs.existsSync(custom), true);
+
+    surface = ui(["Agent types", "custom · project · Custom routing", "Disable"]);
+    await command.handler("", context(root, { ui: surface.api })); assert.match(fs.readFileSync(custom, "utf8"), /enabled: false/);
+
+    surface = ui(["Agent types", "worker · bundled · Implementation agent for focused code changes that require editing and verification", "Eject to project"]);
+    await command.handler("", context(root, { ui: surface.api })); assert.equal(fs.existsSync(path.join(root, ".pi", "agents", "worker.md")), true);
+
+    surface = ui(["Settings", "Max concurrency"], ["7"]);
+    await command.handler("", context(root, { ui: surface.api })); assert.match(fs.readFileSync(path.join(root, ".pi", "mesh", "settings.yaml"), "utf8"), /maxConcurrentAgents: 7/);
+    await harness.shutdown();
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
