@@ -47,7 +47,7 @@ A trusted project may override individual values in `.pi/mesh/settings.yaml`:
 
 ```yaml
 maxAgentDepth: 8
-maxConcurrentAgents: 4
+maxConcurrentAgents: 8
 maxNodes: 64
 messagePayloadMaxBytes: 32768
 recipientUnreadMaxBytes: 1048576

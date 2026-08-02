@@ -217,7 +217,8 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
     handler: async (args, ctx) => {
       const task = args.trim();
       if (!task) { ctx.ui.notify("Usage: /mesh <task>", "warning"); return; }
-      pi.sendUserMessage(`You must execute this request through the mesh tool. Do not solve it directly and do not use the standalone Agent tool. First call mesh with action \"list_agents\", then create and run an appropriate mesh DAG for this task. Remain the host: inspect node evidence, handle failures, and synthesize the final answer.\n\nTask:\n${task}`);
+      if (!ctx.isIdle()) { ctx.ui.notify("Agent is busy; wait for the current turn before starting /mesh.", "warning"); return; }
+      pi.sendUserMessage(`You must execute this request through the mesh tool. Do not solve it directly and do not use the standalone Agent tool. First call mesh with action \"list_agents\", then create and run an appropriate mesh DAG for this task in the foreground (omit async or set async=false). The foreground mesh call already waits and streams progress; do not poll with mesh status/list and do not steer unless the user explicitly asks. After it returns, inspect node evidence and synthesize the final answer.\n\nTask:\n${task}`);
     },
   });
   const shutdownSubagents = registerCompatibilityTools(pi);

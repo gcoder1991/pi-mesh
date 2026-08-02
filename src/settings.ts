@@ -17,7 +17,7 @@ export interface MeshSettings {
 
 export const defaultMeshSettings: MeshSettings = {
   maxAgentDepth: 8,
-  maxConcurrentAgents: 4,
+  maxConcurrentAgents: 8,
   maxNodes: 64,
   messagePayloadMaxBytes: 32 * 1024,
   recipientUnreadMaxBytes: 1024 * 1024,
