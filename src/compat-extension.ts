@@ -155,7 +155,7 @@ export function registerCompatibilityTools(pi: ExtensionAPI, fleet = new FleetVi
       const { manager, trusted, root } = managerFor(ctx);
       const agents = discoverAgents(root, { scope: "all", includeProject: trusted, projectRoot: root });
       const running = manager.list();
-      if (!ctx.hasUI) { ctx.ui.notify(`${agents.length} agent types; ${running.filter((item) => item.status === "running").length} running`, "info"); return; }
+      if (!ctx.hasUI) return;
       const choice = await ctx.ui.select("Agents", ["Running agents", "Agent types", "Create project agent", "Settings"]);
       if (choice === "Running agents") {
         await fleet.select(ctx, manager);

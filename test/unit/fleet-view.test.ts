@@ -36,6 +36,23 @@ test("FleetView renders a navigable main panel and conversation overlay", async 
   fleet.dispose();
 });
 
+test("FleetView ignores stale stop and steer actions", async () => {
+  let aborts = 0; let steers = 0; let done: (action: "steer" | "stop" | undefined) => void = () => {};
+  const completed = { ...record, status: "completed", completedAt: Date.now() };
+  const manager = { list: () => [completed], get: () => completed, abort: () => { aborts++; return false; }, steer: () => { steers++; } } as any;
+  const ctx: any = {
+    mode: "tui",
+    ui: {
+      setWidget() {}, onTerminalInput: () => () => {}, getEditorText: () => "", input: async () => "late",
+      custom: async (factory: any) => { factory({ requestRender() {} }, theme, { matches: () => false }, (action: any) => { done(action); }); done("stop"); return "stop"; },
+    },
+  };
+  const fleet = new FleetView(); fleet.bind(ctx, manager, "project"); await fleet.open(ctx, manager, completed.id);
+  ctx.ui.custom = async (factory: any) => { factory({ requestRender() {} }, theme, { matches: () => false }, (action: any) => { done(action); }); done("steer"); return "steer"; };
+  await fleet.open(ctx, manager, completed.id);
+  assert.equal(aborts, 0); assert.equal(steers, 0); fleet.dispose();
+});
+
 test("FleetView includes active mesh nodes in the same main panel", () => {
   let widgetFactory: any;
   const run = { id: "run-12345678", status: "running", createdAt: Date.now() - 5000, nodes: [{ id: "review", agent: "reviewer", task: "review changes", status: "running", startedAt: Date.now() - 3000, dependsOn: [], retries: 0, attempt: 1, cwd: process.cwd(), activity: { turns: 2, toolUses: 1, responseText: "", activeTools: ["read"], usage: { input: 900, output: 100, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 2 } } }] };

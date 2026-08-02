@@ -36,6 +36,12 @@ test("/agents creates, edits, disables, deletes, ejects, and updates settings", 
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
+test("/agents is a no-op without dialog UI", async () => {
+  const harness = extensionHarness();
+  await assert.doesNotReject(() => harness.commands.get("agents").handler("", { ...context(process.cwd()), ui: undefined }));
+  await harness.shutdown();
+});
+
 test("/mesh forces the task through mesh orchestration", async () => {
   const harness = extensionHarness();
   const command = harness.commands.get("mesh");

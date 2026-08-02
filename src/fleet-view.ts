@@ -220,8 +220,9 @@ export class FleetView {
         const timer = setInterval(() => { if (!disposed) tui.requestRender(); }, 250); timer.unref?.();
         return component;
       }, { overlay: true, overlayOptions: { anchor: "right-center", width: "70%", minWidth: 52, maxHeight: "80%", visible: (width) => width >= 60 } });
-      if (action === "stop") record.stop();
-      if (action === "steer") { const message = await ctx.ui.input("Steer agent", "New instruction"); if (message) record.steer(message); }
+      const current = this.records().find((item) => item.key === record.key);
+      if (action === "stop" && current && ["running", "queued", "paused"].includes(current.status)) current.stop();
+      if (action === "steer" && current?.status === "running") { const message = await ctx.ui.input("Steer agent", "New instruction"); if (message) current.steer(message); }
     } finally { this.viewerOpen = false; this.render(); }
   }
 
