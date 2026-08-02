@@ -25,6 +25,7 @@ export interface SessionAgentRecord {
   promise?: Promise<void>;
   worktree?: WorktreeState;
   launch?: { model?: string; thinking?: string; maxTurns?: number; persistent?: boolean; transcript?: boolean; parentContext?: string; sessionDir?: string };
+  activity?: { turns: number; toolUses: number; responseText: string; activeTools: string[]; usage: ChildResult["usage"] };
 }
 
 export class SessionAgentManager {
@@ -54,11 +55,11 @@ export class SessionAgentManager {
     const id = crypto.randomUUID();
     let worktree: WorktreeState | undefined;
     if (options.worktree) worktree = createNodeWorktree(prepareWorktreeRun(cwd, [cwd]), "agent", id, 1, cwd);
-    const record: SessionAgentRecord = { id, agent, description, prompt, cwd, status: "running", createdAt: Date.now(), worktree, launch: { model: options.model, thinking: options.thinking, maxTurns: options.maxTurns, persistent: options.persistent, transcript: options.transcript, parentContext: options.parentContext, sessionDir: options.sessionDir } };
+    const record: SessionAgentRecord = { id, agent, description, prompt, cwd, status: "running", createdAt: Date.now(), worktree, launch: { model: options.model, thinking: options.thinking, maxTurns: options.maxTurns, persistent: options.persistent, transcript: options.transcript, parentContext: options.parentContext, sessionDir: options.sessionDir }, activity: { turns: 0, toolUses: 0, responseText: "", activeTools: [], usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 } } };
     this.records.set(id, record);
     const start = () => {
       this.running++;
-      const execution = this.runtime.start(agent, { id, cwd: worktree?.cwd ?? cwd, prompt, model: options.model, thinking: options.thinking, maxTurns: options.maxTurns, persistent: options.persistent, transcript: options.transcript, parentContext: options.parentContext, sessionDir: options.sessionDir });
+      const execution = this.runtime.start(agent, { id, cwd: worktree?.cwd ?? cwd, prompt, model: options.model, thinking: options.thinking, maxTurns: options.maxTurns, persistent: options.persistent, transcript: options.transcript, parentContext: options.parentContext, sessionDir: options.sessionDir, onEvent: (event) => this.trackActivity(record, event) });
       record.execution = execution;
       this.onStart?.(record);
       record.promise = execution.completion.then((result) => {
@@ -91,7 +92,7 @@ export class SessionAgentManager {
     const record = this.queued.shift(); if (!record) return;
     record.status = "running"; record.error = undefined;
     let execution: SubagentExecution;
-    try { execution = this.runtime.start(record.agent, { id: record.id, cwd: record.worktree?.cwd ?? record.cwd, prompt: record.prompt, ...record.launch }); }
+    try { execution = this.runtime.start(record.agent, { id: record.id, cwd: record.worktree?.cwd ?? record.cwd, prompt: record.prompt, ...record.launch, onEvent: (event) => this.trackActivity(record, event) }); }
     catch (error) { record.status = "failed"; record.error = error instanceof Error ? error.message : String(error); record.completedAt = Date.now(); this.persist(); this.onComplete?.(record); return void this.startNext(); }
     record.execution = execution; this.running++; this.onStart?.(record);
     record.promise = execution.completion.then((result) => {
@@ -100,6 +101,20 @@ export class SessionAgentManager {
       record.completedAt = Date.now(); this.persist(); this.onComplete?.(record);
     }).finally(() => { this.running--; this.startNext(); });
     this.persist();
+  }
+
+  private trackActivity(record: SessionAgentRecord, event: any): void {
+    const activity = record.activity ??= { turns: 0, toolUses: 0, responseText: "", activeTools: [], usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 } };
+    if (event.type === "turn_start") activity.turns++;
+    if (event.type === "tool_execution_start") { activity.toolUses++; activity.activeTools = [...activity.activeTools.filter((name) => name !== event.toolName), event.toolName].slice(-3); }
+    if (event.type === "tool_execution_end") activity.activeTools = activity.activeTools.filter((name) => name !== event.toolName);
+    if (event.type === "message_update" && event.assistantMessageEvent?.type === "text_delta") activity.responseText = `${activity.responseText}${event.assistantMessageEvent.delta ?? ""}`.slice(-160);
+    if (event.type === "message_end" && event.message?.role === "assistant") {
+      const usage = event.message.usage; activity.turns = Math.max(activity.turns, activity.usage.turns + 1); activity.usage.turns++;
+      activity.usage.input += usage?.input ?? 0; activity.usage.output += usage?.output ?? 0; activity.usage.cacheRead += usage?.cacheRead ?? 0; activity.usage.cacheWrite += usage?.cacheWrite ?? 0;
+      activity.usage.cost += usage?.cost?.total ?? 0; activity.usage.costInput = (activity.usage.costInput ?? 0) + (usage?.cost?.input ?? 0); activity.usage.costOutput = (activity.usage.costOutput ?? 0) + (usage?.cost?.output ?? 0);
+      activity.usage.costCacheRead = (activity.usage.costCacheRead ?? 0) + (usage?.cost?.cacheRead ?? 0); activity.usage.costCacheWrite = (activity.usage.costCacheWrite ?? 0) + (usage?.cost?.cacheWrite ?? 0);
+    }
   }
 
   steer(id: string, message: string): void {

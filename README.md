@@ -61,7 +61,7 @@ debug: false
 
 ## Tools
 
-The extension registers native `mesh` plus compatibility tools `Agent`, `get_subagent_result`, and `steer_subagent`. Direct Agent supports foreground/background execution, bounded queueing, steer/resume, persistent sessions, transcripts, context inheritance, explicit Child extension/skill allowlists, memory, schedules, and strict Worktree isolation. Use `/agents` or `ctrl+shift+a` for management/FleetView.
+The extension registers native `mesh` plus compatibility tools `Agent`, `get_subagent_result`, and `steer_subagent`. Direct Agent supports foreground/background execution, bounded queueing, steer/resume, persistent sessions, transcripts, context inheritance, explicit Child extension/skill allowlists, memory, schedules, and strict Worktree isolation. While agents run, a below-editor main panel shows `main` plus each agent with live elapsed time, turns, tool count/activity, and tokens; at an empty prompt press `↓` or `←`, navigate with `↑`/`↓`, and press `Enter` for the live conversation. Use `/agents` or `ctrl+shift+a` for management/FleetView.
 
 See `docs/parity-matrix.md`, `docs/replacement-delta.md`, and `docs/release-review.md` for the final replacement audit.
 

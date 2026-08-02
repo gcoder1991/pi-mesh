@@ -53,6 +53,7 @@ export interface MeshNode {
   usage?: Usage;
   worktree?: WorktreeState;
   worktreeHistory?: WorktreeState[];
+  activity?: { turns: number; toolUses: number; responseText: string; activeTools: string[]; usage: Usage };
 }
 
 export interface AttemptResult {
@@ -188,6 +189,10 @@ export class MeshManager {
 
   get(runId: string): MeshRun | undefined {
     return this.runs.get(runId);
+  }
+
+  conversation(runId: string, nodeId: string): string {
+    return this.subagents.get(runId)?.get(nodeId)?.conversation() ?? "";
   }
 
   steer(runId: string, nodeId: string, message: string): boolean {
@@ -475,6 +480,7 @@ export class MeshManager {
     transitionNode(node, "running");
     node.startedAt = Date.now();
     node.finishedAt = undefined;
+    node.activity = { turns: 0, toolUses: 0, responseText: "", activeTools: [], usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 } };
     this.touch(run);
     onUpdate?.(run);
 
@@ -494,6 +500,7 @@ export class MeshManager {
         thinking: agent.thinking,
         maxTurns: agent.maxTurns,
         env: { PI_MESH_RUN_ID: run.id, PI_MESH_NODE_ID: node.id, PI_MESH_ATTEMPT: String(attempt), PI_MESH_ROOT: run.cwd },
+        onEvent: (event) => this.trackActivity(node, event),
       });
     } catch (error) {
       if (timer) clearTimeout(timer);
@@ -572,6 +579,20 @@ export class MeshManager {
     node.finishedAt = node.status === "queued" ? undefined : Date.now();
     this.touch(run);
     onUpdate?.(run);
+  }
+
+  private trackActivity(node: MeshNode, event: any): void {
+    const activity = node.activity ??= { turns: 0, toolUses: 0, responseText: "", activeTools: [], usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 } };
+    if (event.type === "turn_start") activity.turns++;
+    if (event.type === "tool_execution_start") { activity.toolUses++; activity.activeTools = [...activity.activeTools.filter((name) => name !== event.toolName), event.toolName].slice(-3); }
+    if (event.type === "tool_execution_end") activity.activeTools = activity.activeTools.filter((name) => name !== event.toolName);
+    if (event.type === "message_update" && event.assistantMessageEvent?.type === "text_delta") activity.responseText = `${activity.responseText}${event.assistantMessageEvent.delta ?? ""}`.slice(-160);
+    if (event.type === "message_end" && event.message?.role === "assistant") {
+      const usage = event.message.usage; activity.turns = Math.max(activity.turns, activity.usage.turns + 1); activity.usage.turns++;
+      activity.usage.input += usage?.input ?? 0; activity.usage.output += usage?.output ?? 0; activity.usage.cacheRead += usage?.cacheRead ?? 0; activity.usage.cacheWrite += usage?.cacheWrite ?? 0;
+      activity.usage.cost += usage?.cost?.total ?? 0; activity.usage.costInput = (activity.usage.costInput ?? 0) + (usage?.cost?.input ?? 0); activity.usage.costOutput = (activity.usage.costOutput ?? 0) + (usage?.cost?.output ?? 0);
+      activity.usage.costCacheRead = (activity.usage.costCacheRead ?? 0) + (usage?.cost?.cacheRead ?? 0); activity.usage.costCacheWrite = (activity.usage.costCacheWrite ?? 0) + (usage?.cost?.cacheWrite ?? 0);
+    }
   }
 
   private failNode(run: MeshRun, node: MeshNode, error: string, onUpdate?: (run: MeshRun) => void): void {

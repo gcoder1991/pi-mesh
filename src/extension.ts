@@ -7,6 +7,7 @@ import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { discoverAgents, type AgentScope } from "./agents.ts";
 import { registerCompatibilityTools } from "./compat-extension.ts";
+import { FleetView } from "./fleet-view.ts";
 import { MeshManager, type MeshRun, type MeshTask } from "./manager.ts";
 import { loadMeshSettings, type MeshSettings } from "./settings.ts";
 import { ackMessage, growthProposals, messages, putGrowth, putMessage, runFile, type ControlMessage, type GrowthProposal } from "./store.ts";
@@ -90,7 +91,7 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
     managers.set(key, entry);
     return entry;
   };
-
+  const fleet = new FleetView();
   pi.registerTool({
     name: "mesh", label: "Mesh",
     description: "Host-owned persistent child-agent mesh for complex, parallel, or broad work, with dynamically discovered specialized agents, dependency graphs, optional Git worktree isolation, retries, recovery, mailbox, and host-approved growth.",
@@ -119,7 +120,9 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
     },
     async execute(_toolCallId, params, signal, onUpdate, ctx) {
       const projectTrusted = ctx.isProjectTrusted?.() ?? false;
-      const { manager, settings } = currentManager(ctx.cwd, projectTrusted, ctx.sessionManager.getSessionId());
+      const sessionId = ctx.sessionManager.getSessionId();
+      const { manager, settings } = currentManager(ctx.cwd, projectTrusted, sessionId);
+      if (ctx.mode === "tui") fleet.bindMesh(ctx, manager, `${fs.realpathSync(path.resolve(ctx.cwd))}\0${projectTrusted}\0${sessionId}`);
       const requestedScope: AgentScope = params.scope ?? "all";
       const scope: AgentScope = !projectTrusted && requestedScope === "project" ? "project" : requestedScope;
       if (params.action === "list_agents") {
@@ -221,6 +224,6 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
       pi.sendUserMessage(`You must execute this request through the mesh tool. Do not solve it directly and do not use the standalone Agent tool. First call mesh with action \"list_agents\", then create and run an appropriate mesh DAG for this task in the foreground (omit async or set async=false). The foreground mesh call already waits and streams progress; do not poll with mesh status/list and do not steer unless the user explicitly asks. After it returns, inspect node evidence and synthesize the final answer.\n\nTask:\n${task}`);
     },
   });
-  const shutdownSubagents = registerCompatibilityTools(pi);
+  const shutdownSubagents = registerCompatibilityTools(pi, fleet);
   pi.on("session_shutdown", async () => { await Promise.allSettled([...managers.values()].map(({ manager }) => manager.shutdown())); managers.clear(); await shutdownSubagents(); });
 }

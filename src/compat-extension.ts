@@ -44,10 +44,9 @@ function recordText(record: SessionAgentRecord, verbose = false): string {
   return `${head}\n\n${output}${handoff}${conversation ? `\n\n--- Agent Conversation ---\n${conversation}` : ""}`;
 }
 
-export function registerCompatibilityTools(pi: ExtensionAPI): () => Promise<void> {
+export function registerCompatibilityTools(pi: ExtensionAPI, fleet = new FleetView()): () => Promise<void> {
   const managers = new Map<string, { manager: SessionAgentManager; notifier: CompletionNotifier }>();
   const schedulers = new Map<string, AgentScheduler>();
-  const fleet = new FleetView();
   const managerFor = (ctx: ExtensionContext) => {
     const trusted = ctx.isProjectTrusted?.() ?? false;
     const root = fs.realpathSync(path.resolve(ctx.cwd));
