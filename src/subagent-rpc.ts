@@ -6,6 +6,22 @@ import type { SessionAgentManager } from "./session-agents.ts";
 
 const PROTOCOL_VERSION = 2;
 
+const THINKING_LEVELS = new Set(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
+
+function spawnOptions(value: unknown): any {
+  if (value === undefined) return {};
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid spawn options");
+  const options = value as Record<string, unknown>;
+  const allowed = new Set(["description", "model", "thinking", "max_turns", "isolation"]);
+  if (Object.keys(options).some((key) => !allowed.has(key))) throw new Error("Invalid spawn options");
+  if (options.description !== undefined && typeof options.description !== "string") throw new Error("description must be a string");
+  if (options.model !== undefined && typeof options.model !== "string") throw new Error("model must be a string");
+  if (options.thinking !== undefined && (typeof options.thinking !== "string" || !THINKING_LEVELS.has(options.thinking))) throw new Error("Invalid thinking level");
+  if (options.max_turns !== undefined && (!Number.isInteger(options.max_turns) || Number(options.max_turns) < 1 || Number(options.max_turns) > 1000)) throw new Error("max_turns must be an integer from 1 to 1000");
+  if (options.isolation !== undefined && options.isolation !== "worktree") throw new Error("isolation must be worktree");
+  return options;
+}
+
 export function registerSubagentRpc(pi: ExtensionAPI, managerFor: (ctx: ExtensionContext) => { manager: SessionAgentManager; trusted: boolean; root: string }): () => void {
   const subscriptions: Array<() => void> = [];
   let currentCtx: ExtensionContext | undefined;
@@ -15,16 +31,18 @@ export function registerSubagentRpc(pi: ExtensionAPI, managerFor: (ctx: Extensio
     if (!currentCtx) return reply("subagents:rpc:spawn", request.requestId, { success: false, error: "No active session" });
     try {
       const { manager, trusted, root } = managerFor(currentCtx);
-      const agent = discoverAgents(root, { scope: "all", includeProject: trusted, projectRoot: root }).find((item) => item.name.toLowerCase() === String(request.type).toLowerCase());
+      if (typeof request?.type !== "string" || typeof request?.prompt !== "string" || !request.prompt.trim()) throw new Error("type and prompt are required");
+      const options = spawnOptions(request.options);
+      const agent = discoverAgents(root, { scope: "all", includeProject: trusted, projectRoot: root }).find((item) => item.name.toLowerCase() === request.type.toLowerCase());
       if (!agent) throw new Error(`Unknown agent type: ${request.type}`);
       const persistent = agent.persistSession ?? false;
-      const record = manager.spawn(agent, request.prompt, request.options?.description ?? request.type, root, {
-        model: resolveAgentModel(agent.model ?? (typeof request.options?.model === "string" ? request.options.model : undefined), currentCtx.modelRegistry),
-        thinking: agent.thinking ?? request.options?.thinking,
-        maxTurns: agent.maxTurns ?? request.options?.max_turns,
+      const record = manager.spawn(agent, request.prompt, options.description ?? request.type, root, {
+        model: resolveAgentModel(options.model ?? agent.model, currentCtx.modelRegistry),
+        thinking: options.thinking ?? agent.thinking,
+        maxTurns: options.max_turns ?? agent.maxTurns,
         persistent,
         transcript: agent.outputTranscript,
-        worktree: agent.isolation === "worktree" || request.options?.isolation === "worktree",
+        worktree: options.isolation === "worktree" || agent.isolation === "worktree",
         sessionDir: persistent ? currentCtx.sessionManager.getSessionDir() : undefined,
       });
       reply("subagents:rpc:spawn", request.requestId, { success: true, data: { id: record.id } });

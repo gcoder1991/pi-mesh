@@ -195,7 +195,7 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
         const proposal = growthProposals<MeshTask[]>(run!.cwd, run!.id).find((item) => item.id === params.proposalId);
         if (!proposal || proposal.status !== "proposed") throw new Error("Growth proposal is not pending");
         const requester = run!.nodes.find((node) => node.id === proposal.requester);
-        if (!requester || requester.attempt !== proposal.requesterAttempt || run!.revision < proposal.baseRevision) throw new Error("Growth proposal requester/revision is stale");
+        if (!requester || !["running", "paused"].includes(requester.status) || requester.attempt !== proposal.requesterAttempt || run!.revision < proposal.baseRevision) throw new Error("Growth proposal requester/revision is stale");
         if (requester.allowedSubagents !== "all") {
           const allowed = new Set((requester.allowedSubagents ?? []).map((name) => name.toLowerCase()));
           const denied = proposal.tasks.map((task) => task.agent).filter((name) => !allowed.has(name.toLowerCase()));

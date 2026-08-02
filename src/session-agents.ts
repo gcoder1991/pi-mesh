@@ -40,6 +40,7 @@ export class SessionAgentManager {
   private readonly cwd: string;
   private readonly registryFile: string;
   private readonly maxConcurrent: number;
+  private readonly settings: MeshSettings;
   private readonly queued: SessionAgentRecord[] = [];
   private running = 0;
   private onComplete?: (record: SessionAgentRecord) => void;
@@ -51,6 +52,7 @@ export class SessionAgentManager {
     const safeSessionId = crypto.createHash("sha256").update(sessionId).digest("hex").slice(0, 16);
     this.registryFile = path.join(this.cwd, CONFIG_DIR_NAME, "mesh", "subagents", `${safeSessionId}.json`);
     this.maxConcurrent = settings.maxConcurrentAgents;
+    this.settings = settings;
     this.onComplete = onComplete;
     this.restore();
   }
@@ -186,6 +188,10 @@ export class SessionAgentManager {
     if (!Array.isArray(data) || data.length > 1024) throw new Error(`Invalid subagent registry ${file}: expected at most 1024 records`);
     for (const stored of data) {
       if (!stored || typeof stored !== "object" || typeof stored.id !== "string" || typeof stored.cwd !== "string" || !["queued", "running", "completed", "failed", "stopped"].includes(stored.status)) throw new Error(`Invalid subagent registry ${file}: malformed record`);
+      const agent = stored.agent;
+      if (!agent || typeof agent !== "object" || typeof agent.name !== "string" || typeof agent.description !== "string" || typeof agent.systemPrompt !== "string" || !["bundled", "user", "project"].includes(agent.source) || typeof agent.filePath !== "string") throw new Error(`Invalid subagent registry ${file}: malformed agent`);
+      for (const [label, values] of [["tools", agent.tools], ["disallowedTools", agent.disallowedTools], ["extensions", agent.extensions], ["skills", agent.skills]] as const) if (values !== undefined && (!Array.isArray(values) || values.some((value) => typeof value !== "string"))) throw new Error(`Invalid subagent registry ${file}: malformed agent ${label}`);
+      if (agent.extensions?.some((value) => value === "*" || path.isAbsolute(value) || value.includes("/") || value.includes("\\") || !this.settings.childExtensions[value]) || agent.skills?.some((value) => value === "*" || path.isAbsolute(value) || value.includes("/") || value.includes("\\") || !this.settings.childSkills[value])) throw new Error(`Invalid subagent registry ${file}: unsafe agent resources`);
       const canonicalCwd = fs.realpathSync(path.resolve(stored.cwd));
       if (canonicalCwd !== this.cwd) throw new Error(`Invalid subagent registry ${file}: record cwd escapes project root`);
       const record: SessionAgentRecord = { ...stored };

@@ -279,6 +279,7 @@ export class MeshManager {
     if (!run || !["running", "paused"].includes(run.status)) throw new Error(`Mesh is not active: ${runId}`);
     const requesterNode = run.nodes.find((node) => node.id === requester);
     if (!requesterNode) throw new Error(`Unknown requester node: ${requester}`);
+    if (!['running', 'paused'].includes(requesterNode.status)) throw new Error(`Requester ${requester} is not active`);
     if (requesterNode.allowedSubagents !== "all") {
       const allowed = new Set((requesterNode.allowedSubagents ?? []).map((name) => name.toLowerCase()));
       const denied = tasks.map((task) => task.agent).filter((name) => !allowed.has(name.toLowerCase()));

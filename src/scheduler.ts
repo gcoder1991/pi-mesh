@@ -69,7 +69,10 @@ export class AgentScheduler {
     if (!Array.isArray(jobs) || jobs.length > 256) throw new Error(`Invalid schedule registry ${this.file}: expected at most 256 jobs`);
     for (const job of jobs) {
       if (!job || typeof job.id !== "string" || typeof job.name !== "string" || typeof job.schedule !== "string" || typeof job.prompt !== "string" || typeof job.agent !== "string" || typeof job.createdAt !== "number" || !["once", "interval", "cron"].includes(job.type)) throw new Error(`Invalid schedule registry ${this.file}: malformed job`);
-      const spec = job.type === "once" && job.nextRun ? { type: "once" as const, delay: job.nextRun - Date.now() } : parse(job.schedule);
+      let spec: ReturnType<typeof parse>;
+      try { spec = job.type === "once" && job.nextRun ? { type: "once" as const, delay: job.nextRun - Date.now() } : parse(job.schedule); }
+      catch (error) { throw new Error(`Invalid schedule registry ${this.file}: ${error instanceof Error ? error.message : String(error)}`); }
+      if (spec.type !== job.type) throw new Error(`Invalid schedule registry ${this.file}: schedule type does not match job type`);
       if (spec.type === "once" && job.nextRun && job.nextRun <= Date.now()) continue;
       this.jobs.set(job.id, job); this.arm(job, spec, true);
     }

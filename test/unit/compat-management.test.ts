@@ -36,9 +36,10 @@ test("/agents creates, edits, disables, deletes, ejects, and updates settings", 
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
-test("/agents is a no-op without dialog UI", async () => {
-  const harness = extensionHarness();
-  await assert.doesNotReject(() => harness.commands.get("agents").handler("", { ...context(process.cwd()), ui: undefined }));
+test("/agents explains when dialog UI is unavailable", async () => {
+  const harness = extensionHarness(); let message = ""; const original = console.error; console.error = (value) => { message = String(value); };
+  try { await harness.commands.get("agents").handler("", { ...context(process.cwd()), ui: undefined }); } finally { console.error = original; }
+  assert.equal(message, "The /agents command requires a dialog UI.");
   await harness.shutdown();
 });
 

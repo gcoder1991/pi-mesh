@@ -125,6 +125,8 @@ test("host-approved growth enforces the requester allowlist", () => {
     assert.equal(added[0].requestedBy, "a");
     assert.equal(manager.get(run.id)?.nodes.length, 2);
     assert.throws(() => manager.grow(run.id, "a", [{ id: "qa", agent: "qa", task: "qa" }]), /cannot grow agents: qa/);
+    manager.get(run.id)!.nodes[0]!.status = "succeeded";
+    assert.throws(() => manager.grow(run.id, "a", [{ id: "late", agent: "worker", task: "late" }]), /Requester a is not active/);
   } finally { fs.rmSync(cwd, { recursive: true, force: true }); }
 });
 

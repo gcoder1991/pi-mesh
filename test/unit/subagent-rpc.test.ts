@@ -20,6 +20,23 @@ test("cross-extension RPC exposes ping, spawn, and stop envelopes", async () => 
   } finally { await harness.shutdown(); if (old.binary === undefined) delete process.env.PI_MESH_PI_BINARY; else process.env.PI_MESH_PI_BINARY = old.binary; if (old.queue === undefined) delete process.env.PI_MESH_TEST_QUEUE; else process.env.PI_MESH_TEST_QUEUE = old.queue; fs.rmSync(root, { recursive: true, force: true }); fs.rmSync(queue, { recursive: true, force: true }); }
 });
 
+test("cross-extension RPC rejects invalid spawn options", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-rpc-invalid-"));
+  const harness = extensionHarness(); for (const handler of harness.handlers.get("pi:session_start") ?? []) await handler({}, context(root));
+  try {
+    for (const [requestId, options, message] of [
+      ["turns", { max_turns: "abc" }, /max_turns/],
+      ["thinking", { thinking: "unlimited" }, /thinking/],
+      ["isolation", { isolation: "container" }, /isolation/],
+      ["extra", { unknown: true }, /options/],
+    ] as const) {
+      let response: any; harness.pi.events.on(`subagents:rpc:spawn:reply:${requestId}`, (value: any) => { response = value; });
+      harness.pi.events.emit("subagents:rpc:spawn", { requestId, type: "worker", prompt: "rpc", options });
+      assert.equal(response.success, false); assert.match(response.error, message);
+    }
+  } finally { await harness.shutdown(); fs.rmSync(root, { recursive: true, force: true }); }
+});
+
 test("cross-extension RPC rejects spawn without an active session", () => {
   const harness = extensionHarness(); let spawn: any;
   harness.pi.events.on("subagents:rpc:spawn:reply:s", (value: any) => { spawn = value; });

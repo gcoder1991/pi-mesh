@@ -74,6 +74,12 @@ test("session agent registry fails closed on corruption and foreign project reco
   const file = path.join(dir, "f1234d75178d892a.json");
   try {
     fs.writeFileSync(file, "not-json"); assert.throws(() => new SessionAgentManager(defaultMeshSettings, root, undefined, "invalid"), /Invalid JSON state/);
+    fs.writeFileSync(file, JSON.stringify([{ id: "x", cwd: root, status: "completed", agent: { name: "worker" }, prompt: "x", description: "x", createdAt: 1 }]));
+    assert.throws(() => new SessionAgentManager(defaultMeshSettings, root, undefined, "invalid"), /malformed agent/);
+    fs.writeFileSync(file, JSON.stringify([{ id: "x", cwd: root, status: "completed", agent: { ...agent, extensions: ["../escape"] }, prompt: "x", description: "x", createdAt: 1 }]));
+    assert.throws(() => new SessionAgentManager(defaultMeshSettings, root, undefined, "invalid"), /unsafe agent resources/);
+    fs.writeFileSync(file, JSON.stringify([{ id: "x", cwd: root, status: "completed", agent: { ...agent, extensions: ["unapproved"] }, prompt: "x", description: "x", createdAt: 1 }]));
+    assert.throws(() => new SessionAgentManager(defaultMeshSettings, root, undefined, "invalid"), /unsafe agent resources/);
     fs.writeFileSync(file, JSON.stringify([{ id: "x", cwd: os.tmpdir(), status: "completed", agent, prompt: "x", description: "x", createdAt: 1 }]));
     assert.throws(() => new SessionAgentManager(defaultMeshSettings, root, undefined, "invalid"), /escapes project root/);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
