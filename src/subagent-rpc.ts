@@ -37,9 +37,9 @@ export function registerSubagentRpc(pi: ExtensionAPI, managerFor: (ctx: Extensio
       if (!agent) throw new Error(`Unknown agent type: ${request.type}`);
       const persistent = agent.persistSession ?? false;
       const record = manager.spawn(agent, request.prompt, options.description ?? request.type, root, {
-        model: resolveAgentModel(options.model ?? agent.model, currentCtx.modelRegistry),
-        thinking: options.thinking ?? agent.thinking,
-        maxTurns: options.max_turns ?? agent.maxTurns,
+        model: resolveAgentModel(agent.model ?? options.model, currentCtx.modelRegistry),
+        thinking: agent.thinking ?? options.thinking,
+        maxTurns: agent.maxTurns ?? options.max_turns,
         persistent,
         transcript: agent.outputTranscript,
         worktree: options.isolation === "worktree" || agent.isolation === "worktree",

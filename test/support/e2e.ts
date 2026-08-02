@@ -45,8 +45,8 @@ export async function loadMeshTool(root: string, extension = path.resolve("index
   return tool;
 }
 
-export async function execute(tool: any, root: string, params: object, signal = new AbortController().signal, projectTrusted = true): Promise<any> {
-  return tool.execute("e2e", params, signal, undefined, { cwd: root, mode: "print", hasUI: false, isProjectTrusted: () => projectTrusted, sessionManager: { getSessionId: () => "e2e-session" } });
+export async function execute(tool: any, root: string, params: object, signal = new AbortController().signal, projectTrusted = true, modelRegistry: any = { getAvailable: () => [] }): Promise<any> {
+  return tool.execute("e2e", params, signal, undefined, { cwd: root, mode: "print", hasUI: false, isProjectTrusted: () => projectTrusted, sessionManager: { getSessionId: () => "e2e-session" }, modelRegistry });
 }
 
 export function env(queue: string): NodeJS.ProcessEnv {

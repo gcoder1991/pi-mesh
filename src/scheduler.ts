@@ -13,7 +13,9 @@ export interface ScheduledAgentJob {
 function parse(value: string): { type: ScheduledAgentJob["type"]; delay?: number; cron?: string; repeat?: boolean } {
   const relative = value.match(/^(\+?)(\d+)(s|m|h|d)$/);
   if (relative) {
-    const delay = Number(relative[2]) * ({ s: 1000, m: 60_000, h: 3_600_000, d: 86_400_000 } as const)[relative[3] as "s" | "m" | "h" | "d"];
+    const count = Number(relative[2]);
+    if (count < 1) throw new Error("schedule interval must be at least 1 second");
+    const delay = count * ({ s: 1000, m: 60_000, h: 3_600_000, d: 86_400_000 } as const)[relative[3] as "s" | "m" | "h" | "d"];
     return { type: relative[1] ? "once" : "interval", delay, repeat: !relative[1] };
   }
   const timestamp = Date.parse(value);

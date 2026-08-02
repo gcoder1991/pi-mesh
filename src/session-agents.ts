@@ -1,7 +1,7 @@
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { CONFIG_DIR_NAME } from "@earendil-works/pi-coding-agent";
+import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
 import type { AgentDefinition } from "./agents.ts";
 import type { ChildResult } from "./pi-process.ts";
 import { SubagentRuntime, type SubagentExecution, type SubagentSession } from "./subagent-runtime.ts";
@@ -72,6 +72,7 @@ export class SessionAgentManager {
   private transcriptPath(id: string, transcript?: boolean): string | undefined {
     return transcript === false ? undefined : path.join(this.cwd, CONFIG_DIR_NAME, "mesh", "transcripts", `${id}.jsonl`);
   }
+  private inside(file: string, root: string): boolean { const relative = path.relative(path.resolve(root), path.resolve(file)); return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative)); }
   get(id: string): SessionAgentRecord | undefined { return this.records.get(id); }
 
   spawn(agent: AgentDefinition, prompt: string, description: string, cwd: string, options: { model?: string; thinking?: string; maxTurns?: number; persistent?: boolean; transcript?: boolean; parentContext?: string; worktree?: boolean; sessionDir?: string }): SessionAgentRecord {
@@ -192,9 +193,16 @@ export class SessionAgentManager {
       if (!agent || typeof agent !== "object" || typeof agent.name !== "string" || typeof agent.description !== "string" || typeof agent.systemPrompt !== "string" || !["bundled", "user", "project"].includes(agent.source) || typeof agent.filePath !== "string") throw new Error(`Invalid subagent registry ${file}: malformed agent`);
       for (const [label, values] of [["tools", agent.tools], ["disallowedTools", agent.disallowedTools], ["extensions", agent.extensions], ["skills", agent.skills]] as const) if (values !== undefined && (!Array.isArray(values) || values.some((value) => typeof value !== "string"))) throw new Error(`Invalid subagent registry ${file}: malformed agent ${label}`);
       if (agent.extensions?.some((value) => value === "*" || path.isAbsolute(value) || value.includes("/") || value.includes("\\") || !this.settings.childExtensions[value]) || agent.skills?.some((value) => value === "*" || path.isAbsolute(value) || value.includes("/") || value.includes("\\") || !this.settings.childSkills[value])) throw new Error(`Invalid subagent registry ${file}: unsafe agent resources`);
+      let canonicalAgentFile: string; try { canonicalAgentFile = fs.realpathSync(agent.filePath); } catch { throw new Error(`Invalid subagent registry ${file}: invalid agent file`); }
+      const allowedAgentRoots = agent.source === "project" ? [path.join(this.cwd, CONFIG_DIR_NAME, "agents")] : agent.source === "user" ? [path.join(getAgentDir(), "agents")] : [path.dirname(agent.filePath)];
+      if (!allowedAgentRoots.some((root) => { try { return this.inside(canonicalAgentFile, root); } catch { return false; } })) throw new Error(`Invalid subagent registry ${file}: agent file escapes source root`);
       const canonicalCwd = fs.realpathSync(path.resolve(stored.cwd));
       if (canonicalCwd !== this.cwd) throw new Error(`Invalid subagent registry ${file}: record cwd escapes project root`);
-      const record: SessionAgentRecord = { ...stored };
+      const launch = stored.launch;
+      if (launch !== undefined && (!launch || typeof launch !== "object" || (launch.transcriptPath !== undefined && typeof launch.transcriptPath !== "string") || (launch.sessionDir !== undefined && typeof launch.sessionDir !== "string"))) throw new Error(`Invalid subagent registry ${file}: malformed launch`);
+      if (launch?.transcriptPath && (!this.inside(launch.transcriptPath, path.join(this.cwd, CONFIG_DIR_NAME, "mesh", "transcripts")) || path.extname(launch.transcriptPath) !== ".jsonl")) throw new Error(`Invalid subagent registry ${file}: unsafe transcript path`);
+      if (launch?.sessionDir) { const allowedSessionRoots = [path.join(this.cwd, CONFIG_DIR_NAME, "mesh", "sessions"), path.join(this.cwd, CONFIG_DIR_NAME, "sessions")]; if (!allowedSessionRoots.some((root) => this.inside(launch.sessionDir!, root))) throw new Error(`Invalid subagent registry ${file}: unsafe session directory`); }
+      const record: SessionAgentRecord = { ...stored, agent: { ...agent, filePath: canonicalAgentFile } };
       if (record.status === "running" || record.status === "queued") { record.status = "stopped"; record.error = "Host restarted; resume the persisted child session"; record.completedAt = Date.now(); }
       // Persistent sessions reconnect lazily on resume; restoring hundreds of records must not spawn hundreds of Pi processes.
       this.records.set(record.id, record);

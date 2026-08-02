@@ -61,7 +61,7 @@ export default function registerMeshControl(pi: ExtensionAPI): void {
         }
         const proposal: GrowthProposal<MeshTask[]> = {
           id: crypto.randomUUID(), runId, requester: nodeId, reason: params.reason.trim(), tasks: params.tasks as MeshTask[], status: "proposed",
-          baseRevision: run.revision, requesterAttempt: attempt, createdAt: Date.now(),
+          baseRevision: run.revision + 1, requesterAttempt: attempt, createdAt: Date.now(),
         };
         if (Buffer.byteLength(JSON.stringify(proposal), "utf8") > 1024 * 1024) throw new Error("Growth proposal exceeds 1048576 bytes");
         putGrowth(root, proposal);

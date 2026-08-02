@@ -49,8 +49,16 @@ test("child control extension proposes fenced growth and uses graph membership",
     await assert.rejects(() => control.execute("e2e", { action: "grow", reason: "qa", tasks: [{ id: "qa", agent: "qa", task: "qa" }] }, new AbortController().signal, undefined, { cwd: fx.root } as any), /cannot request growth for: qa/);
     await control.execute("e2e", { action: "grow", reason: "review", tasks: [{ id: "review", agent: "reviewer", task: "review" }] }, new AbortController().signal, undefined, { cwd: fx.root } as any);
     const proposal = growthProposals(fx.root, run.id)[0];
-    assert.equal(proposal.baseRevision, run.revision);
+    assert.equal(proposal.baseRevision, run.revision + 1);
     assert.equal(proposal.requesterAttempt, 1);
+    const meshTool = await loadMeshTool(fx.root);
+    const checkpoint = JSON.parse(fs.readFileSync(runFile(fx.root, run.id), "utf8")); checkpoint.status = "paused"; checkpoint.nodes[0].status = "paused"; checkpoint.revision = proposal.baseRevision; atomicWrite(runFile(fx.root, run.id), checkpoint);
+    const decided = await execute(meshTool, fx.root, { action: "growth_decide", runId: run.id, proposalId: proposal.id, decision: "approve" });
+    assert.match(decided.content[0].text, /Growth committed/);
+    const staleRun = JSON.parse(fs.readFileSync(runFile(fx.root, run.id), "utf8")); staleRun.status = "running"; staleRun.nodes[0].status = "running"; staleRun.nodes[0].attempt = 1; atomicWrite(runFile(fx.root, run.id), staleRun);
+    await control.execute("e2e", { action: "grow", reason: "review stale", tasks: [{ id: "review-stale", agent: "reviewer", task: "review" }] }, new AbortController().signal, undefined, { cwd: fx.root } as any);
+    const staleProposal = growthProposals(fx.root, run.id).find((item) => item.id !== proposal.id)!; staleRun.revision = staleProposal.baseRevision + 1; atomicWrite(runFile(fx.root, run.id), staleRun);
+    await assert.rejects(() => execute(meshTool, fx.root, { action: "growth_decide", runId: run.id, proposalId: staleProposal.id, decision: "approve" }), /requester\/revision is stale/);
     const persisted = JSON.parse(fs.readFileSync(runFile(fx.root, run.id), "utf8")); persisted.nodes[0].attempt = 2; atomicWrite(runFile(fx.root, run.id), persisted);
     await assert.rejects(() => control.execute("e2e", { action: "send", to: "b", content: "stale" }, new AbortController().signal, undefined, { cwd: fx.root } as any), /identity is no longer active/);
   } finally {

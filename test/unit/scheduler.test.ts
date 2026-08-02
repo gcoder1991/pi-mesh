@@ -55,6 +55,7 @@ test("scheduler rejects malformed or oversized registries and jobs", () => {
     fs.writeFileSync(file, JSON.stringify([{ id: "x", name: "x", schedule: "broken", prompt: "x", agent: "worker", createdAt: Date.now(), type: "interval" }])); assert.throws(() => new AgentScheduler(root, "session", () => {}), /Invalid schedule registry.*schedule must/);
     fs.writeFileSync(file, JSON.stringify([{ id: "x", name: "x", schedule: "+1h", prompt: "x", agent: "worker", createdAt: Date.now(), type: "interval" }])); assert.throws(() => new AgentScheduler(root, "session", () => {}), /schedule type does not match/);
     fs.writeFileSync(file, "[]"); const scheduler = new AgentScheduler(root, "session", () => {});
+    assert.throws(() => scheduler.add({ name: "zero", schedule: "0s", prompt: "x", agent: "worker" }), /at least 1 second/);
     assert.throws(() => scheduler.add({ name: "x", schedule: "+1s", prompt: "", agent: "worker" }), /Invalid scheduled agent job/); scheduler.dispose();
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });

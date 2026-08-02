@@ -9,7 +9,7 @@ import { defaultMeshSettings } from "../../src/settings.ts";
 import { PI_MESH_PI_BINARY_ENV } from "../../src/pi-process.ts";
 
 const mockPi = path.resolve("test/support/mock-pi.mjs");
-const agent: AgentDefinition = { name: "worker", description: "worker", tools: ["read"], systemPrompt: "work", persistSession: true, source: "bundled", filePath: "worker.md" };
+const agent: AgentDefinition = { name: "worker", description: "worker", tools: ["read"], systemPrompt: "work", persistSession: true, source: "bundled", filePath: path.resolve("agents/worker.md") };
 
 test("session agent registry survives manager recreation and resumes the same Pi session id", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-registry-")); const queue = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-registry-q-"));
@@ -80,6 +80,12 @@ test("session agent registry fails closed on corruption and foreign project reco
     assert.throws(() => new SessionAgentManager(defaultMeshSettings, root, undefined, "invalid"), /unsafe agent resources/);
     fs.writeFileSync(file, JSON.stringify([{ id: "x", cwd: root, status: "completed", agent: { ...agent, extensions: ["unapproved"] }, prompt: "x", description: "x", createdAt: 1 }]));
     assert.throws(() => new SessionAgentManager(defaultMeshSettings, root, undefined, "invalid"), /unsafe agent resources/);
+    fs.writeFileSync(file, JSON.stringify([{ id: "x", cwd: root, status: "completed", agent: { ...agent, filePath: path.join(root, "outside.md") }, prompt: "x", description: "x", createdAt: 1 }]));
+    assert.throws(() => new SessionAgentManager(defaultMeshSettings, root, undefined, "invalid"), /invalid agent file|escapes source root/);
+    fs.writeFileSync(file, JSON.stringify([{ id: "x", cwd: root, status: "completed", agent, launch: { transcriptPath: path.join(os.tmpdir(), "escape.jsonl") }, prompt: "x", description: "x", createdAt: 1 }]));
+    assert.throws(() => new SessionAgentManager(defaultMeshSettings, root, undefined, "invalid"), /unsafe transcript path/);
+    fs.writeFileSync(file, JSON.stringify([{ id: "x", cwd: root, status: "completed", agent, launch: { sessionDir: os.tmpdir() }, prompt: "x", description: "x", createdAt: 1 }]));
+    assert.throws(() => new SessionAgentManager(defaultMeshSettings, root, undefined, "invalid"), /unsafe session directory/);
     fs.writeFileSync(file, JSON.stringify([{ id: "x", cwd: os.tmpdir(), status: "completed", agent, prompt: "x", description: "x", createdAt: 1 }]));
     assert.throws(() => new SessionAgentManager(defaultMeshSettings, root, undefined, "invalid"), /escapes project root/);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
