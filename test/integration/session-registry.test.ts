@@ -84,6 +84,9 @@ test("session agent registry fails closed on corruption and foreign project reco
     assert.throws(() => new SessionAgentManager(defaultMeshSettings, root, undefined, "invalid"), /invalid agent file|escapes source root/);
     fs.writeFileSync(file, JSON.stringify([{ id: "x", cwd: root, status: "completed", agent, launch: { transcriptPath: path.join(os.tmpdir(), "escape.jsonl") }, prompt: "x", description: "x", createdAt: 1 }]));
     assert.throws(() => new SessionAgentManager(defaultMeshSettings, root, undefined, "invalid"), /unsafe transcript path/);
+    const transcriptRoot = path.join(root, ".pi", "mesh", "transcripts"); fs.mkdirSync(transcriptRoot, { recursive: true }); const outside = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-registry-outside-")); fs.symlinkSync(outside, path.join(transcriptRoot, "link"));
+    fs.writeFileSync(file, JSON.stringify([{ id: "x", cwd: root, status: "completed", agent, launch: { transcriptPath: path.join(transcriptRoot, "link", "escape.jsonl") }, prompt: "x", description: "x", createdAt: 1 }]));
+    assert.throws(() => new SessionAgentManager(defaultMeshSettings, root, undefined, "invalid"), /unsafe transcript path/); fs.rmSync(outside, { recursive: true, force: true });
     fs.writeFileSync(file, JSON.stringify([{ id: "x", cwd: root, status: "completed", agent, launch: { sessionDir: os.tmpdir() }, prompt: "x", description: "x", createdAt: 1 }]));
     assert.throws(() => new SessionAgentManager(defaultMeshSettings, root, undefined, "invalid"), /unsafe session directory/);
     fs.writeFileSync(file, JSON.stringify([{ id: "x", cwd: os.tmpdir(), status: "completed", agent, prompt: "x", description: "x", createdAt: 1 }]));

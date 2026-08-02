@@ -72,7 +72,10 @@ export class SessionAgentManager {
   private transcriptPath(id: string, transcript?: boolean): string | undefined {
     return transcript === false ? undefined : path.join(this.cwd, CONFIG_DIR_NAME, "mesh", "transcripts", `${id}.jsonl`);
   }
-  private inside(file: string, root: string): boolean { const relative = path.relative(path.resolve(root), path.resolve(file)); return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative)); }
+  private canonical(file: string): string {
+    try { return fs.realpathSync(file); } catch { return path.join(fs.realpathSync(path.dirname(file)), path.basename(file)); }
+  }
+  private inside(file: string, root: string): boolean { const relative = path.relative(this.canonical(root), this.canonical(file)); return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative)); }
   get(id: string): SessionAgentRecord | undefined { return this.records.get(id); }
 
   spawn(agent: AgentDefinition, prompt: string, description: string, cwd: string, options: { model?: string; thinking?: string; maxTurns?: number; persistent?: boolean; transcript?: boolean; parentContext?: string; worktree?: boolean; sessionDir?: string }): SessionAgentRecord {
