@@ -11,6 +11,7 @@ import { FleetView } from "./fleet-view.ts";
 import { MeshManager, type MeshRun, type MeshTask } from "./manager.ts";
 import { loadMeshSettings, type MeshSettings } from "./settings.ts";
 import { ackMessage, growthProposals, messages, putGrowth, putMessage, runFile, type ControlMessage, type GrowthProposal } from "./store.ts";
+import { resolveAgentModel } from "./model-resolution.ts";
 
 const TaskSchema = Type.Object({
   id: Type.Optional(Type.String({ description: "Stable node ID used by dependsOn." })),
@@ -45,6 +46,9 @@ const MeshParams = Type.Object({
 
 interface MeshDetails { action: string; [key: string]: unknown }
 const terminalNodeStatuses = new Set(["succeeded", "failed", "cancelled", "skipped"]);
+function resolveTaskModels(tasks: MeshTask[], registry: Parameters<typeof resolveAgentModel>[1]): MeshTask[] {
+  return tasks.map((task) => ({ ...task, model: resolveAgentModel(task.model, registry) }));
+}
 function runCounts(run: MeshRun): Record<string, number> {
   return run.nodes.reduce<Record<string, number>>((counts, node) => { counts[node.status] = (counts[node.status] ?? 0) + 1; return counts; }, {});
 }
@@ -202,7 +206,7 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
           if (denied.length) throw new Error(`Growth proposal requests unauthorized agents: ${[...new Set(denied)].join(", ")}`);
         }
         if (params.decision === "approve") {
-          try { manager.grow(run!.id, proposal.requester, proposal.tasks); proposal.status = "committed"; }
+          try { proposal.tasks = resolveTaskModels(proposal.tasks, ctx.modelRegistry); manager.grow(run!.id, proposal.requester, proposal.tasks); proposal.status = "committed"; }
           catch (error) { proposal.status = "denied"; proposal.error = error instanceof Error ? error.message : String(error); }
         } else proposal.status = "denied";
         proposal.decidedAt = Date.now(); putGrowth(run!.cwd, proposal as GrowthProposal<MeshTask[]>);
@@ -212,7 +216,7 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
       if (!params.tasks?.length) throw new Error("tasks is required for run");
       const update = (value: MeshRun) => onUpdate?.({ content: [{ type: "text", text: `${value.nodes.filter((node) => terminalNodeStatuses.has(node.status)).length}/${value.nodes.length} complete` }], details: boundedDetails({ action: params.action, run: compactRun(value) }) });
       if (signal?.aborted) throw new Error("Mesh run cancelled before creation");
-      const createdRun = manager.create({ tasks: params.tasks as MeshTask[], cwd: fs.realpathSync(path.resolve(ctx.cwd)), operator: params.operator, worktree: params.worktree, worktreeSetupHook: params.worktreeSetupHook, maxConcurrency: params.maxConcurrency, maxNodes: params.maxNodes, failFast: params.failFast });
+      const createdRun = manager.create({ tasks: resolveTaskModels(params.tasks as MeshTask[], ctx.modelRegistry), cwd: fs.realpathSync(path.resolve(ctx.cwd)), operator: params.operator, worktree: params.worktree, worktreeSetupHook: params.worktreeSetupHook, maxConcurrency: params.maxConcurrency, maxNodes: params.maxNodes, failFast: params.failFast });
       const start = manager.startCreated(createdRun.id, params.async ? undefined : signal, params.async ? undefined : update);
       if (params.async) { void start.catch(() => {}); return { content: [{ type: "text", text: `Started mesh ${createdRun.id}.` }], details: boundedDetails({ action: params.action, run: compactRun(createdRun) }) }; }
       const completed = await start;

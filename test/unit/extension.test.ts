@@ -26,6 +26,19 @@ test("registers one mesh tool with strict actions", () => {
   assert.ok(events.includes("session_shutdown"));
 });
 
+test("resolves mesh task model overrides through the host registry", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-model-")); let tool: any;
+  try {
+    const tools: any[] = [];
+    registerPiMesh({ registerTool(value: any) { tools.push(value); if (value.name === "mesh") tool = value; }, getAllTools() { return tools; }, events: { emit() {}, on() { return () => {}; } }, sendMessage() {}, sendUserMessage() {}, registerCommand() {}, registerShortcut() {}, on() {} } as any);
+    const ctx = { cwd: root, mode: "print", isProjectTrusted: () => true, sessionManager: { getSessionId: () => "model-session" }, modelRegistry: { getAvailable: () => [{ provider: "openai", id: "gpt-test", name: "GPT Test" }] } };
+    const started = await tool.execute("test", { action: "run", async: true, tasks: [{ id: "a", agent: "worker", task: "x", model: "gpt-test" }] }, undefined, undefined, ctx);
+    const checkpoint = JSON.parse(fs.readFileSync(started.details.run.checkpointPath, "utf8"));
+    assert.equal(checkpoint.nodes[0].model, "openai/gpt-test");
+    await assert.rejects(() => tool.execute("test", { action: "run", async: true, tasks: [{ agent: "worker", task: "x", model: "missing" }] }, undefined, undefined, ctx), /Model is unavailable or ambiguous/);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
 test("ignores project agents until Pi trusts the project", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-trust-"));
   fs.mkdirSync(path.join(root, ".pi", "agents"), { recursive: true });
