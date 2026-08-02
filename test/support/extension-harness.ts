@@ -21,6 +21,7 @@ export function extensionHarness() {
     on(event: string, handler: any) { const list = handlers.get(`pi:${event}`) ?? []; list.push(handler); handlers.set(`pi:${event}`, list); },
     events,
     sendMessage(message: any, options: any) { messages.push({ message, options }); },
+    sendUserMessage(content: any, options?: any) { messages.push({ userMessage: content, options }); },
   } satisfies Partial<ExtensionAPI>;
   registerPiMesh(pi);
   return { pi, tools, commands, shortcuts, handlers, emitted, messages, shutdown: async () => { for (const handler of handlers.get("pi:session_shutdown") ?? []) await handler({ reason: "quit" }, {}); } };

@@ -35,3 +35,14 @@ test("/agents creates, edits, disables, deletes, ejects, and updates settings", 
     await harness.shutdown();
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
+
+test("/mesh forces the task through mesh orchestration", async () => {
+  const harness = extensionHarness();
+  const command = harness.commands.get("mesh");
+  await command.handler("review the release", context(process.cwd()));
+  assert.equal(harness.messages.length, 1);
+  assert.match(harness.messages[0].userMessage, /must execute this request through the mesh tool/);
+  assert.match(harness.messages[0].userMessage, /action \"list_agents\"/);
+  assert.match(harness.messages[0].userMessage, /review the release/);
+  await harness.shutdown();
+});

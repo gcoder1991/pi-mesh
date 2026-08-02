@@ -12,7 +12,7 @@ test("registers one mesh tool with strict actions", () => {
   const pi = {
     registerTool(value: any) { tools.push(value); if (value.name === "mesh") tool = value; },
     getAllTools() { return tools; },
-    events: { emit() {}, on() { return () => {}; } }, sendMessage() {}, registerCommand() {}, registerShortcut() {},
+    events: { emit() {}, on() { return () => {}; } }, sendMessage() {}, sendUserMessage() {}, registerCommand() {}, registerShortcut() {},
     on(name: string) { events.push(name); },
   };
   registerPiMesh(pi as any);
@@ -33,7 +33,7 @@ test("ignores project agents until Pi trusts the project", async () => {
   let tool: any;
   try {
     const tools: any[] = [];
-    registerPiMesh({ registerTool(value: any) { tools.push(value); if (value.name === "mesh") tool = value; }, getAllTools() { return tools; }, events: { emit() {}, on() { return () => {}; } }, sendMessage() {}, registerCommand() {}, registerShortcut() {}, on() {} } as any);
+    registerPiMesh({ registerTool(value: any) { tools.push(value); if (value.name === "mesh") tool = value; }, getAllTools() { return tools; }, events: { emit() {}, on() { return () => {}; } }, sendMessage() {}, sendUserMessage() {}, registerCommand() {}, registerShortcut() {}, on() {} } as any);
     const execute = (trusted: boolean) => tool.execute("test", { action: "list_agents" }, undefined, undefined, { cwd: root, isProjectTrusted: () => trusted, sessionManager: { getSessionId: () => "test-session" } } as any);
     const untrusted = await execute(false);
     assert.equal(untrusted.details.agents.some((agent: any) => agent.name === "project-only"), false);

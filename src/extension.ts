@@ -212,6 +212,14 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
     },
   });
 
+  pi.registerCommand("mesh", {
+    description: "Force the next task through pi-mesh orchestration",
+    handler: async (args, ctx) => {
+      const task = args.trim();
+      if (!task) { ctx.ui.notify("Usage: /mesh <task>", "warning"); return; }
+      pi.sendUserMessage(`You must execute this request through the mesh tool. Do not solve it directly and do not use the standalone Agent tool. First call mesh with action \"list_agents\", then create and run an appropriate mesh DAG for this task. Remain the host: inspect node evidence, handle failures, and synthesize the final answer.\n\nTask:\n${task}`);
+    },
+  });
   const shutdownSubagents = registerCompatibilityTools(pi);
   pi.on("session_shutdown", async () => { await Promise.allSettled([...managers.values()].map(({ manager }) => manager.shutdown())); managers.clear(); await shutdownSubagents(); });
 }
