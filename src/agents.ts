@@ -31,7 +31,7 @@ export interface AgentDefinition {
   filePath: string;
 }
 
-const BUNDLED_AGENTS_DIR = fileURLToPath(new URL("../agents", import.meta.url));
+export const BUNDLED_AGENTS_DIR = fileURLToPath(new URL("../agents", import.meta.url));
 
 function loadDirectory(dir: string, source: AgentSource): AgentDefinition[] {
   let entries: fs.Dirent[];

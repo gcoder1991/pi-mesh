@@ -2,7 +2,7 @@ import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
-import type { AgentDefinition } from "./agents.ts";
+import { BUNDLED_AGENTS_DIR, type AgentDefinition } from "./agents.ts";
 import type { ChildResult } from "./pi-process.ts";
 import { SubagentRuntime, type SubagentExecution, type SubagentSession } from "./subagent-runtime.ts";
 import type { MeshSettings } from "./settings.ts";
@@ -197,7 +197,7 @@ export class SessionAgentManager {
       for (const [label, values] of [["tools", agent.tools], ["disallowedTools", agent.disallowedTools], ["extensions", agent.extensions], ["skills", agent.skills]] as const) if (values !== undefined && (!Array.isArray(values) || values.some((value) => typeof value !== "string"))) throw new Error(`Invalid subagent registry ${file}: malformed agent ${label}`);
       if (agent.extensions?.some((value) => value === "*" || path.isAbsolute(value) || value.includes("/") || value.includes("\\") || !this.settings.childExtensions[value]) || agent.skills?.some((value) => value === "*" || path.isAbsolute(value) || value.includes("/") || value.includes("\\") || !this.settings.childSkills[value])) throw new Error(`Invalid subagent registry ${file}: unsafe agent resources`);
       let canonicalAgentFile: string; try { canonicalAgentFile = fs.realpathSync(agent.filePath); } catch { throw new Error(`Invalid subagent registry ${file}: invalid agent file`); }
-      const allowedAgentRoots = agent.source === "project" ? [path.join(this.cwd, CONFIG_DIR_NAME, "agents")] : agent.source === "user" ? [path.join(getAgentDir(), "agents")] : [path.dirname(agent.filePath)];
+      const allowedAgentRoots = agent.source === "project" ? [path.join(this.cwd, CONFIG_DIR_NAME, "agents")] : agent.source === "user" ? [path.join(getAgentDir(), "agents")] : [BUNDLED_AGENTS_DIR];
       if (!allowedAgentRoots.some((root) => { try { return this.inside(canonicalAgentFile, root); } catch { return false; } })) throw new Error(`Invalid subagent registry ${file}: agent file escapes source root`);
       const canonicalCwd = fs.realpathSync(path.resolve(stored.cwd));
       if (canonicalCwd !== this.cwd) throw new Error(`Invalid subagent registry ${file}: record cwd escapes project root`);
