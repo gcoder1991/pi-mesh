@@ -5,6 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import type { AgentDefinition } from "../../src/agents.ts";
 import { startChild } from "../../src/pi-process.ts";
+import { atomicWrite, runFile } from "../../src/store.ts";
 import { env, fixture, loadMeshTool, runNode } from "../support/e2e.ts";
 
 const agent: AgentDefinition = { name: "worker", description: "worker", tools: ["read"], systemPrompt: "work", source: "bundled", filePath: "worker.md" };
@@ -53,6 +54,42 @@ test("real child process keeps only the bounded stderr tail", async () => {
     if (old.queue === undefined) delete process.env.PI_MESH_TEST_QUEUE; else process.env.PI_MESH_TEST_QUEUE = old.queue;
     fx.cleanup();
   }
+});
+test("real Pi child activates and executes mesh_control", async () => {
+  const fx = fixture();
+  try {
+    const runId = crypto.randomUUID();
+    const run = { schema: "pi-mesh.run/v2", id: runId, status: "running", cwd: fx.root, maxConcurrency: 1, maxNodes: 1, failFast: false, operator: "graph", revision: 1, recoveryCount: 0, createdAt: Date.now(), updatedAt: Date.now(), nodes: [{ id: "node", agent: "worker", task: "inbox", dependsOn: [], cwd: fx.root, retries: 0, attempt: 1, status: "running", allowedSubagents: [] }] };
+    atomicWrite(runFile(fx.root, runId), run);
+    const result = await startChild(agent, "Use mesh_control inbox, then report success.", fx.root, undefined, "pi-mesh-mock/mock-1", { PI_MESH_RUN_ID: runId, PI_MESH_NODE_ID: "node", PI_MESH_ATTEMPT: "1", PI_MESH_ROOT: fx.root }, { extensions: [path.resolve("test/support/mock-provider.ts")], meshControl: true }).completion;
+    assert.equal(result.error, undefined);
+    assert.equal(result.output, "mesh control ok");
+  } finally { fx.cleanup(); }
+});
+
+test("RPC abort escalates when the child ignores cooperative cancellation", async () => {
+  const fx = fixture();
+  try {
+    fs.writeFileSync(path.join(fx.queue, "pending-001.json"), JSON.stringify({ output: "late", delay: 10000, ignoreAbort: true }));
+    const resultFile = path.join(fx.root, "abort-result.json");
+    const result = await runNode(path.resolve("test/support/rpc-abort-probe.ts"), [fx.root, resultFile], env(fx.queue));
+    assert.equal(result.code, 0, result.stderr);
+    const probe = JSON.parse(fs.readFileSync(resultFile, "utf8"));
+    assert.ok(probe.elapsed >= 2900 && probe.elapsed < 6000, `unexpected abort duration ${probe.elapsed}`);
+    assert.match(probe.result.error, /SIGTERM|exited/);
+  } finally { fx.cleanup(); }
+});
+test("RPC abort terminates the child process group", async () => {
+  if (process.platform === "win32") return;
+  const fx = fixture();
+  try {
+    const pidFile = path.join(fx.root, "grandchild.pid"), resultFile = path.join(fx.root, "tree-result.json");
+    fs.chmodSync(path.resolve("test/support/process-tree-child.mjs"), 0o755);
+    const result = await runNode(path.resolve("test/support/rpc-tree-abort-probe.ts"), [fx.root, pidFile, resultFile], { ...process.env, PI_MESH_PI_BINARY: path.resolve("test/support/process-tree-child.mjs") });
+    assert.equal(result.code, 0, result.stderr);
+    const pid = Number(fs.readFileSync(pidFile, "utf8"));
+    assert.throws(() => process.kill(pid, 0), (error: any) => error?.code === "ESRCH");
+  } finally { fx.cleanup(); }
 });
 
 test("real child process reports signal/cancellation", async () => {

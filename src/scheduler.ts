@@ -7,6 +7,7 @@ import { atomicWrite, readJson } from "./store.ts";
 
 export interface ScheduledAgentJob {
   id: string; name: string; schedule: string; prompt: string; agent: string; createdAt: number; nextRun?: number; type: "once" | "interval" | "cron";
+  model?: string; thinking?: string; maxTurns?: number; persistent?: boolean; transcript?: boolean; sessionDir?: string;
 }
 
 function parse(value: string): { type: ScheduledAgentJob["type"]; delay?: number; cron?: string; repeat?: boolean } {
@@ -25,8 +26,8 @@ export class AgentScheduler {
   private readonly file: string;
   private readonly jobs = new Map<string, ScheduledAgentJob>();
   private readonly timers = new Map<string, NodeJS.Timeout | Cron>();
-  private readonly fire: (job: ScheduledAgentJob) => void;
-  constructor(cwd: string, sessionId: string, fire: (job: ScheduledAgentJob) => void) {
+  private readonly fire: (job: ScheduledAgentJob) => void | Promise<void>;
+  constructor(cwd: string, sessionId: string, fire: (job: ScheduledAgentJob) => void | Promise<void>) {
     this.file = path.join(cwd, CONFIG_DIR_NAME, "mesh", "schedules", `${sessionId}.json`); this.fire = fire; this.restore();
   }
   add(input: Omit<ScheduledAgentJob, "id" | "createdAt" | "type" | "nextRun">): ScheduledAgentJob {
@@ -38,14 +39,27 @@ export class AgentScheduler {
   list(): ScheduledAgentJob[] { return [...this.jobs.values()].sort((a, b) => (a.nextRun ?? Infinity) - (b.nextRun ?? Infinity)); }
   cancel(id: string): boolean { const job = this.jobs.get(id); if (!job) return false; this.stopTimer(id); this.jobs.delete(id); this.persist(); return true; }
   dispose(): void { for (const id of this.timers.keys()) this.stopTimer(id); }
-  private arm(job: ScheduledAgentJob, spec = parse(job.schedule)): void {
+  private emit(job: ScheduledAgentJob): void { Promise.resolve().then(() => this.fire(job)).catch(() => {}); }
+  private arm(job: ScheduledAgentJob, spec = parse(job.schedule), restore = false): void {
     this.stopTimer(job.id);
     if (spec.type === "cron") {
-      const cron = new Cron(spec.cron!, { protect: true }, () => this.fire(job)); job.nextRun = cron.nextRun()?.getTime(); this.timers.set(job.id, cron);
+      const cron = new Cron(spec.cron!, { protect: true }, () => this.emit(job)); job.nextRun = cron.nextRun()?.getTime(); this.timers.set(job.id, cron);
     } else {
-      job.nextRun = Date.now() + spec.delay!;
-      const run = () => { this.fire(job); if (spec.repeat) { job.nextRun = Date.now() + spec.delay!; const timer = setTimeout(run, spec.delay!); timer.unref?.(); this.timers.set(job.id, timer); this.persist(); } else { this.jobs.delete(job.id); this.timers.delete(job.id); this.persist(); } };
-      const timer = setTimeout(run, spec.delay!); timer.unref?.(); this.timers.set(job.id, timer);
+      const now = Date.now();
+      const firstRun = restore && job.nextRun ? job.nextRun : now + spec.delay!;
+      if (spec.repeat) {
+        job.nextRun ??= firstRun;
+        while (job.nextRun <= now) job.nextRun += spec.delay!;
+      } else job.nextRun = firstRun;
+      const run = () => {
+        this.emit(job);
+        if (spec.repeat) {
+          job.nextRun = (job.nextRun ?? Date.now()) + spec.delay!;
+          while (job.nextRun <= Date.now()) job.nextRun += spec.delay!;
+          const timer = setTimeout(run, Math.max(0, job.nextRun - Date.now())); timer.unref?.(); this.timers.set(job.id, timer); this.persist();
+        } else { this.jobs.delete(job.id); this.timers.delete(job.id); this.persist(); }
+      };
+      const timer = setTimeout(run, Math.max(0, (job.nextRun ?? firstRun) - Date.now())); timer.unref?.(); this.timers.set(job.id, timer);
     }
   }
   private stopTimer(id: string): void { const timer = this.timers.get(id); if (timer instanceof Cron) timer.stop(); else if (timer) clearTimeout(timer); this.timers.delete(id); }
@@ -55,9 +69,9 @@ export class AgentScheduler {
     if (!Array.isArray(jobs) || jobs.length > 256) throw new Error(`Invalid schedule registry ${this.file}: expected at most 256 jobs`);
     for (const job of jobs) {
       if (!job || typeof job.id !== "string" || typeof job.name !== "string" || typeof job.schedule !== "string" || typeof job.prompt !== "string" || typeof job.agent !== "string" || typeof job.createdAt !== "number" || !["once", "interval", "cron"].includes(job.type)) throw new Error(`Invalid schedule registry ${this.file}: malformed job`);
-      const spec = parse(job.schedule);
+      const spec = job.type === "once" && job.nextRun ? { type: "once" as const, delay: job.nextRun - Date.now() } : parse(job.schedule);
       if (spec.type === "once" && job.nextRun && job.nextRun <= Date.now()) continue;
-      this.jobs.set(job.id, job); this.arm(job, spec);
+      this.jobs.set(job.id, job); this.arm(job, spec, true);
     }
     this.persist();
   }

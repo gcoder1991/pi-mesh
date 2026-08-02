@@ -54,6 +54,11 @@ export default function registerMeshControl(pi: ExtensionAPI): void {
       }
       if (params.action === "grow") {
         if (!params.reason?.trim() || !params.tasks?.length) throw new Error("reason and tasks are required for grow");
+        if (caller.allowedSubagents !== "all") {
+          const allowed = new Set((caller.allowedSubagents ?? []).map((name) => name.toLowerCase()));
+          const denied = params.tasks.map((task) => task.agent).filter((name) => !allowed.has(name.toLowerCase()));
+          if (denied.length) throw new Error(`Agent ${caller.agent} cannot request growth for: ${[...new Set(denied)].join(", ")}`);
+        }
         const proposal: GrowthProposal<MeshTask[]> = {
           id: crypto.randomUUID(), runId, requester: nodeId, reason: params.reason.trim(), tasks: params.tasks as MeshTask[], status: "proposed",
           baseRevision: run.revision, requesterAttempt: attempt, createdAt: Date.now(),

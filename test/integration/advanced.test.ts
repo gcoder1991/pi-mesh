@@ -110,12 +110,13 @@ test("recovers paused runs without leaving ghost running nodes", () => {
   } finally { fs.rmSync(cwd, { recursive: true, force: true }); }
 });
 
-test("host-approved growth is bounded and persisted", () => {
+test("host-approved growth enforces the requester allowlist", () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-grow-"));
   try {
     const run = recoveredRun(cwd);
     run.status = "paused";
     run.nodes[0].status = "paused";
+    run.nodes[0].allowedSubagents = ["WORKER"];
     atomicWrite(runFile(cwd, run.id), run);
     const manager = new MeshManager(() => agent);
     manager.recover(cwd);
@@ -123,27 +124,30 @@ test("host-approved growth is bounded and persisted", () => {
     assert.equal(added[0].dynamic, true);
     assert.equal(added[0].requestedBy, "a");
     assert.equal(manager.get(run.id)?.nodes.length, 2);
+    assert.throws(() => manager.grow(run.id, "a", [{ id: "qa", agent: "qa", task: "qa" }]), /cannot grow agents: qa/);
   } finally { fs.rmSync(cwd, { recursive: true, force: true }); }
 });
 
-test("supervisor makes the final task depend on all workers", async () => {
-  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-supervisor-"));
-  const manager = new MeshManager(() => agent);
-  let created: MeshRun | undefined;
-  const controller = new AbortController(); controller.abort();
-  await manager.start({ cwd, operator: "supervisor", signal: controller.signal, tasks: [
-    { id: "a", agent: "worker", task: "a" }, { id: "b", agent: "worker", task: "b" }, { id: "judge", agent: "worker", task: "judge" },
-  ], onCreated: (run) => { created = run; } });
-  assert.deepEqual(created!.nodes[2].dependsOn, ["a", "b"]);
-  fs.rmSync(cwd, { recursive: true, force: true });
+test("supervisor and mixture make the final task depend on all workers", () => {
+  for (const operator of ["supervisor", "mixture"] as const) {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), `pi-mesh-${operator}-`));
+    const manager = new MeshManager(() => agent);
+    const run = manager.create({ cwd, operator, tasks: [
+      { id: "a", agent: "worker", task: "a" }, { id: "b", agent: "worker", task: "b" }, { id: "judge", agent: "worker", task: "judge" },
+    ] });
+    manager.pause(run.id);
+    assert.deepEqual(run.nodes[2].dependsOn, ["a", "b"]);
+    fs.rmSync(cwd, { recursive: true, force: true });
+  }
 });
 
-test("sequence operator inserts stable dependencies", async () => {
-  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-sequence-"));
-  const manager = new MeshManager(() => agent);
-  let created: MeshRun | undefined;
-  const controller = new AbortController(); controller.abort();
-  await manager.start({ cwd, operator: "sequence", signal: controller.signal, tasks: [{ id: "a", agent: "worker", task: "a" }, { id: "b", agent: "worker", task: "b" }], onCreated: (run) => { created = run; } });
-  assert.deepEqual(created!.nodes[1].dependsOn, ["a"]);
-  fs.rmSync(cwd, { recursive: true, force: true });
+test("sequence, reflection, and debate are stable bounded chains", () => {
+  for (const operator of ["sequence", "reflection", "debate"] as const) {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), `pi-mesh-${operator}-`));
+    const manager = new MeshManager(() => agent);
+    const created = manager.create({ cwd, operator, tasks: [{ id: "a", agent: "worker", task: "a" }, { id: "b", agent: "worker", task: "b" }, { id: "c", agent: "worker", task: "c" }] });
+    manager.pause(created.id);
+    assert.deepEqual(created.nodes.map((node) => node.dependsOn), [[], ["a"], ["b"]]);
+    fs.rmSync(cwd, { recursive: true, force: true });
+  }
 });

@@ -20,7 +20,7 @@ const agentParams = Type.Object({
   model: Type.Optional(Type.String()), thinking: Type.Optional(StringEnum(["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const)),
   max_turns: Type.Optional(Type.Integer({ minimum: 1, maximum: 1000 })), run_in_background: Type.Optional(Type.Boolean()), resume: Type.Optional(Type.String()),
   isolated: Type.Optional(Type.Boolean()), inherit_context: Type.Optional(Type.Boolean()), isolation: Type.Optional(Type.Literal("worktree")),
-  schedule: Type.Optional(Type.String({ description: "One-shot +10m/+2h/+1d or ISO timestamp." })),
+  schedule: Type.Optional(Type.String({ description: "One-shot +10m, interval 10m, future ISO timestamp, or six-field cron." })),
 }, { additionalProperties: false });
 
 function result(text: string, details: unknown = {}, usage?: any) { return { content: [{ type: "text" as const, text }], details, ...(usage ? { usage } : {}) }; }
@@ -40,8 +40,9 @@ function recordText(record: SessionAgentRecord, verbose = false): string {
   const head = `Agent: ${record.id}\nType: ${record.agent.name} | Status: ${record.status}\nDescription: ${record.description}`;
   const output = record.result?.output || record.result?.error || record.error || (record.status === "running" ? "Agent is still running." : "No output.");
   const conversation = verbose ? record.execution?.conversation() : undefined;
+  const artifact = record.outputTruncated && record.outputPath ? `\nFull output: ${record.outputPath}` : "";
   const handoff = record.worktree?.finalCommit ? `\n\nWorktree branch: ${record.worktree.branch}\nFinal commit: ${record.worktree.finalCommit}\nPatch: ${record.worktree.patchPath ?? "none"}\nHandoff: ${record.worktree.handoffPath ?? "none"}` : "";
-  return `${head}\n\n${output}${handoff}${conversation ? `\n\n--- Agent Conversation ---\n${conversation}` : ""}`;
+  return `${head}\n\n${output}${artifact}${handoff}${conversation ? `\n\n--- Agent Conversation ---\n${conversation}` : ""}`;
 }
 
 export function registerCompatibilityTools(pi: ExtensionAPI, fleet = new FleetView()): () => Promise<void> {
@@ -56,11 +57,11 @@ export function registerCompatibilityTools(pi: ExtensionAPI, fleet = new FleetVi
     if (!entry) {
       const settings = loadMeshSettings(root, process.env, trusted);
       const notifier = new CompletionNotifier(pi, settings);
-      const manager = new SessionAgentManager(settings, root);
+      const manager = new SessionAgentManager(settings, root, undefined, sessionId);
       manager.setOnStart((record) => pi.events.emit("subagents:started", { id: record.id, type: record.agent.name, description: record.description }));
       manager.setOnComplete((record) => {
         const usage = record.result?.usage;
-        pi.events.emit(record.status === "completed" ? "subagents:completed" : "subagents:failed", { id: record.id, type: record.agent.name, description: record.description, result: record.result?.output, error: record.result?.error ?? record.error, status: record.status, durationMs: (record.completedAt ?? Date.now()) - record.createdAt, toolUses: 0, tokens: usage ? { input: usage.input, output: usage.output, total: usage.input + usage.output + usage.cacheWrite } : undefined });
+        pi.events.emit(record.status === "completed" ? "subagents:completed" : record.status === "stopped" ? "subagents:stopped" : "subagents:failed", { id: record.id, type: record.agent.name, description: record.description, result: record.result?.output, error: record.result?.error ?? record.error, status: record.status, durationMs: (record.completedAt ?? Date.now()) - record.createdAt, toolUses: record.activity?.toolUses ?? 0, tokens: usage ? { input: usage.input, output: usage.output, total: usage.input + usage.output + usage.cacheRead + usage.cacheWrite } : undefined });
         notifier.enqueue(record, recordText);
       });
       entry = { manager, notifier };
@@ -101,17 +102,24 @@ export function registerCompatibilityTools(pi: ExtensionAPI, fleet = new FleetVi
           scheduler = new AgentScheduler(root, sessionId, (job) => {
             const selected = discoverAgents(root, { scope: "all", includeProject: trusted, projectRoot: root }).find((item) => item.name === job.agent);
             if (!selected) return void pi.events.emit("subagents:scheduled", { type: "error", jobId: job.id, error: "Agent no longer exists" });
-            const record = manager.spawn(selected, job.prompt, job.name, root, { persistent: true });
-            pi.events.emit("subagents:scheduled", { type: "fired", jobId: job.id, agentId: record.id });
+            try {
+              const record = manager.spawn(selected, job.prompt, job.name, root, { model: job.model, thinking: job.thinking, maxTurns: job.maxTurns, persistent: job.persistent, transcript: job.transcript, sessionDir: job.sessionDir });
+              pi.events.emit("subagents:scheduled", { type: "fired", jobId: job.id, agentId: record.id });
+            } catch (error) {
+              pi.events.emit("subagents:scheduled", { type: "error", jobId: job.id, error: error instanceof Error ? error.message : String(error) });
+            }
           });
           schedulers.set(schedulerKey, scheduler);
         }
-        const job = scheduler.add({ name: params.description, schedule: params.schedule, prompt: params.prompt, agent: agent.name });
+        const model = resolveAgentModel(agent.model ?? params.model, ctx.modelRegistry);
+        const persistent = agent.persistSession ?? false;
+        const job = scheduler.add({ name: params.description, schedule: params.schedule, prompt: params.prompt, agent: agent.name, model, thinking: agent.thinking ?? params.thinking, maxTurns: agent.maxTurns ?? params.max_turns, persistent, transcript: agent.outputTranscript, sessionDir: persistent ? ctx.sessionManager.getSessionDir() : undefined });
         pi.events.emit("subagents:scheduled", { type: "added", jobId: job.id, schedule: params.schedule });
         return result(`Scheduled agent ${job.id}. Next run: ${job.nextRun ? new Date(job.nextRun).toISOString() : "cron"}.`, { jobId: job.id, status: "scheduled" });
       }
       const selectedModel = resolveAgentModel(agent.model ?? params.model, ctx.modelRegistry);
-      const record = manager.spawn(effectiveAgent, params.prompt, params.description, root, { model: selectedModel, thinking: agent.thinking ?? params.thinking, maxTurns: agent.maxTurns ?? params.max_turns, persistent: true, parentContext, worktree, sessionDir: ctx.sessionManager.getSessionDir() });
+      const persistent = agent.persistSession ?? false;
+      const record = manager.spawn(effectiveAgent, params.prompt, params.description, root, { model: selectedModel, thinking: agent.thinking ?? params.thinking, maxTurns: agent.maxTurns ?? params.max_turns, persistent, parentContext, worktree, sessionDir: persistent ? ctx.sessionManager.getSessionDir() : undefined });
       signal?.addEventListener("abort", () => manager.abort(record.id), { once: true });
       pi.events.emit("subagents:created", { id: record.id, type: agent.name, description: params.description, isBackground: background });
       if (background) return result(`Agent ${record.status === "queued" ? "queued" : "started in background"}.\nAgent ID: ${record.id}\nType: ${agent.name}\nDescription: ${params.description}\n\nYou will be notified when this agent completes.`, { agentId: record.id, status: record.status === "queued" ? "queued" : "background" });

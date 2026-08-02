@@ -23,3 +23,18 @@ test("background Agent launches obey the configured concurrency queue", async ()
     assert.equal(second.result?.output, "two"); await manager.shutdown();
   } finally { if (oldBinary === undefined) delete process.env[PI_MESH_PI_BINARY_ENV]; else process.env[PI_MESH_PI_BINARY_ENV] = oldBinary; if (oldQueue === undefined) delete process.env.PI_MESH_TEST_QUEUE; else process.env.PI_MESH_TEST_QUEUE = oldQueue; fs.rmSync(root, { recursive: true, force: true }); fs.rmSync(queue, { recursive: true, force: true }); }
 });
+
+test("stopping a running Agent is terminal even after the child settles", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-session-stop-")); const queue = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-session-stop-q-"));
+  const oldBinary = process.env[PI_MESH_PI_BINARY_ENV], oldQueue = process.env.PI_MESH_TEST_QUEUE; process.env[PI_MESH_PI_BINARY_ENV] = mockPi; process.env.PI_MESH_TEST_QUEUE = queue;
+  try {
+    fs.writeFileSync(path.join(queue, "pending-001.json"), JSON.stringify({ output: "late", delay: 5000 }));
+    const completed: string[] = []; const manager = new SessionAgentManager(defaultMeshSettings, root, (record) => completed.push(record.status));
+    const record = manager.spawn(agent, "slow", "slow", root, {});
+    assert.equal(manager.abort(record.id), true);
+    await record.promise;
+    assert.equal(record.status, "stopped");
+    assert.deepEqual(completed, ["stopped"]);
+    await manager.shutdown();
+  } finally { if (oldBinary === undefined) delete process.env[PI_MESH_PI_BINARY_ENV]; else process.env[PI_MESH_PI_BINARY_ENV] = oldBinary; if (oldQueue === undefined) delete process.env.PI_MESH_TEST_QUEUE; else process.env.PI_MESH_TEST_QUEUE = oldQueue; fs.rmSync(root, { recursive: true, force: true }); fs.rmSync(queue, { recursive: true, force: true }); }
+});

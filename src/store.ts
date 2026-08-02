@@ -82,6 +82,12 @@ export function putNodeOutput(cwd: string, runId: string, nodeId: string, attemp
   return file;
 }
 
+export function putAgentOutput(cwd: string, agentId: string, output: string): string {
+  const file = path.join(meshDir(cwd), "artifacts", "agents", agentId, "output.md");
+  atomicWriteContent(file, output);
+  return file;
+}
+
 export function putAttemptResult(cwd: string, runId: string, nodeId: string, attempt: number, result: unknown): string {
   const file = attemptResultFile(cwd, runId, nodeId, attempt);
   atomicWrite(file, result);

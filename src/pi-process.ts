@@ -31,6 +31,12 @@ export interface ChildExecution {
   completion: Promise<ChildResult>;
 }
 
+export function killChildProcess(child: { pid?: number; kill(signal?: NodeJS.Signals | number): boolean }, signal: NodeJS.Signals): void {
+  if (process.platform !== "win32" && child.pid) {
+    try { process.kill(-child.pid, signal); return; } catch {}
+  }
+  child.kill(signal);
+}
 const MAX_LINE_BYTES = 4 * 1024 * 1024;
 const MAX_STDERR_BYTES = 128 * 1024;
 
@@ -87,16 +93,21 @@ function textFromMessage(message: Message): string {
   return message.content.filter((part) => part.type === "text").map((part) => part.text).join("\n");
 }
 
-export function buildChildArgs(agent: AgentDefinition, task: string, model?: string, resources?: { extensions?: string[]; skills?: string[]; sessionDir?: string; sessionId?: string }): { args: string[]; cleanup: () => void } {
-  const args = ["--mode", "json", "--print", "--no-session", "--no-extensions", "--no-skills", "-e", CONTROL_EXTENSION];
+export function buildChildArgs(agent: AgentDefinition, task: string, model?: string, resources?: { extensions?: string[]; skills?: string[]; sessionDir?: string; sessionId?: string; meshControl?: boolean }): { args: string[]; cleanup: () => void } {
+  const args = ["--mode", "json", "--print", "--no-session", "--no-extensions", "--no-skills"];
+  if (resources?.meshControl) args.push("-e", CONTROL_EXTENSION);
   for (const extension of resources?.extensions ?? []) args.push("-e", extension);
   for (const skill of resources?.skills ?? []) args.push("--skill", skill);
   if (resources?.sessionDir) args.push("--session-dir", resources.sessionDir);
   if (resources?.sessionId) args.push("--session-id", resources.sessionId);
   if (model ?? agent.model) args.push("--model", model ?? agent.model!);
   if (agent.thinking) args.push("--thinking", agent.thinking);
-  if (agent.tools) args.push(agent.tools.length ? "--tools" : "--no-tools", ...(agent.tools.length ? [agent.tools.join(",")] : []));
-  if (agent.disallowedTools?.length) args.push("--exclude-tools", agent.disallowedTools.join(","));
+  if (agent.tools) {
+    const tools = resources?.meshControl ? [...new Set([...agent.tools, "mesh_control"])] : agent.tools;
+    args.push(tools.length ? "--tools" : "--no-tools", ...(tools.length ? [tools.join(",")] : []));
+  }
+  const disallowedTools = agent.disallowedTools?.filter((tool) => !resources?.meshControl || tool !== "mesh_control");
+  if (disallowedTools?.length) args.push("--exclude-tools", disallowedTools.join(","));
 
   let tempDir: string | undefined;
   if (agent.systemPrompt) {
@@ -118,7 +129,7 @@ export function resolveChildSkills(agent: AgentDefinition, allowed: Record<strin
   return (agent.skills ?? []).map((name) => allowed[name]).filter((value): value is string => Boolean(value));
 }
 
-export function startChild(agent: AgentDefinition, task: string, cwd: string, signal?: AbortSignal, model?: string, env?: NodeJS.ProcessEnv, resources?: { extensions?: string[]; skills?: string[]; sessionDir?: string }): ChildExecution {
+export function startChild(agent: AgentDefinition, task: string, cwd: string, signal?: AbortSignal, model?: string, env?: NodeJS.ProcessEnv, resources?: { extensions?: string[]; skills?: string[]; sessionDir?: string; meshControl?: boolean }): ChildExecution {
   const { args, cleanup } = buildChildArgs(agent, task, model, resources);
   const invocation = getPiInvocation(args);
   const child = spawn(invocation.command, invocation.args, {
@@ -127,6 +138,7 @@ export function startChild(agent: AgentDefinition, task: string, cwd: string, si
     shell: false,
     stdio: ["ignore", "pipe", "pipe"],
     windowsHide: true,
+    detached: process.platform !== "win32",
   });
 
   const completion = new Promise<Awaited<ChildExecution["completion"]>>((resolve) => {
@@ -172,7 +184,7 @@ export function startChild(agent: AgentDefinition, task: string, cwd: string, si
       pending = Buffer.concat([pending, chunk]);
       if (pending.length > MAX_LINE_BYTES && !pending.includes(0x0a)) {
         spawnError = `Child stdout line exceeded ${MAX_LINE_BYTES} bytes`;
-        child.kill("SIGTERM");
+        killChildProcess(child, "SIGTERM");
         pending = Buffer.alloc(0);
         return;
       }
@@ -182,7 +194,7 @@ export function startChild(agent: AgentDefinition, task: string, cwd: string, si
         pending = pending.subarray(newline + 1);
         if (line.length > MAX_LINE_BYTES) {
           spawnError = `Child stdout line exceeded ${MAX_LINE_BYTES} bytes`;
-          child.kill("SIGTERM");
+          killChildProcess(child, "SIGTERM");
           return;
         }
         parseLine(line);
@@ -217,8 +229,8 @@ export function startChild(agent: AgentDefinition, task: string, cwd: string, si
 
     const abort = () => {
       aborted = true;
-      child.kill("SIGTERM");
-      killTimer = setTimeout(() => child.kill("SIGKILL"), 3000);
+      killChildProcess(child, "SIGTERM");
+      killTimer = setTimeout(() => killChildProcess(child, "SIGKILL"), 3000);
       killTimer.unref?.();
     };
     if (signal?.aborted) abort();

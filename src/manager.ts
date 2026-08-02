@@ -39,6 +39,7 @@ export interface MeshNode {
   attempt: number;
   dynamic?: boolean;
   requestedBy?: string;
+  allowedSubagents?: string[] | "all";
   integration?: boolean;
   status: NodeStatus;
   output?: string;
@@ -276,7 +277,13 @@ export class MeshManager {
   grow(runId: string, requester: string, tasks: MeshTask[]): MeshNode[] {
     const run = this.runs.get(runId);
     if (!run || !["running", "paused"].includes(run.status)) throw new Error(`Mesh is not active: ${runId}`);
-    if (!run.nodes.some((node) => node.id === requester)) throw new Error(`Unknown requester node: ${requester}`);
+    const requesterNode = run.nodes.find((node) => node.id === requester);
+    if (!requesterNode) throw new Error(`Unknown requester node: ${requester}`);
+    if (requesterNode.allowedSubagents !== "all") {
+      const allowed = new Set((requesterNode.allowedSubagents ?? []).map((name) => name.toLowerCase()));
+      const denied = tasks.map((task) => task.agent).filter((name) => !allowed.has(name.toLowerCase()));
+      if (denied.length) throw new Error(`Requester ${requester} cannot grow agents: ${[...new Set(denied)].join(", ")}`);
+    }
     const added = this.prepareNodes(run, tasks, true, requester);
     if (run.nodes.length + added.length > run.maxNodes) throw new Error(`Growth exceeds maxNodes ${run.maxNodes}`);
     this.assertAcyclic([...run.nodes, ...added]);
@@ -355,13 +362,14 @@ export class MeshManager {
       const nodeCwd = fs.realpathSync(path.resolve(task.cwd ?? run.cwd));
       const relative = path.relative(rootCwd, nodeCwd);
       if (relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) throw new Error(`Task cwd must remain inside the run root: ${id}`);
-      if (!this.resolveAgent(task.agent, nodeCwd)) throw new Error(`Unknown agent: ${task.agent}`);
+      const agent = this.resolveAgent(task.agent, nodeCwd);
+      if (!agent) throw new Error(`Unknown agent: ${task.agent}`);
       if ((task.retries ?? 0) < 0 || (task.retries ?? 0) > 5) throw new Error(`retries must be 0-5 for ${id}`);
       if (task.timeoutMs !== undefined && (task.timeoutMs < 100 || task.timeoutMs > 3_600_000)) throw new Error(`timeoutMs must be 100-3600000 for ${id}`);
       return {
         id, agent: task.agent, task: task.task, dependsOn: task.dependsOn ?? [], cwd: nodeCwd,
         model: task.model, timeoutMs: task.timeoutMs, retries: task.retries ?? 0, attempt: 0,
-        dynamic, requestedBy: requester, integration: task.integration, status: run.status === "paused" ? "paused" : "queued",
+        dynamic, requestedBy: requester, allowedSubagents: agent.allowedSubagents, integration: task.integration, status: run.status === "paused" ? "paused" : "queued",
       };
     });
     for (const node of nodes) for (const dependency of node.dependsOn) if (!ids.has(dependency)) throw new Error(`Task ${node.id} depends on unknown task ${dependency}`);

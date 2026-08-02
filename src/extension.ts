@@ -196,6 +196,11 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
         if (!proposal || proposal.status !== "proposed") throw new Error("Growth proposal is not pending");
         const requester = run!.nodes.find((node) => node.id === proposal.requester);
         if (!requester || requester.attempt !== proposal.requesterAttempt || run!.revision < proposal.baseRevision) throw new Error("Growth proposal requester/revision is stale");
+        if (requester.allowedSubagents !== "all") {
+          const allowed = new Set((requester.allowedSubagents ?? []).map((name) => name.toLowerCase()));
+          const denied = proposal.tasks.map((task) => task.agent).filter((name) => !allowed.has(name.toLowerCase()));
+          if (denied.length) throw new Error(`Growth proposal requests unauthorized agents: ${[...new Set(denied)].join(", ")}`);
+        }
         if (params.decision === "approve") {
           try { manager.grow(run!.id, proposal.requester, proposal.tasks); proposal.status = "committed"; }
           catch (error) { proposal.status = "denied"; proposal.error = error instanceof Error ? error.message : String(error); }

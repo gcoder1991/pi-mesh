@@ -58,6 +58,7 @@ export class SubagentRuntime {
       skills: resolveChildSkills(configured, this.settings.childSkills),
       sessionDir,
       sessionId: sessionDir ? options.id : undefined,
+      meshControl: Boolean(options.env?.PI_MESH_RUN_ID),
     });
     const args: string[] = [];
     for (let index = 0; index < built.args.length; index++) {

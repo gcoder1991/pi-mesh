@@ -39,10 +39,19 @@ test("shared subagent runtime runs, steers, resumes, and preserves conversation"
   await execution.close();
   const calls = fs.readdirSync(queue).filter((name) => name.startsWith("call-")).map((name) => JSON.parse(fs.readFileSync(path.join(queue, name), "utf8")));
   assert.ok(calls[0].args.includes("--session-id"));
-  assert.ok(calls[0].args.includes("--system-prompt"));
+  assert.equal(calls[0].args.some((value: string) => value.endsWith("control-extension.ts")), false);
   assert.ok(calls[0].args.includes("--no-context-files"));
 }));
 
+test("child RPC fails closed on interactive extension UI requests", async () => fixture(async (root, queue) => {
+  response(queue, 1, { output: "continued", uiRequest: true });
+  const execution = new SubagentRuntime(defaultMeshSettings).start(agent, { id: "ui", cwd: root, prompt: "ui" });
+  assert.equal((await execution.completion).output, "continued");
+  await execution.close();
+  const responseFile = fs.readdirSync(queue).find((name) => name.startsWith("ui-response-"));
+  assert.ok(responseFile);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(queue, responseFile!), "utf8")), { type: "extension_ui_response", id: "ui-1", cancelled: true });
+}));
 test("child extension and skill resources require named settings allowlists", async () => fixture(async (root, queue) => {
   const restricted = { ...agent, extensions: ["mcp"], skills: ["browser"] };
   assert.throws(() => new SubagentRuntime(defaultMeshSettings).start(restricted, { id: "blocked", cwd: root, prompt: "x" }), /Unapproved child resources/);

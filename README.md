@@ -61,7 +61,7 @@ debug: false
 
 ## Tools
 
-The extension registers native `mesh` plus compatibility tools `Agent`, `get_subagent_result`, and `steer_subagent`. Direct Agent supports foreground/background execution, bounded queueing, steer/resume, persistent sessions, transcripts, context inheritance, explicit Child extension/skill allowlists, memory, schedules, and strict Worktree isolation. While agents run, a below-editor main panel shows `main` plus each agent with live elapsed time, turns, tool count/activity, and tokens; at an empty prompt press `↓` or `←`, navigate with `↑`/`↓`, and press `Enter` for the live conversation. Use `/agents` or `ctrl+shift+a` for management/FleetView.
+The extension registers native `mesh` plus compatibility tools `Agent`, `get_subagent_result`, and `steer_subagent`. Direct Agent supports foreground/background execution, bounded queueing, steer/resume, opt-in persistent sessions, transcripts, context inheritance, explicit Child extension/skill allowlists, memory, schedules, and strict Worktree isolation. Direct registries are isolated per Pi session and large results keep a bounded preview plus a full artifact. While agents run, a below-editor main panel shows `main` plus each agent with live elapsed time, turns, tool count/activity, and tokens; at an empty prompt press `↓` or `←`, navigate with `↑`/`↓`, and press `Enter` for the live conversation. Use `/agents` or `ctrl+shift+a` for management/FleetView.
 
 See `docs/parity-matrix.md`, `docs/replacement-delta.md`, and `docs/release-review.md` for the final replacement audit.
 
@@ -159,7 +159,7 @@ Run checkpoints are stored under `.pi/mesh/runs/`. Every attempt writes machine-
 
 Mailbox records live under `.pi/mesh/messages/`, and growth proposals under `.pi/mesh/growth/`. Children receive a restricted `mesh_control` tool for `send`, `broadcast`, `reply`, `inbox`, `ack`, and `grow`. A `grow` call only writes a proposal. The Host must inspect `growth_list` and commit it with `growth_decide`.
 
-Advanced scheduling is selected on `run` with `operator`: `graph`, `sequence`, `parallel`, `race`, `supervisor`, `mixture`, `reflection`, or `debate`. Supervisor/mixture use the last task as synthesizer; reflection/debate are bounded task sequences. Per-task `retries` and `timeoutMs` cover retry and timeout behavior without a second operator runtime.
+Advanced scheduling is selected on `run` with `operator`: `graph`, `sequence`, `parallel`, `race`, `supervisor`, `mixture`, `reflection`, or `debate`. These are DAG topology presets over one shared runtime, not eight independent reasoning protocols: supervisor/mixture use the last task as synthesizer, reflection/debate are bounded sequential chains, and race cancels remaining nodes after the first success. Per-task `retries` and `timeoutMs` cover retry and timeout behavior without a second operator runtime.
 
 ## Agent format
 

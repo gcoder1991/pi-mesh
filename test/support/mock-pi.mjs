@@ -69,16 +69,21 @@ if (rpc) {
         claimResponse(command.message);
         fs.writeFileSync(callFile, JSON.stringify({ args: [...process.argv.slice(2), command.message], cwd: process.cwd() }));
         process.stdout.write(`${JSON.stringify({ id: command.id, type: "response", command: "prompt", success: true })}\n`);
+        if (response?.uiRequest) process.stdout.write(`${JSON.stringify({ type: "extension_ui_request", id: "ui-1", method: "confirm", title: "confirm", message: "confirm" })}\n`);
+        else finishPrompt();
+      } else if (command.type === "extension_ui_response") {
+        fs.writeFileSync(path.join(queue, `ui-response-${process.pid}.json`), JSON.stringify(command));
         finishPrompt();
       } else if (command.type === "steer") {
         process.stdout.write(`${JSON.stringify({ type: "response", command: "steer", success: true })}\n`);
       } else if (command.type === "abort") {
+        if (response?.ignoreAbort) continue;
         process.stdout.write(`${JSON.stringify({ type: "response", command: "abort", success: true })}\n`);
         setTimeout(() => process.exit(143), 5);
       }
     }
   });
-  process.on("SIGTERM", () => process.exit(143));
+  process.on("SIGTERM", () => { if (!response?.ignoreSigterm) process.exit(143); });
 } else {
   if (response.writeFile) fs.writeFileSync(path.resolve(response.writeFile), response.writeContent ?? process.cwd());
   const finish = () => {

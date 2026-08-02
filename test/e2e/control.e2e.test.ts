@@ -39,13 +39,14 @@ test("child control extension proposes fenced growth and uses graph membership",
   try {
     const run = activeRun(fx.root);
     atomicWrite(runFile(fx.root, run.id), run);
-    run.status = "running"; run.nodes[0].status = "running"; atomicWrite(runFile(fx.root, run.id), run);
+    run.status = "running"; run.nodes[0].status = "running"; run.nodes[0].allowedSubagents = ["reviewer"]; atomicWrite(runFile(fx.root, run.id), run);
     process.env.PI_MESH_RUN_ID = run.id; process.env.PI_MESH_NODE_ID = "a"; process.env.PI_MESH_ATTEMPT = "1"; process.env.PI_MESH_ROOT = fx.root;
     const { discoverAndLoadExtensions } = await import("@earendil-works/pi-coding-agent");
     const loaded = await discoverAndLoadExtensions([path.resolve("src/control-extension.ts")], fx.root);
     const control = loaded.extensions[0].tools.get("mesh_control")!.definition;
     await control.execute("e2e", { action: "broadcast", content: "all" }, new AbortController().signal, undefined, { cwd: fx.root } as any);
     assert.deepEqual(messages(fx.root, run.id).map((message) => message.to), ["b"]);
+    await assert.rejects(() => control.execute("e2e", { action: "grow", reason: "qa", tasks: [{ id: "qa", agent: "qa", task: "qa" }] }, new AbortController().signal, undefined, { cwd: fx.root } as any), /cannot request growth for: qa/);
     await control.execute("e2e", { action: "grow", reason: "review", tasks: [{ id: "review", agent: "reviewer", task: "review" }] }, new AbortController().signal, undefined, { cwd: fx.root } as any);
     const proposal = growthProposals(fx.root, run.id)[0];
     assert.equal(proposal.baseRevision, run.revision);

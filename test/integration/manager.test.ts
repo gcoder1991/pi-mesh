@@ -55,6 +55,7 @@ test("runs dependency ordered children and strips recursive extensions", async (
     assert.ok(call.args.includes("-e"));
     assert.ok(call.args.some((value: string) => value.endsWith("control-extension.ts")));
     assert.ok(call.args.includes("--tools"));
+    assert.ok(call.args.some((value: string) => value.split(",").includes("mesh_control")));
   }
 }));
 
@@ -119,6 +120,16 @@ test("cancels an active run", async () => withMock(async (queue) => {
   assert.equal(run.status, "cancelled");
   assert.equal(run.nodes[0].status, "cancelled");
   assert.equal(run.nodes[0].attempt, 1);
+}));
+
+test("race succeeds on the first successful node and cancels the rest", async () => withMock(async (queue) => {
+  queueResponse(queue, 1, { output: "winner", delay: 20 });
+  queueResponse(queue, 2, { output: "late", delay: 5000 });
+  const manager = new MeshManager((name) => agent(name));
+  const run = await manager.start({ cwd: process.cwd(), operator: "race", tasks: [{ id: "fast", agent: "worker", task: "winner" }, { id: "slow", agent: "worker", task: "late" }] });
+  assert.equal(run.status, "succeeded");
+  assert.equal(run.nodes.filter((node) => node.status === "succeeded").length, 1);
+  assert.equal(run.nodes.filter((node) => node.status === "cancelled").length, 1);
 }));
 
 test("late node result cannot overwrite cancellation or start its sibling early", async () => withMock(async (queue) => {

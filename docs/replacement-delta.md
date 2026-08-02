@@ -15,10 +15,10 @@ Audited against `/Users/relvf/Code/pi-subagents/README.md` and its current sourc
 
 ## Intentional architectural differences
 
-1. **Nested delegation is Host-approved growth.** `allowed_subagents` is parsed as a routing/privilege declaration, but a Child does not receive a hidden child-owned scheduler. It submits `mesh_control grow`; the Host owns topology, depth, approval, mailbox, fencing, recovery, and accounting.
+1. **Nested delegation is Host-approved growth.** `allowed_subagents` is a runtime-enforced privilege boundary for growth proposals, but a Child does not receive a hidden child-owned scheduler. It submits `mesh_control grow`; the Host owns topology, depth, approval, mailbox, fencing, recovery, and accounting.
 2. **Resources are fail-closed explicit allowlists.** `extensions: true`, wildcard discovery, arbitrary absolute paths, and implicit skill inheritance are rejected. Trusted mesh settings map logical names to concrete resources.
 3. **Unknown agent types fail closed.** There is no permissive general-purpose fallback that could silently grant broader tools.
-4. **Mesh adds durable DAG semantics absent from the target.** Native graph operators, retries, attempt evidence, leases, crash recovery, mailbox/growth fencing, dependency evidence, and multi-writer handoffs remain first-class.
+4. **Mesh adds durable DAG semantics absent from the target.** Native topology presets, retries, attempt evidence, leases, crash recovery, mailbox/growth fencing, dependency evidence, and multi-writer handoffs remain first-class. The eight named operators share one DAG runtime rather than implementing eight independent reasoning protocols.
 5. **UI is intentionally smaller.** FleetView provides a live list, keyboard navigation, conversation overlay, steering, stopping, and completion linger, but does not reproduce every decorative token/tool animation.
 
-These differences are security/control-plane choices, not missing execution capabilities.
+These are architectural and security/control-plane differences. pi-mesh replaces the core Host tool surface and adds Mesh orchestration, but it is not a strict behavioral superset of every single-Agent feature in `pi-subagents`.

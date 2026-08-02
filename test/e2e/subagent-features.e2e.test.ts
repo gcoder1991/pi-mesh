@@ -23,13 +23,17 @@ test("Agent passes thinking, parent context, memory, tool denylist, and prompt m
   } finally { await harness.shutdown(); fx.cleanup(); }
 });
 
-test("Agent scheduling fires and emits lifecycle events", async () => {
+test("Agent scheduling preserves launch options and emits lifecycle events", async () => {
   const fx = fixture(); const harness = extensionHarness();
   try {
+    const dir = path.join(fx.root, ".pi", "agents"); fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, "scheduled.md"), "---\ndescription: Scheduled\ntools: read\nthinking: high\nmax_turns: 7\npersist_session: true\n---\nScheduled prompt.\n");
     response(fx.queue, 1, { output: "scheduled" });
-    const scheduled = await harness.tools.get("Agent").execute("x", { prompt: "scheduled", description: "scheduled", subagent_type: "worker", schedule: "+1s" }, undefined, undefined, context(fx.root));
+    const scheduled = await harness.tools.get("Agent").execute("x", { prompt: "scheduled", description: "scheduled", subagent_type: "scheduled", model: "mock/model", schedule: "+1s" }, undefined, undefined, context(fx.root, { modelRegistry: { getAvailable: () => [{ provider: "mock", id: "model" }] } }));
     assert.equal(scheduled.details.status, "scheduled");
     await new Promise((resolve) => setTimeout(resolve, 1100));
     assert.ok(harness.emitted.some((item) => item.event === "subagents:scheduled" && item.payload.type === "fired"));
+    const call = JSON.parse(fs.readFileSync(path.join(fx.queue, fs.readdirSync(fx.queue).find((name) => name.startsWith("call-"))!), "utf8"));
+    assert.ok(call.args.includes("--model")); assert.ok(call.args.includes("mock/model")); assert.ok(call.args.includes("--thinking")); assert.ok(call.args.includes("high")); assert.ok(call.args.includes("--session-id"));
   } finally { await harness.shutdown(); fx.cleanup(); }
 });

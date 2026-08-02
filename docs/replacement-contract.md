@@ -1,12 +1,12 @@
 # pi-subagents replacement contract
 
-pi-mesh targets full replacement while retaining Host-owned topology and approval.
+pi-mesh replaces the core Host tool surface while retaining Host-owned topology and approval; it is an architectural replacement, not a strict behavioral superset of every single-Agent detail.
 
 ## Compatibility surfaces
 
 - Native `mesh` DAG tool remains authoritative.
 - Compatibility tools: `Agent`, `get_subagent_result`, `steer_subagent`.
-- Persistent child sessions support steer, follow-up, resume, transcripts, thinking levels, max-turn wrap-up, and context inheritance.
+- Persistent child sessions support steer, resume, transcripts, thinking levels, max-turn wrap-up, and context inheritance.
 - Async completion delivers a deduplicated follow-up notification to the parent.
 - Agent definitions support the commonly used pi-subagents frontmatter and filename-as-name.
 - `/agents` provides agent/status/settings management and a compact live widget/viewer.
@@ -36,6 +36,6 @@ Unknown names fail closed. Project maps are ignored until Pi trusts the project.
 
 ## Deliberate differences
 
-- Child delegation remains Host-approved growth rather than an independent recursive scheduler.
+- Child delegation remains Host-approved growth rather than an independent recursive scheduler; `allowed_subagents` limits which Agent types a Child may propose.
 - Worktree preservation continues to produce final commit, binary patch, and handoff manifest.
 - Run lease, attempt fencing, bounded state, and recovery evidence remain mandatory.
