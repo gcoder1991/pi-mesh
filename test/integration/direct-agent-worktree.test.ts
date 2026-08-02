@@ -23,6 +23,7 @@ test("direct Agent worktree preserves changes and leaves the main checkout untou
     const manager = new SessionAgentManager(defaultMeshSettings, root);
     const record = manager.spawn(agent, "change", "change", root, { worktree: true }); await record.promise;
     assert.equal(record.status, "completed"); assert.equal(fs.existsSync(path.join(root, "change.txt")), false);
+    await assert.rejects(() => manager.resume(record.id, "again"), /Worktree Agent is not resumable/);
     assert.ok(record.worktree?.finalCommit); assert.ok(record.worktree?.handoffPath && fs.existsSync(record.worktree.handoffPath));
     assert.equal(git(root, "show", `${record.worktree!.finalCommit}:change.txt`), "changed");
     await manager.shutdown();

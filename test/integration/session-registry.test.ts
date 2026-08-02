@@ -18,12 +18,14 @@ test("session agent registry survives manager recreation and resumes the same Pi
   try {
     fs.writeFileSync(path.join(queue, "pending-001.json"), JSON.stringify({ output: "first" }));
     const firstManager = new SessionAgentManager(defaultMeshSettings, root, undefined, "session-a");
-    const first = firstManager.spawn(agent, "first", "first", root, { persistent: true }); await first.promise; const id = first.id; await first.execution?.close();
+    const first = firstManager.spawn(agent, "first", "first", root, { persistent: true }); await first.promise; const id = first.id;
+    assert.equal(first.execution, undefined);
     const isolatedManager = new SessionAgentManager(defaultMeshSettings, root, undefined, "session-b");
     assert.equal(isolatedManager.get(id), undefined);
     await isolatedManager.shutdown();
     const secondManager = new SessionAgentManager(defaultMeshSettings, root, undefined, "session-a");
     assert.equal(secondManager.get(id)?.status, "completed");
+    assert.equal(secondManager.get(id)?.execution, undefined);
     fs.writeFileSync(path.join(queue, "pending-002.json"), JSON.stringify({ output: "second" }));
     const resumed = await secondManager.resume(id, "second"); assert.equal(resumed.result?.output, "second");
     const calls = fs.readdirSync(queue).filter((name) => name.startsWith("call-")).map((name) => JSON.parse(fs.readFileSync(path.join(queue, name), "utf8")));
@@ -62,6 +64,7 @@ test("non-persistent agents are not reconnected after manager recreation", async
     const restored = new SessionAgentManager(defaultMeshSettings, root, undefined, "ephemeral");
     assert.equal(restored.get(record.id)?.execution, undefined);
     assert.equal(fs.readdirSync(queue).filter((name) => name.startsWith("call-")).length, callsBefore);
+    await assert.rejects(() => restored.resume(record.id, "again"), /was not persisted/);
     await restored.shutdown();
   } finally { if (oldBinary === undefined) delete process.env[PI_MESH_PI_BINARY_ENV]; else process.env[PI_MESH_PI_BINARY_ENV] = oldBinary; if (oldQueue === undefined) delete process.env.PI_MESH_TEST_QUEUE; else process.env.PI_MESH_TEST_QUEUE = oldQueue; fs.rmSync(root, { recursive: true, force: true }); fs.rmSync(queue, { recursive: true, force: true }); }
 });

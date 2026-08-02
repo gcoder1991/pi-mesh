@@ -39,7 +39,7 @@ function writeProjectSetting(root: string, patch: Record<string, unknown>): void
 function recordText(record: SessionAgentRecord, verbose = false): string {
   const head = `Agent: ${record.id}\nType: ${record.agent.name} | Status: ${record.status}\nDescription: ${record.description}`;
   const output = record.result?.output || record.result?.error || record.error || (record.status === "running" ? "Agent is still running." : "No output.");
-  const conversation = verbose ? record.execution?.conversation() : undefined;
+  const conversation = verbose ? (record.execution?.conversation() || (record.launch?.transcriptPath ? (() => { try { return fs.readFileSync(record.launch!.transcriptPath!, "utf8"); } catch { return ""; } })() : "")) : undefined;
   const artifact = record.outputTruncated && record.outputPath ? `\nFull output: ${record.outputPath}` : "";
   const handoff = record.worktree?.finalCommit ? `\n\nWorktree branch: ${record.worktree.branch}\nFinal commit: ${record.worktree.finalCommit}\nPatch: ${record.worktree.patchPath ?? "none"}\nHandoff: ${record.worktree.handoffPath ?? "none"}` : "";
   return `${head}\n\n${output}${artifact}${handoff}${conversation ? `\n\n--- Agent Conversation ---\n${conversation}` : ""}`;

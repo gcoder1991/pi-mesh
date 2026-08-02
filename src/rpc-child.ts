@@ -48,6 +48,11 @@ function appendTail(value: Buffer<ArrayBufferLike>, chunk: Buffer<ArrayBufferLik
   return joined.subarray(start);
 }
 
+function appendConversation(current: string, entry: string): string {
+  const next = current ? `${current}\n\n${entry}` : entry;
+  return Buffer.byteLength(next, "utf8") <= MAX_CONVERSATION_BYTES ? next : Buffer.from(next).subarray(-MAX_CONVERSATION_BYTES).toString("utf8");
+}
+
 function emptyUsage(): Usage {
   return { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 };
 }
@@ -73,7 +78,7 @@ export function createRpcChild(agent: AgentDefinition, cwd: string, options: Rpc
   let closed = false;
   let closeResolve: (() => void) | undefined;
   const closePromise = new Promise<void>((resolve) => { closeResolve = resolve; });
-  const conversation: string[] = [];
+  let conversation = "";
   let abortTimer: NodeJS.Timeout | undefined;
   let abortKillTimer: NodeJS.Timeout | undefined;
   if (options.transcriptPath) fs.mkdirSync(path.dirname(options.transcriptPath), { recursive: true, mode: 0o700 });
@@ -83,7 +88,7 @@ export function createRpcChild(agent: AgentDefinition, cwd: string, options: Rpc
       const line = `${JSON.stringify(event)}\n`;
       const size = Buffer.byteLength(line, "utf8");
       let current = 0; try { current = fs.statSync(options.transcriptPath).size; } catch {}
-      if (current < MAX_CONVERSATION_BYTES) fs.appendFileSync(options.transcriptPath, Buffer.from(line).subarray(0, MAX_CONVERSATION_BYTES - current), { mode: 0o600 });
+      if (current < MAX_CONVERSATION_BYTES && current + size <= MAX_CONVERSATION_BYTES) fs.appendFileSync(options.transcriptPath, line, { mode: 0o600 });
     }
   };
   const send = (value: object) => {
@@ -112,7 +117,7 @@ export function createRpcChild(agent: AgentDefinition, cwd: string, options: Rpc
     if (event.type === "response" && event.success === false && pending && (!event.id || event.id === pending.id)) finish(event.error ?? "Child rejected prompt");
     if (event.type === "message_end") {
       const message = event.message;
-      if (message?.role === "user") conversation.push(`[User] ${typeof message.content === "string" ? message.content : JSON.stringify(message.content)}`);
+      if (message?.role === "user") conversation = appendConversation(conversation, `[User] ${typeof message.content === "string" ? message.content : JSON.stringify(message.content)}`);
       if (message?.role === "assistant") {
         if (pending) {
           addUsage(pending.usage, message.usage);
@@ -121,7 +126,7 @@ export function createRpcChild(agent: AgentDefinition, cwd: string, options: Rpc
           pending.error = message.errorMessage ?? pending.error;
           const text = message.content?.filter((part: any) => part.type === "text").map((part: any) => part.text).join("\n") ?? "";
           if (text.trim()) pending.output = text;
-          if (text.trim()) conversation.push(`[Assistant] ${text}`);
+          if (text.trim()) conversation = appendConversation(conversation, `[Assistant] ${text}`);
           if (options.maxTurns && pending.turns >= options.maxTurns && !pending.wrapped) {
             pending.wrapped = true;
             send({ type: "steer", message: "Wrap up immediately and provide your final answer now." });
@@ -197,9 +202,6 @@ export function createRpcChild(agent: AgentDefinition, cwd: string, options: Rpc
       const timer = setTimeout(() => killChildProcess(child, "SIGKILL"), ABORT_GRACE_MS); timer.unref?.();
       await closePromise; clearTimeout(timer);
     },
-    conversation() {
-      const text = conversation.join("\n\n");
-      return Buffer.byteLength(text, "utf8") <= MAX_CONVERSATION_BYTES ? text : Buffer.from(text).subarray(-MAX_CONVERSATION_BYTES).toString("utf8");
-    },
+    conversation() { return conversation; },
   };
 }

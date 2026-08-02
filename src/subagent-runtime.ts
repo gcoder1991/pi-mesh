@@ -18,6 +18,7 @@ export interface SubagentRunOptions {
   maxTurns?: number;
   persistent?: boolean;
   transcript?: boolean;
+  transcriptPath?: string;
   env?: NodeJS.ProcessEnv;
   onEvent?: (event: any) => void;
   parentContext?: string;
@@ -50,7 +51,7 @@ export class SubagentRuntime {
     const configured = { ...agent, extensions: selectedExtensions, skills: selectedSkills, model: options.model ?? agent.model, thinking: options.thinking ?? agent.thinking };
     if (configured.extensions?.some((name) => ["pi-mesh", "pi-subagents", "subagents"].includes(name.toLowerCase()))) throw new Error("Agent-management extensions cannot be loaded inside a child");
     const sessionDir = options.persistent || agent.persistSession ? options.sessionDir ?? path.join(options.cwd, CONFIG_DIR_NAME, "mesh", "sessions") : undefined;
-    const transcriptPath = options.transcript === false || agent.outputTranscript === false ? undefined : path.join(os.tmpdir(), "pi-mesh-subagents", options.id, "conversation.jsonl");
+    const transcriptPath = options.transcript === false || agent.outputTranscript === false ? undefined : options.transcriptPath ?? path.join(os.tmpdir(), "pi-mesh-subagents", options.id, "conversation.jsonl");
     const built = buildChildArgs(configured, options.prompt, configured.model, {
       extensions: [
         ...resolveChildExtensions(configured, this.settings.childExtensions),
