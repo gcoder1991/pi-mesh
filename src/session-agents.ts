@@ -5,6 +5,7 @@ import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
 import { BUNDLED_AGENTS_DIR, type AgentDefinition } from "./agents.ts";
 import type { ChildResult } from "./pi-process.ts";
 import { SubagentRuntime, type SubagentExecution, type SubagentSession } from "./subagent-runtime.ts";
+import type { FleetLimiter } from "./fleet-limiter.ts";
 import type { MeshSettings } from "./settings.ts";
 import { atomicWrite, putAgentOutput, readJson } from "./store.ts";
 import { createNodeWorktree, finalizeNodeWorktree, prepareWorktreeRun, type WorktreeState } from "./worktree.ts";
@@ -43,16 +44,18 @@ export class SessionAgentManager {
   private readonly settings: MeshSettings;
   private readonly queued: SessionAgentRecord[] = [];
   private running = 0;
+  private readonly limiter?: FleetLimiter;
   private onComplete?: (record: SessionAgentRecord) => void;
   private onStart?: (record: SessionAgentRecord) => void;
 
-  constructor(settings: MeshSettings, cwd: string, onComplete?: (record: SessionAgentRecord) => void, sessionId = "default") {
+  constructor(settings: MeshSettings, cwd: string, onComplete?: (record: SessionAgentRecord) => void, sessionId = "default", limiter?: FleetLimiter) {
     this.runtime = new SubagentRuntime(settings);
     this.cwd = fs.realpathSync(path.resolve(cwd));
     const safeSessionId = crypto.createHash("sha256").update(sessionId).digest("hex").slice(0, 16);
     this.registryFile = path.join(this.cwd, CONFIG_DIR_NAME, "mesh", "subagents", `${safeSessionId}.json`);
     this.maxConcurrent = settings.maxConcurrentAgents;
     this.settings = settings;
+    this.limiter = limiter;
     this.onComplete = onComplete;
     this.restore();
   }
@@ -79,35 +82,51 @@ export class SessionAgentManager {
   get(id: string): SessionAgentRecord | undefined { return this.records.get(id); }
 
   spawn(agent: AgentDefinition, prompt: string, description: string, cwd: string, options: { model?: string; thinking?: string; maxTurns?: number; persistent?: boolean; transcript?: boolean; parentContext?: string; worktree?: boolean; sessionDir?: string }): SessionAgentRecord {
+    const selectedExtensions = agent.isolated ? [] : agent.extensions ?? [];
+    const selectedSkills = agent.isolated ? [] : agent.skills ?? [];
+    const missing = [...selectedExtensions.filter((name) => !this.settings.childExtensions[name]).map((name) => `extension:${name}`), ...selectedSkills.filter((name) => !this.settings.childSkills[name]).map((name) => `skill:${name}`)];
+    if (missing.length) throw new Error(`Unapproved child resources: ${missing.join(", ")}`);
     const id = crypto.randomUUID();
     let worktree: WorktreeState | undefined;
     if (options.worktree) worktree = createNodeWorktree(prepareWorktreeRun(cwd, [cwd]), "agent", id, 1, cwd);
     const transcriptPath = this.transcriptPath(id, options.transcript ?? agent.outputTranscript);
-    const record: SessionAgentRecord = { id, agent, description, prompt, cwd, status: "running", createdAt: Date.now(), worktree, launch: { model: options.model, thinking: options.thinking, maxTurns: options.maxTurns, persistent: options.persistent, transcript: options.transcript, transcriptPath, parentContext: options.parentContext, sessionDir: options.sessionDir }, activity: { turns: 0, toolUses: 0, responseText: "", activeTools: [], usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 } } };
+    const startImmediately = this.running < this.maxConcurrent && (!this.limiter || this.limiter.available > 0);
+    const record: SessionAgentRecord = { id, agent, description, prompt, cwd, status: startImmediately ? "running" : "queued", createdAt: Date.now(), worktree, launch: { model: options.model, thinking: options.thinking, maxTurns: options.maxTurns, persistent: options.persistent, transcript: options.transcript, transcriptPath, parentContext: options.parentContext, sessionDir: options.sessionDir }, activity: { turns: 0, toolUses: 0, responseText: "", activeTools: [], usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 } } };
     this.records.set(id, record);
     record.generation = 1;
     const start = () => {
       this.running++;
       const generation = record.generation!;
-      const execution = this.runtime.start(agent, { id, cwd: worktree?.cwd ?? cwd, prompt, model: options.model, thinking: options.thinking, maxTurns: options.maxTurns, persistent: options.persistent, transcript: options.transcript, transcriptPath, parentContext: options.parentContext, sessionDir: options.sessionDir, onEvent: (event) => this.trackActivity(record, event) });
-      record.execution = execution;
-      this.onStart?.(record);
-      record.promise = execution.completion.then((result) => {
-        this.captureResult(record, result);
-        if (record.generation !== generation || record.status === "stopped") return;
-        record.status = result.error ? "failed" : "completed";
-        if (record.worktree) record.worktree = finalizeNodeWorktree(cwd, "agent", id, record.worktree, record.status, result.output);
-        record.completedAt = Date.now();
-        this.persist();
-        this.onComplete?.(record);
-      }).finally(() => {
-        if ((record.launch?.persistent ?? record.agent.persistSession ?? false) && !record.worktree) {
-          const settled = record.execution; record.execution = undefined; void settled?.close();
+      record.promise = (async () => {
+        let releaseFleet: (() => void) | undefined;
+        try {
+          releaseFleet = await this.limiter?.acquire();
+          if (record.generation !== generation || (record.status as SessionAgentStatus) === "stopped") return;
+          const execution = this.runtime.start(agent, { id, cwd: worktree?.cwd ?? cwd, prompt, model: options.model, thinking: options.thinking, maxTurns: options.maxTurns, persistent: options.persistent, transcript: options.transcript, transcriptPath, parentContext: options.parentContext, sessionDir: options.sessionDir, onEvent: (event) => this.trackActivity(record, event) });
+          record.execution = execution;
+          this.onStart?.(record);
+          const result = await execution.completion;
+          this.captureResult(record, result);
+          if (record.generation !== generation || record.status === "stopped") return;
+          record.status = result.error ? "failed" : "completed";
+          if (record.worktree) record.worktree = finalizeNodeWorktree(cwd, "agent", id, record.worktree, record.status, result.output);
+          record.completedAt = Date.now();
+          this.persist();
+          this.onComplete?.(record);
+        } catch (error) {
+          if (record.generation === generation && record.status !== "stopped") {
+            record.status = "failed"; record.error = error instanceof Error ? error.message : String(error); record.completedAt = Date.now(); this.persist(); this.onComplete?.(record);
+          }
+        } finally {
+          releaseFleet?.();
+          if ((record.launch?.persistent ?? record.agent.persistSession ?? false) && !record.worktree) {
+            const settled = record.execution; record.execution = undefined; void settled?.close();
+          }
+          this.running--; this.startNext();
         }
-        this.running--; this.startNext();
-      });
+      })();
     };
-    if (this.running < this.maxConcurrent) start(); else { record.status = "queued"; this.queued.push(record); }
+    if (startImmediately) start(); else this.queued.push(record);
     this.persist();
     return record;
   }
@@ -118,14 +137,24 @@ export class SessionAgentManager {
     if (record.worktree) throw new Error(`Worktree Agent is not resumable: ${id}`);
     const persistent = record.launch?.persistent ?? record.agent.persistSession ?? false;
     if (!persistent) throw new Error(`Agent session was not persisted: ${id}`);
-    if (this.running >= this.maxConcurrent) throw new Error(`Agent concurrency limit reached (${this.maxConcurrent})`);
-    if (!record.execution) record.execution = this.runtime.connect(record.agent, { id: record.id, cwd: record.cwd, prompt: record.prompt, model: record.launch?.model, thinking: record.launch?.thinking, maxTurns: record.launch?.maxTurns, persistent: true, transcript: record.launch?.transcript, transcriptPath: record.launch?.transcriptPath, parentContext: record.launch?.parentContext, sessionDir: record.launch?.sessionDir });
-    record.status = "running"; record.error = undefined; record.completedAt = undefined; record.generation = (record.generation ?? 0) + 1; const generation = record.generation; this.running++; this.onStart?.(record);
-    record.promise = record.execution.session.prompt(prompt).then((result) => {
-      this.captureResult(record, result);
-      if (record.generation !== generation || record.status === "stopped") return;
-      record.status = result.error ? "failed" : "completed"; record.completedAt = Date.now(); this.persist(); this.onComplete?.(record);
-    }).finally(() => { const settled = record.execution; record.execution = undefined; void settled?.close(); this.running--; this.startNext(); });
+    if (this.running >= this.maxConcurrent || (this.limiter && this.limiter.available < 1)) throw new Error(`Agent concurrency limit reached (${this.maxConcurrent})`);
+    record.status = "running"; record.error = undefined; record.completedAt = undefined; record.generation = (record.generation ?? 0) + 1; const generation = record.generation; this.running++;
+    record.promise = (async () => {
+      let releaseFleet: (() => void) | undefined;
+      try {
+        releaseFleet = await this.limiter?.acquire();
+        if (record.generation !== generation || (record.status as SessionAgentStatus) === "stopped") return;
+        if (!record.execution) record.execution = this.runtime.connect(record.agent, { id: record.id, cwd: record.cwd, prompt: record.prompt, model: record.launch?.model, thinking: record.launch?.thinking, maxTurns: record.launch?.maxTurns, persistent: true, transcript: record.launch?.transcript, transcriptPath: record.launch?.transcriptPath, parentContext: record.launch?.parentContext, sessionDir: record.launch?.sessionDir });
+        this.onStart?.(record);
+        const result = await record.execution.session.prompt(prompt);
+        this.captureResult(record, result);
+        if (record.generation !== generation || record.status === "stopped") return;
+        record.status = result.error ? "failed" : "completed"; record.completedAt = Date.now(); this.persist(); this.onComplete?.(record);
+      } finally {
+        releaseFleet?.();
+        const settled = record.execution; record.execution = undefined; void settled?.close(); this.running--; this.startNext();
+      }
+    })();
     await record.promise;
     return record;
   }
@@ -133,20 +162,30 @@ export class SessionAgentManager {
   private startNext(): void {
     const record = this.queued.shift(); if (!record) return;
     record.status = "running"; record.error = undefined; record.generation = (record.generation ?? 0) + 1; const generation = record.generation;
-    let execution: SubagentExecution;
-    try { execution = this.runtime.start(record.agent, { id: record.id, cwd: record.worktree?.cwd ?? record.cwd, prompt: record.prompt, ...record.launch, onEvent: (event) => this.trackActivity(record, event) }); }
-    catch (error) { record.status = "failed"; record.error = error instanceof Error ? error.message : String(error); record.completedAt = Date.now(); this.persist(); this.onComplete?.(record); return void this.startNext(); }
-    record.execution = execution; this.running++; this.onStart?.(record);
-    record.promise = execution.completion.then((result) => {
-      this.captureResult(record, result);
-      if (record.generation !== generation || record.status === "stopped") return;
-      record.status = result.error ? "failed" : "completed"; record.completedAt = Date.now(); this.persist(); this.onComplete?.(record);
-    }).finally(() => {
-      if ((record.launch?.persistent ?? record.agent.persistSession ?? false) && !record.worktree) {
-        const settled = record.execution; record.execution = undefined; void settled?.close();
+    this.running++;
+    record.promise = (async () => {
+      let releaseFleet: (() => void) | undefined;
+      try {
+        releaseFleet = await this.limiter?.acquire();
+        if (record.generation !== generation || (record.status as SessionAgentStatus) === "stopped") return;
+        const execution = this.runtime.start(record.agent, { id: record.id, cwd: record.worktree?.cwd ?? record.cwd, prompt: record.prompt, ...record.launch, onEvent: (event) => this.trackActivity(record, event) });
+        record.execution = execution; this.onStart?.(record);
+        const result = await execution.completion;
+        this.captureResult(record, result);
+        if (record.generation !== generation || record.status === "stopped") return;
+        record.status = result.error ? "failed" : "completed"; record.completedAt = Date.now(); this.persist(); this.onComplete?.(record);
+      } catch (error) {
+        if (record.generation === generation && record.status !== "stopped") {
+          record.status = "failed"; record.error = error instanceof Error ? error.message : String(error); record.completedAt = Date.now(); this.persist(); this.onComplete?.(record);
+        }
+      } finally {
+        releaseFleet?.();
+        if ((record.launch?.persistent ?? record.agent.persistSession ?? false) && !record.worktree) {
+          const settled = record.execution; record.execution = undefined; void settled?.close();
+        }
+        this.running--; this.startNext();
       }
-      this.running--; this.startNext();
-    });
+    })();
     this.persist();
   }
 

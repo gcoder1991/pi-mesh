@@ -35,9 +35,9 @@ export function meshDir(cwd: string): string {
 export function atomicWriteContent(file: string, content: string | Buffer): void {
   const dir = path.dirname(file);
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-  const temp = `${file}.${process.pid}.${Date.now()}.tmp`;
+  const temp = `${file}.${process.pid}.${Date.now()}.${Math.random().toString(16).slice(2)}.tmp`;
   try {
-    const handle = fs.openSync(temp, "w", 0o600);
+    const handle = fs.openSync(temp, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL, 0o600);
     try {
       fs.writeFileSync(handle, content);
       fs.fsyncSync(handle);
@@ -100,11 +100,27 @@ export function putDiagnosticExplanation(cwd: string, runId: string, nodeId: str
   return file;
 }
 
-export function appendDebugEvent(cwd: string, event: unknown): string {
+export function appendDebugEvent(cwd: string, event: unknown, maxBytes = 4 * 1024 * 1024): string {
   const file = path.join(meshDir(cwd), "debug.jsonl");
   fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
+  try { if (fs.statSync(file).size >= maxBytes) fs.renameSync(file, `${file}.1`); }
+  catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
   fs.appendFileSync(file, `${JSON.stringify(event)}\n`, { mode: 0o600 });
   return file;
+}
+
+export function pruneMeshState(cwd: string, options: { retentionDays: number; maxTerminalRuns: number }): { removedRuns: number } {
+  const cutoff = Date.now() - options.retentionDays * 86_400_000;
+  const terminal = new Set(["succeeded", "failed", "cancelled"]);
+  const runs = listRunFiles(cwd).map((file) => ({ file, run: readJson<{ id: string; status: string; finishedAt?: number; updatedAt?: number }>(file) }))
+    .filter((entry): entry is { file: string; run: { id: string; status: string; finishedAt?: number; updatedAt?: number } } => Boolean(entry.run && terminal.has(entry.run.status)))
+    .sort((a, b) => (b.run.finishedAt ?? b.run.updatedAt ?? 0) - (a.run.finishedAt ?? a.run.updatedAt ?? 0));
+  const remove = runs.filter((entry, index) => index >= options.maxTerminalRuns || (entry.run.finishedAt ?? entry.run.updatedAt ?? 0) < cutoff);
+  for (const { file, run } of remove) {
+    fs.rmSync(file, { force: true });
+    for (const dir of ["artifacts", "messages", "growth", "leases"]) fs.rmSync(path.join(meshDir(cwd), dir, run.id), { recursive: true, force: true });
+  }
+  return { removedRuns: remove.length };
 }
 
 export function listRunFiles(cwd: string): string[] {
@@ -127,19 +143,34 @@ export function putMessage(cwd: string, message: ControlMessage, limits?: { payl
   const dir = spoolDir(cwd, "messages", message.runId);
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   const lock = path.join(dir, `.recipient-${Buffer.from(message.to).toString("hex")}.lock`);
+  const openLock = (): number => {
+    try { return fs.openSync(lock, "wx", 0o600); }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      try {
+        if (Date.now() - fs.statSync(lock).mtimeMs < 60_000) throw new Error(`Recipient ${message.to} mailbox is busy`);
+        fs.rmSync(lock, { force: true });
+        return fs.openSync(lock, "wx", 0o600);
+      } catch (retryError) {
+        if (retryError instanceof Error && retryError.message === `Recipient ${message.to} mailbox is busy`) throw retryError;
+        throw new Error(`Recipient ${message.to} mailbox is busy`);
+      }
+    }
+  };
   let handle: number | undefined;
   try {
     if (limits) {
-      try { handle = fs.openSync(lock, "wx", 0o600); }
-      catch (error) { if ((error as NodeJS.ErrnoException).code === "EEXIST") throw new Error(`Recipient ${message.to} mailbox is busy`); throw error; }
+      handle = openLock();
       const unreadBytes = messages(cwd, message.runId).filter((item) => item.to === message.to && !item.ackedAt)
         .reduce((total, item) => total + Buffer.byteLength(item.content, "utf8"), 0);
       if (unreadBytes + payloadBytes > limits.recipientUnreadMaxBytes) throw new Error(`Recipient ${message.to} unread mailbox exceeds ${limits.recipientUnreadMaxBytes} bytes`);
     }
     atomicWrite(path.join(dir, `${message.id}.json`), message);
   } finally {
-    if (handle !== undefined) fs.closeSync(handle);
-    fs.rmSync(lock, { force: true });
+    if (handle !== undefined) {
+      fs.closeSync(handle);
+      fs.rmSync(lock, { force: true });
+    }
   }
 }
 

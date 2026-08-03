@@ -5,6 +5,7 @@ import { resolveAgentModel } from "./model-resolution.ts";
 import type { SessionAgentManager } from "./session-agents.ts";
 
 const PROTOCOL_VERSION = 2;
+export const SUBAGENT_RPC_TRUST_MODEL = "trusted-extension-event-bus" as const;
 
 const THINKING_LEVELS = new Set(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
 
@@ -53,7 +54,7 @@ export function registerSubagentRpc(pi: ExtensionAPI, managerFor: (ctx: Extensio
     const ok = managerFor(currentCtx).manager.abort(request.agentId);
     reply("subagents:rpc:stop", request.requestId, ok ? { success: true } : { success: false, error: "Agent is not running" });
   }));
-  pi.on("session_start", (_event, ctx) => { currentCtx = ctx; pi.events.emit("subagents:ready", { version: PROTOCOL_VERSION, nonce: crypto.randomUUID() }); });
+  pi.on("session_start", (_event, ctx) => { currentCtx = ctx; pi.events.emit("subagents:ready", { version: PROTOCOL_VERSION, trust: SUBAGENT_RPC_TRUST_MODEL }); });
   pi.on("session_shutdown", () => { currentCtx = undefined; });
   return () => { currentCtx = undefined; for (const unsubscribe of subscriptions) unsubscribe(); };
 }

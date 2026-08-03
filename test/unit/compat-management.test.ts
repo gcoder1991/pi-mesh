@@ -11,7 +11,7 @@ function ui(choices: Array<string | undefined>, inputs: Array<string | undefined
     notifications,
     api: {
       notify(message: string) { notifications.push(message); },
-      select: async () => choices.shift(), input: async () => inputs.shift(), editor: async () => editors.shift(), setWidget() {},
+      select: async () => choices.shift(), input: async () => inputs.shift(), editor: async () => editors.shift(), confirm: async () => true, setWidget() {},
     },
   };
 }
@@ -32,6 +32,9 @@ test("/agents creates, edits, disables, deletes, ejects, and updates settings", 
 
     surface = ui(["Settings", "Max concurrency"], ["7"]);
     await command.handler("", context(root, { ui: surface.api })); assert.match(fs.readFileSync(path.join(root, ".pi", "mesh", "settings.yaml"), "utf8"), /maxConcurrentAgents: 7/);
+    surface = ui(["Scheduled jobs"]);
+    await command.handler("", context(root, { ui: surface.api })); assert.ok(surface.notifications.includes("No scheduler is active in this session."));
+
     await harness.shutdown();
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });

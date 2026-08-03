@@ -13,6 +13,9 @@ export interface MeshSettings {
   childSkills: Record<string, string>;
   joinMode: "async" | "group" | "smart";
   debug: boolean;
+  retentionDays: number;
+  maxTerminalRuns: number;
+  debugMaxBytes: number;
 }
 
 export const defaultMeshSettings: MeshSettings = {
@@ -25,6 +28,9 @@ export const defaultMeshSettings: MeshSettings = {
   childSkills: {},
   joinMode: "smart",
   debug: false,
+  retentionDays: 30,
+  maxTerminalRuns: 100,
+  debugMaxBytes: 4 * 1024 * 1024,
 };
 
 export function meshSettingsFiles(cwd: string, env: NodeJS.ProcessEnv = process.env, includeProject = true): string[] {
@@ -51,7 +57,7 @@ function readSettings(file: string): Partial<MeshSettings> {
   const record = value as Record<string, unknown>;
   if (record.childExtensions !== undefined) record.childExtensions = resolvePathMap(record.childExtensions, file);
   if (record.childSkills !== undefined) record.childSkills = resolvePathMap(record.childSkills, file);
-  const allowed = new Set(["maxAgentDepth", "maxConcurrentAgents", "maxNodes", "messagePayloadMaxBytes", "recipientUnreadMaxBytes", "childExtensions", "childSkills", "joinMode", "debug"]);
+  const allowed = new Set(["maxAgentDepth", "maxConcurrentAgents", "maxNodes", "messagePayloadMaxBytes", "recipientUnreadMaxBytes", "childExtensions", "childSkills", "joinMode", "debug", "retentionDays", "maxTerminalRuns", "debugMaxBytes"]);
   for (const key of Object.keys(record)) if (!allowed.has(key)) throw new Error(`Invalid mesh settings ${file}: unknown key ${key}`);
   const integer = (key: keyof MeshSettings, min: number, max: number) => {
     const item = record[key];
@@ -63,6 +69,9 @@ function readSettings(file: string): Partial<MeshSettings> {
   integer("maxNodes", 1, 128);
   integer("messagePayloadMaxBytes", 1, 1024 * 1024);
   integer("recipientUnreadMaxBytes", 1, 64 * 1024 * 1024);
+  integer("retentionDays", 1, 3650);
+  integer("maxTerminalRuns", 1, 10_000);
+  integer("debugMaxBytes", 1024, 1024 * 1024 * 1024);
   const paths = (key: "childExtensions" | "childSkills") => {
     const item = record[key];
     if (item === undefined) return;

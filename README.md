@@ -6,7 +6,7 @@ It provides the parallel entry points:
 
 ```text
 Agent / get_subagent_result / steer_subagent
-MeshManager → shared Subagent Runtime → DAG nodes
+MeshManager → the same SubagentRuntime implementation → DAG nodes
 ```
 
 It keeps:
@@ -55,13 +55,16 @@ childExtensions: {}
 childSkills: {}
 joinMode: smart
 debug: false
+retentionDays: 30
+maxTerminalRuns: 100
+debugMaxBytes: 4194304
 ```
 
-`maxAgentDepth` limits the longest dependency chain, including approved growth. `maxConcurrentAgents` caps Mesh nodes and direct background Agents; `maxNodes` caps a Mesh. Mailbox settings cap each message and each recipient's unacknowledged content. `childExtensions` and `childSkills` map trusted logical names to explicit resource paths. `joinMode` is `smart`, `async`, or `group`. Set `debug: true` to append structured events to `.pi/mesh/debug.jsonl`. Settings are session-scoped; use `/reload` after changing them.
+`maxAgentDepth` limits the longest dependency chain, including approved growth. `maxConcurrentAgents` is one shared per-Pi-session cap across Direct Agents, scheduled Agents, Mesh runs, and Mesh nodes; each Run's `maxConcurrency` is an additional per-run cap. `maxNodes` caps a Mesh. Mailbox settings cap each message and each recipient's unacknowledged content. `childExtensions` and `childSkills` map trusted logical names to explicit resource paths. `joinMode` is `smart`, `async`, or `group`. `retentionDays` and `maxTerminalRuns` bound terminal Run state, and `debugMaxBytes` rotates `debug.jsonl` to `debug.jsonl.1`. Settings are session-scoped; use `/reload` after changing them.
 
 ## Tools
 
-The extension registers native `mesh` plus compatibility tools `Agent`, `get_subagent_result`, and `steer_subagent`. Direct Agent supports foreground/background execution, bounded queueing, steer/resume, opt-in persistent sessions, transcripts, context inheritance, explicit Child extension/skill allowlists, memory, schedules, and strict Worktree isolation. Direct registries are isolated per Pi session and large results keep a bounded preview plus a full artifact. While agents run, a below-editor main panel shows `main` plus each agent with live elapsed time, turns, tool count/activity, and tokens; at an empty prompt press `↓` or `←`, navigate with `↑`/`↓`, and press `Enter` for the live conversation. Use `/agents` or `ctrl+shift+a` for management/FleetView.
+The extension registers native `mesh` plus compatibility tools `Agent`, `get_subagent_result`, and `steer_subagent`. Direct Agent supports foreground/background execution, bounded queueing, steer/resume, opt-in persistent sessions, transcripts, context inheritance, explicit Child extension/skill allowlists, memory, schedules, and strict Worktree isolation. Direct registries are isolated per Pi session and large results keep a bounded preview plus a full artifact. While agents run, a below-editor main panel shows `main` plus Direct Agents and Mesh nodes with live elapsed time, turns, tool count/activity, and tokens. At an empty prompt press `↓` or `←`, navigate with `↑`/`↓`, and press `Enter` for the live status/conversation page. The page supports `j/k`, arrows, PageUp/PageDown, Home/End, inline `Enter` steering, and two-press `x` stop confirmation. Use `/agents` or `ctrl+shift+a` for management; `/agents` also lists and cancels scheduled jobs.
 
 See `docs/parity-matrix.md`, `docs/replacement-delta.md`, and `docs/release-review.md` for the final replacement audit.
 
@@ -154,8 +157,15 @@ Then use:
 { "action": "cancel", "runId": "..." }
 { "action": "list" }
 ```
+Async runs send a deduplicated follow-up notification when they finish. You can also use:
 
-Run checkpoints are stored under `.pi/mesh/runs/`. Every attempt writes machine-readable `attempt-result.json` and human-readable `diagnostic.md` under `.pi/mesh/artifacts/<run>/<node>/attempt-<n>/`; failed-node status output links to both files. On session shutdown, active children are terminated, worktrees are finalized, leases are released, and runs remain paused. After reopening Pi, call `{ "action": "recover" }` followed by `resume`; nodes interrupted without terminal attempt evidence are restarted. Tasks must therefore be idempotent or inspect existing work before writing. Synchronous runs return aggregated nested-model usage to Pi; detached async usage remains available in run/node state rather than the original completed tool result.
+```json
+{ "action": "status", "runId": "..." }
+{ "action": "cancel", "runId": "..." }
+{ "action": "list" }
+```
+
+Run checkpoints are stored under `.pi/mesh/runs/`. Every attempt writes machine-readable `attempt-result.json` and human-readable `diagnostic.md` under `.pi/mesh/artifacts/<run>/<node>/attempt-<n>/`; failed-node status output links to both files. On session shutdown, active children are terminated, worktrees are finalized, leases are released, and runs remain paused. After reopening Pi, call `{ "action": "recover" }` for interrupted running Runs, or `resume` for a deliberately/gracefully paused Run. Nodes interrupted without terminal attempt evidence are restarted. Tasks must therefore be idempotent or inspect existing work before writing. Synchronous runs return aggregated nested-model usage to Pi; detached async usage remains available in run/node state and its completion notification.
 
 Mailbox records live under `.pi/mesh/messages/`, and growth proposals under `.pi/mesh/growth/`. Children receive a restricted `mesh_control` tool for `send`, `broadcast`, `reply`, `inbox`, `ack`, and `grow`. A `grow` call only writes a proposal. The Host must inspect `growth_list` and commit it with `growth_decide`.
 
@@ -182,4 +192,4 @@ npm install
 npm test
 ```
 
-`PI_MESH_PI_BINARY` can point tests or custom installations at a specific Pi executable.
+`PI_MESH_PI_BINARY` can point tests or explicitly controlled installations at a specific Pi executable. Pi extensions are trusted code with the user's full system permissions; the cross-extension RPC event bus therefore assumes trusted co-loaded extensions rather than pretending to sandbox them. Child Pi processes inherit the Host environment so configured providers can authenticate. Use only trusted Agent definitions, Child resources, extensions, and environments.

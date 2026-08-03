@@ -17,11 +17,17 @@ Fresh post-implementation review focused on correctness, security, recovery, pac
 11. **Mesh control was filtered out by the Child tool allowlist** — Mesh-only children now explicitly activate `mesh_control`, with a real Pi/provider tool-call E2E.
 12. **Direct cancellation and registry persistence had races** — terminal generation fencing, session-scoped registries, resolved launch-policy restore, and bounded output artifacts are covered.
 13. **Scheduler and cross-extension RPC lost launch/session semantics** — schedule options and absolute next-run timestamps persist; RPC v2 uses the active Pi context and Child UI dialogs fail closed.
+14. **Mailbox recipient locks could survive a sender crash forever** — stale recipient locks are reclaimed after 60 seconds without stealing active locks.
+15. **Direct and Mesh concurrency caps were independent** — one per-session `FleetLimiter` now bounds Direct, scheduled, and all Mesh child processes together.
+16. **Async Mesh runs required polling** — detached runs now deliver deduplicated completion follow-ups.
+17. **The status viewer lacked the pi-subagents detail UX** — the unified Direct+Mesh page now has rich status, keybinding-aware scrolling, inline steer composition, and two-press stop confirmation; `/agents` exposes scheduled job cancellation.
+18. **Run artifacts and debug logs were unbounded** — terminal Run retention and debug log rotation now have bounded defaults.
+19. **Host and Child task schemas could drift** — both use one shared `MeshTaskSchema`.
 ## Residual risks
 
 - No live paid-provider smoke test is possible without provider credentials; real Pi loader/RPC/process behavior is covered with a deterministic OS-process mock.
 - The named Mesh operators are tested topology presets over one shared DAG runtime; reflection, debate, mixture, and supervisor are not claimed as independent reasoning engines.
-- Decorative target UI details (animated per-tool counters and exact Claude Code row styling) are not reproduced; functional list/view/steer/stop behavior is covered.
+- The unified status page adapts the useful MIT-licensed pi-subagents conversation-viewer behavior, but intentionally does not reproduce every decorative token/context animation.
 - Nested child-owned managers are intentionally replaced by Host-approved Mesh growth with runtime-enforced `allowed_subagents`.
 
 ## Security evidence
@@ -30,3 +36,5 @@ Fresh post-implementation review focused on correctness, security, recovery, pac
 - Project resources require Pi trust.
 - Child extensions/skills require named allowlists and automatic discovery stays disabled.
 - Worktree requests fail closed and preserve changed work through branch/patch/handoff evidence.
+- Pi extensions are trusted code with full user permissions; cross-extension RPC explicitly uses a trusted-extension event-bus model rather than claiming an in-process sandbox.
+- Child processes inherit Host environment for provider authentication; only trusted Agents/resources/environments are supported.

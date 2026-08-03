@@ -8,27 +8,19 @@ import { Type } from "typebox";
 import { discoverAgents, type AgentScope } from "./agents.ts";
 import { registerCompatibilityTools } from "./compat-extension.ts";
 import { FleetView } from "./fleet-view.ts";
+import { sessionFleetLimiter } from "./fleet-limiter.ts";
 import { MeshManager, type MeshRun, type MeshTask } from "./manager.ts";
 import { loadMeshSettings, type MeshSettings } from "./settings.ts";
-import { ackMessage, growthProposals, messages, putGrowth, putMessage, runFile, type ControlMessage, type GrowthProposal } from "./store.ts";
+import { ackMessage, growthProposals, messages, pruneMeshState, putGrowth, putMessage, runFile, type ControlMessage, type GrowthProposal } from "./store.ts";
 import { resolveAgentModel } from "./model-resolution.ts";
+import { CompletionNotifier } from "./notifications.ts";
+import { MeshTaskSchema } from "./schemas.ts";
 
-const TaskSchema = Type.Object({
-  id: Type.Optional(Type.String({ description: "Stable node ID used by dependsOn." })),
-  agent: Type.String({ description: "Agent name returned by list_agents." }),
-  task: Type.String({ description: "Self-contained assignment for the child agent." }),
-  dependsOn: Type.Optional(Type.Array(Type.String(), { description: "Node IDs that must succeed before this node starts." })),
-  cwd: Type.Optional(Type.String({ description: "Working directory inside the trusted run root." })),
-  model: Type.Optional(Type.String({ description: "Optional provider/model override for this node." })),
-  timeoutMs: Type.Optional(Type.Integer({ minimum: 100, maximum: 3_600_000, description: "Attempt timeout in milliseconds." })),
-  retries: Type.Optional(Type.Integer({ minimum: 0, maximum: 5, description: "Retries after a failed attempt." })),
-  integration: Type.Optional(Type.Boolean({ description: "Required for a node that explicitly integrates multiple writer predecessors." })),
-}, { additionalProperties: false });
 
 const MeshParams = Type.Object({
   action: StringEnum(["list_agents", "run", "status", "list", "cancel", "pause", "resume", "recover", "steer", "handoff_list", "message_send", "message_broadcast", "message_inbox", "message_ack", "growth_list", "growth_decide"] as const),
   scope: Type.Optional(StringEnum(["bundled", "user", "project", "all"] as const)),
-  tasks: Type.Optional(Type.Array(TaskSchema, { minItems: 1, maxItems: 32 })),
+  tasks: Type.Optional(Type.Array(MeshTaskSchema, { minItems: 1, maxItems: 32 })),
   runId: Type.Optional(Type.String({ description: "Existing run ID; required for run-scoped actions." })),
   nodeId: Type.Optional(Type.String({ description: "Node ID for node cancellation, inbox filtering, or message acknowledgement." })),
   messageId: Type.Optional(Type.String({ description: "Mailbox message ID required by message_ack." })),
@@ -82,16 +74,18 @@ function summarize(run: MeshRun): string {
 
 export default function registerPiMesh(pi: ExtensionAPI): void {
   if (process.env.PI_MESH_CHILD === "1") return;
-  const managers = new Map<string, { manager: MeshManager; settings: MeshSettings }>();
+  const managers = new Map<string, { manager: MeshManager; settings: MeshSettings; notifier: CompletionNotifier }>();
   const currentManager = (cwd: string, projectTrusted: boolean, sessionId: string) => {
     const root = fs.realpathSync(path.resolve(cwd));
     const key = `${root}\0${projectTrusted}\0${sessionId}`;
     const existing = managers.get(key);
     if (existing) return existing;
     const settings = loadMeshSettings(root, process.env, projectTrusted);
-    const manager = new MeshManager((name) => discoverAgents(root, { scope: "all", includeProject: projectTrusted, projectRoot: root }).find((agent) => agent.name === name), settings);
+    pruneMeshState(root, settings);
+    const limiter = sessionFleetLimiter(sessionId, settings.maxConcurrentAgents);
+    const manager = new MeshManager((name) => discoverAgents(root, { scope: "all", includeProject: projectTrusted, projectRoot: root }).find((agent) => agent.name === name), settings, limiter);
     manager.recover(root);
-    const entry = { manager, settings };
+    const entry = { manager, settings, notifier: new CompletionNotifier(pi, settings) };
     managers.set(key, entry);
     return entry;
   };
@@ -125,7 +119,7 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
     async execute(_toolCallId, params, signal, onUpdate, ctx) {
       const projectTrusted = ctx.isProjectTrusted?.() ?? false;
       const sessionId = ctx.sessionManager.getSessionId();
-      const { manager, settings } = currentManager(ctx.cwd, projectTrusted, sessionId);
+      const { manager, settings, notifier } = currentManager(ctx.cwd, projectTrusted, sessionId);
       if (ctx.mode === "tui") fleet.bindMesh(ctx, manager, `${fs.realpathSync(path.resolve(ctx.cwd))}\0${projectTrusted}\0${sessionId}`);
       const requestedScope: AgentScope = params.scope ?? "all";
       const scope: AgentScope = !projectTrusted && requestedScope === "project" ? "project" : requestedScope;
@@ -218,7 +212,10 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
       if (signal?.aborted) throw new Error("Mesh run cancelled before creation");
       const createdRun = manager.create({ tasks: resolveTaskModels(params.tasks as MeshTask[], ctx.modelRegistry), cwd: fs.realpathSync(path.resolve(ctx.cwd)), operator: params.operator, worktree: params.worktree, worktreeSetupHook: params.worktreeSetupHook, maxConcurrency: params.maxConcurrency, maxNodes: params.maxNodes, failFast: params.failFast });
       const start = manager.startCreated(createdRun.id, params.async ? undefined : signal, params.async ? undefined : update);
-      if (params.async) { void start.catch(() => {}); return { content: [{ type: "text", text: `Started mesh ${createdRun.id}.` }], details: boundedDetails({ action: params.action, run: compactRun(createdRun) }) }; }
+      if (params.async) {
+        void start.then((completed) => notifier.enqueueMessage(`mesh:${completed.id}`, `Mesh ${completed.id} finished: ${completed.status}.\n${summarize(completed)}`), (error) => notifier.enqueueMessage(`mesh:${createdRun.id}`, `Mesh ${createdRun.id} failed outside the run state: ${error instanceof Error ? error.message : String(error)}`));
+        return { content: [{ type: "text", text: `Started mesh ${createdRun.id}. You will be notified when it completes.` }], details: boundedDetails({ action: params.action, run: compactRun(createdRun) }) };
+      }
       const completed = await start;
       return { content: [{ type: "text", text: summarize(completed) }], details: boundedDetails({ action: params.action, run: compactRun(completed, true) }), usage: piUsage(completed) };
     },
@@ -234,5 +231,5 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
     },
   });
   const shutdownSubagents = registerCompatibilityTools(pi, fleet);
-  pi.on("session_shutdown", async () => { await Promise.allSettled([...managers.values()].map(({ manager }) => manager.shutdown())); managers.clear(); await shutdownSubagents(); });
+  pi.on("session_shutdown", async () => { await Promise.allSettled([...managers.values()].map(({ manager }) => manager.shutdown())); for (const { notifier } of managers.values()) notifier.dispose(); managers.clear(); await shutdownSubagents(); });
 }

@@ -123,10 +123,11 @@ export class MeshManager {
   private readonly resolveAgent: (name: string, cwd: string) => AgentDefinition | undefined;
   private readonly settings: MeshSettings;
   private readonly subagentRuntime: SubagentRuntime;
-
-  constructor(resolveAgent: (name: string, cwd: string) => AgentDefinition | undefined, settings: MeshSettings = defaultMeshSettings) {
+  private readonly limiter?: import("./fleet-limiter.ts").FleetLimiter;
+  constructor(resolveAgent: (name: string, cwd: string) => AgentDefinition | undefined, settings: MeshSettings = defaultMeshSettings, limiter?: import("./fleet-limiter.ts").FleetLimiter) {
     this.resolveAgent = resolveAgent;
     this.settings = settings;
+    this.limiter = limiter;
     this.subagentRuntime = new SubagentRuntime(settings);
   }
 
@@ -497,10 +498,23 @@ export class MeshManager {
     this.nodeControllers.get(run.id)?.set(node.id, timeoutController);
     const abort = () => timeoutController.abort();
     signal.addEventListener("abort", abort, { once: true });
-    const timer = node.timeoutMs ? setTimeout(abort, node.timeoutMs) : undefined;
-    timer?.unref?.();
     let child: SubagentExecution;
+    let releaseFleet: (() => void) | undefined;
+    let releaseOnAbort: (() => void) | undefined;
+    let timer: NodeJS.Timeout | undefined;
     try {
+      releaseFleet = await this.limiter?.acquire(signal);
+      releaseOnAbort = () => releaseFleet?.();
+      signal.addEventListener("abort", releaseOnAbort, { once: true });
+      if (signal.aborted || (node.status as NodeStatus) === "cancelled") {
+        releaseFleet?.();
+        signal.removeEventListener("abort", abort);
+        if (releaseOnAbort) signal.removeEventListener("abort", releaseOnAbort);
+        this.nodeControllers.get(run.id)?.delete(node.id);
+        return;
+      }
+      timer = node.timeoutMs ? setTimeout(abort, node.timeoutMs) : undefined;
+      timer?.unref?.();
       child = this.subagentRuntime.start(agent, {
         id: `${run.id}-${node.id}-${attempt}`,
         cwd: node.worktree?.cwd ?? node.cwd,
@@ -514,6 +528,10 @@ export class MeshManager {
     } catch (error) {
       if (timer) clearTimeout(timer);
       signal.removeEventListener("abort", abort);
+      if (releaseOnAbort) signal.removeEventListener("abort", releaseOnAbort);
+      this.nodeControllers.get(run.id)?.delete(node.id);
+      releaseFleet?.();
+      if (signal.aborted || (node.status as NodeStatus) === "cancelled") return;
       return void this.failNode(run, node, error instanceof Error ? error.message : String(error), onUpdate);
     }
     const childPid = child.session.process.pid;
@@ -525,9 +543,12 @@ export class MeshManager {
     timeoutController.signal.removeEventListener("abort", abortChild);
     if (timer) clearTimeout(timer);
     signal.removeEventListener("abort", abort);
+    if (releaseOnAbort) signal.removeEventListener("abort", releaseOnAbort);
     this.processes.get(run.id)?.delete(node.id);
     this.subagents.get(run.id)?.delete(node.id);
     void child.close();
+    releaseFleet?.();
+    releaseFleet = undefined;
     this.nodeControllers.get(run.id)?.delete(node.id);
 
     if (node.attempt !== attempt || !["running", "cancelled"].includes(node.status as NodeStatus)) {
@@ -682,7 +703,7 @@ export class MeshManager {
 
   private debug(run: MeshRun, event: string, details: Record<string, unknown> = {}): void {
     if (!this.settings.debug) return;
-    appendDebugEvent(run.cwd, { timestamp: new Date().toISOString(), event, runId: run.id, revision: run.revision, ...details });
+    appendDebugEvent(run.cwd, { timestamp: new Date().toISOString(), event, runId: run.id, revision: run.revision, ...details }, this.settings.debugMaxBytes);
   }
 
   private assertDepth(nodes: MeshNode[]): void {

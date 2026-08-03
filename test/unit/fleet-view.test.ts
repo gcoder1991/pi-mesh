@@ -17,7 +17,7 @@ test("FleetView renders a navigable main panel and conversation overlay", async 
       getEditorText: () => editorText,
       notify() {}, input: async () => undefined, select: async () => undefined,
       custom: async (factory: any) => {
-        overlay = factory({ requestRender: () => renderRequests++ }, theme, { matches: (data: string, id: string) => (id === "tui.select.cancel" && data === "escape") || (id === "tui.select.down" && data === "down") || (id === "tui.select.up" && data === "up") }, () => undefined);
+        overlay = factory({ terminal: { rows: 30 }, requestRender: () => renderRequests++ }, theme, { matches: (data: string, id: string) => (id === "tui.select.cancel" && data === "escape") || (id === "tui.select.down" && data === "down") || (id === "tui.select.up" && data === "up") }, () => undefined);
         return undefined;
       },
     },
@@ -44,12 +44,12 @@ test("FleetView ignores stale stop and steer actions", async () => {
     mode: "tui",
     ui: {
       setWidget() {}, onTerminalInput: () => () => {}, getEditorText: () => "", input: async () => "late",
-      custom: async (factory: any) => { factory({ requestRender() {} }, theme, { matches: () => false }, (action: any) => { done(action); }); done("stop"); return "stop"; },
+      custom: async (factory: any) => { const component = factory({ terminal: { rows: 30 }, requestRender() {} }, theme, { matches: () => false }, () => {}); component.handleInput("x"); component.handleInput("x"); component.dispose(); return undefined; },
     },
   };
   const fleet = new FleetView(); fleet.bind(ctx, manager, "project"); await fleet.open(ctx, manager, completed.id);
   ctx.ui.custom = async (factory: any) => { factory({ requestRender() {} }, theme, { matches: () => false }, (action: any) => { done(action); }); done("steer"); return "steer"; };
-  await fleet.open(ctx, manager, completed.id);
+  ctx.ui.custom = async (factory: any) => { const component = factory({ terminal: { rows: 30 }, requestRender() {} }, theme, { matches: () => false }, () => {}); component.handleInput("\r"); for (const char of "late") component.handleInput(char); component.handleInput("\r"); component.dispose(); return undefined; };
   assert.equal(aborts, 0); assert.equal(steers, 0); fleet.dispose();
 });
 

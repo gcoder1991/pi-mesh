@@ -4,12 +4,8 @@ import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, truncateHead, type ExtensionAPI }
 import { Type } from "typebox";
 import { ackMessage, growthProposals, messages, putGrowth, putMessage, readJson, runFile, type ControlMessage, type GrowthProposal } from "./store.ts";
 import type { MeshRun, MeshTask } from "./manager.ts";
+import { MeshTaskSchema } from "./schemas.ts";
 
-const TaskSchema = Type.Object({
-  id: Type.Optional(Type.String({ maxLength: 64 })), agent: Type.String({ minLength: 1, maxLength: 128 }), task: Type.String({ minLength: 1, maxLength: 65536 }),
-  dependsOn: Type.Optional(Type.Array(Type.String({ maxLength: 64 }), { maxItems: 64 })), cwd: Type.Optional(Type.String({ maxLength: 4096 })), model: Type.Optional(Type.String({ maxLength: 256 })),
-  timeoutMs: Type.Optional(Type.Integer({ minimum: 100, maximum: 3_600_000 })), retries: Type.Optional(Type.Integer({ minimum: 0, maximum: 5 })), integration: Type.Optional(Type.Boolean()),
-}, { additionalProperties: false });
 
 function boundedJson(value: unknown): string {
   const result = truncateHead(JSON.stringify(value), { maxBytes: DEFAULT_MAX_BYTES, maxLines: DEFAULT_MAX_LINES });
@@ -23,7 +19,7 @@ function boundedDetails(value: Record<string, unknown>): Record<string, unknown>
 const Params = Type.Object({
   action: StringEnum(["send", "broadcast", "reply", "inbox", "ack", "grow"] as const),
   to: Type.Optional(Type.String({ maxLength: 64 })), content: Type.Optional(Type.String({ maxLength: 1_048_576 })), messageId: Type.Optional(Type.String({ maxLength: 128 })),
-  reason: Type.Optional(Type.String({ maxLength: 16384 })), tasks: Type.Optional(Type.Array(TaskSchema, { minItems: 1, maxItems: 16 })),
+  reason: Type.Optional(Type.String({ maxLength: 16384 })), tasks: Type.Optional(Type.Array(MeshTaskSchema, { minItems: 1, maxItems: 16 })),
 }, { additionalProperties: false });
 
 export default function registerMeshControl(pi: ExtensionAPI): void {

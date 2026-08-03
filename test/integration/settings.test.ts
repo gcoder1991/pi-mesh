@@ -16,7 +16,7 @@ test("settings cap concurrency/depth and debug writes diagnostics", async () => 
   const oldBinary = process.env[PI_MESH_PI_BINARY_ENV], oldQueue = process.env.PI_MESH_TEST_QUEUE;
   process.env[PI_MESH_PI_BINARY_ENV] = mockPi; process.env.PI_MESH_TEST_QUEUE = queue;
   try {
-    const settings = { maxAgentDepth: 2, maxConcurrentAgents: 1, maxNodes: 4, messagePayloadMaxBytes: 32768, recipientUnreadMaxBytes: 1048576, childExtensions: {}, childSkills: {}, joinMode: "smart" as const, debug: true };
+    const settings = { maxAgentDepth: 2, maxConcurrentAgents: 1, maxNodes: 4, messagePayloadMaxBytes: 32768, recipientUnreadMaxBytes: 1048576, childExtensions: {}, childSkills: {}, joinMode: "smart" as const, debug: true, retentionDays: 30, maxTerminalRuns: 100, debugMaxBytes: 4 * 1024 * 1024 };
     const manager = new MeshManager((name) => agent(name), settings);
     await assert.rejects(() => manager.start({ cwd: root, maxConcurrency: 2, tasks: [{ agent: "worker", task: "x" }] }), /maxConcurrency must be 1-1/);
     await assert.rejects(() => manager.start({ cwd: root, tasks: [{ agent: "worker", task: "x", cwd: path.join(root, "..", "outside") }] }), /ENOENT|Task cwd must remain inside the run root/);

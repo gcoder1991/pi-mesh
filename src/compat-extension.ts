@@ -11,7 +11,9 @@ import { defaultMeshSettings, loadMeshSettings } from "./settings.ts";
 import { SessionAgentManager, type SessionAgentRecord } from "./session-agents.ts";
 import { AgentScheduler } from "./scheduler.ts";
 import { FleetView } from "./fleet-view.ts";
+import { sessionFleetLimiter } from "./fleet-limiter.ts";
 import { registerSubagentRpc } from "./subagent-rpc.ts";
+import { showSchedulesMenu } from "./schedule-menu.ts";
 
 const agentParams = Type.Object({
   prompt: Type.String({ description: "Task for the autonomous agent." }),
@@ -57,7 +59,7 @@ export function registerCompatibilityTools(pi: ExtensionAPI, fleet = new FleetVi
     if (!entry) {
       const settings = loadMeshSettings(root, process.env, trusted);
       const notifier = new CompletionNotifier(pi, settings);
-      const manager = new SessionAgentManager(settings, root, undefined, sessionId);
+      const manager = new SessionAgentManager(settings, root, undefined, sessionId, sessionFleetLimiter(sessionId, settings.maxConcurrentAgents));
       manager.setOnStart((record) => pi.events.emit("subagents:started", { id: record.id, type: record.agent.name, description: record.description }));
       manager.setOnComplete((record) => {
         const usage = record.result?.usage;
@@ -156,9 +158,12 @@ export function registerCompatibilityTools(pi: ExtensionAPI, fleet = new FleetVi
       const { manager, trusted, root } = managerFor(ctx);
       const agents = discoverAgents(root, { scope: "all", includeProject: trusted, projectRoot: root });
       const running = manager.list();
-      const choice = await ctx.ui.select("Agents", ["Running agents", "Agent types", "Create project agent", "Settings"]);
+      const scheduler = schedulers.get(`${root}\0${ctx.sessionManager.getSessionId()}`);
+      const choice = await ctx.ui.select("Agents", ["Running agents", "Agent types", "Scheduled jobs", "Create project agent", "Settings"]);
       if (choice === "Running agents") {
         await fleet.select(ctx, manager);
+      } else if (choice === "Scheduled jobs") {
+        await showSchedulesMenu(ctx, scheduler);
       } else if (choice === "Agent types") {
         const selected = await ctx.ui.select("Agent types", agents.map((agent) => `${agent.name} · ${agent.source} · ${agent.description}`));
         if (selected) {

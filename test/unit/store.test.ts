@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { ackMessage, atomicWrite, growthProposals, messages, putGrowth, putMessage, readJson } from "../../src/store.ts";
+import { ackMessage, atomicWrite, growthProposals, messages, pruneMeshState, putGrowth, putMessage, readJson } from "../../src/store.ts";
 
 test("durably sends and acknowledges mailbox messages", () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-store-"));
@@ -28,6 +28,33 @@ test("enforces mailbox payload and unread byte limits", () => {
   } finally { fs.rmSync(cwd, { recursive: true, force: true }); }
 });
 
+test("recovers stale mailbox recipient locks", () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-mailbox-stale-lock-"));
+  try {
+    const dir = path.join(cwd, ".pi", "mesh", "messages", "r1");
+    const lock = path.join(dir, `.recipient-${Buffer.from("b").toString("hex")}.lock`);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(lock, "stale");
+    const old = new Date(Date.now() - 61_000);
+    fs.utimesSync(lock, old, old);
+    putMessage(cwd, { id: "m1", runId: "r1", from: "a", to: "b", content: "hello", createdAt: 1 }, { payloadMaxBytes: 8, recipientUnreadMaxBytes: 8 });
+    assert.equal(messages(cwd, "r1")[0]?.content, "hello");
+    assert.equal(fs.existsSync(lock), false);
+  } finally { fs.rmSync(cwd, { recursive: true, force: true }); }
+});
+
+test("does not steal an active mailbox recipient lock", () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-mailbox-active-lock-"));
+  try {
+    const dir = path.join(cwd, ".pi", "mesh", "messages", "r1");
+    const lock = path.join(dir, `.recipient-${Buffer.from("b").toString("hex")}.lock`);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(lock, "active");
+    assert.throws(() => putMessage(cwd, { id: "m1", runId: "r1", from: "a", to: "b", content: "hello", createdAt: 1 }, { payloadMaxBytes: 8, recipientUnreadMaxBytes: 8 }), /mailbox is busy/);
+    assert.equal(fs.existsSync(lock), true);
+  } finally { fs.rmSync(cwd, { recursive: true, force: true }); }
+});
+
 test("reports corrupted JSON instead of treating it as missing", () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-corrupt-"));
   try {
@@ -47,5 +74,21 @@ test("durably records growth decisions", () => {
     proposal.status = "denied";
     putGrowth(cwd, proposal);
     assert.equal(growthProposals(cwd, "r1")[0].status, "denied");
+  } finally { fs.rmSync(cwd, { recursive: true, force: true }); }
+});
+
+test("prunes old terminal run state while preserving active runs", () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-prune-"));
+  try {
+    const root = path.join(cwd, ".pi", "mesh");
+    for (const [id, status, finishedAt] of [["old", "succeeded", 1], ["new", "failed", Date.now()], ["active", "running", 1]] as const) {
+      atomicWrite(path.join(root, "runs", `${id}.json`), { id, status, finishedAt, updatedAt: finishedAt });
+      fs.mkdirSync(path.join(root, "artifacts", id), { recursive: true });
+    }
+    assert.deepEqual(pruneMeshState(cwd, { retentionDays: 30, maxTerminalRuns: 10 }), { removedRuns: 1 });
+    assert.equal(fs.existsSync(path.join(root, "runs", "old.json")), false);
+    assert.equal(fs.existsSync(path.join(root, "artifacts", "old")), false);
+    assert.equal(fs.existsSync(path.join(root, "runs", "new.json")), true);
+    assert.equal(fs.existsSync(path.join(root, "runs", "active.json")), true);
   } finally { fs.rmSync(cwd, { recursive: true, force: true }); }
 });

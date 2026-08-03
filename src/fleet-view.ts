@@ -1,8 +1,9 @@
 import type { ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
-import { Editor, isKeyRelease, Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import { Editor, isKeyRelease, Key, matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import type { MeshManager } from "./manager.ts";
 import type { Usage } from "./pi-process.ts";
 import type { SessionAgentManager, SessionAgentRecord } from "./session-agents.ts";
+import { ConversationViewer } from "./conversation-viewer.ts";
 
 const TICK_MS = 200;
 const FINISHED_LINGER_MS = 5000;
@@ -132,7 +133,7 @@ export class FleetView {
   private renderPanel(width: number, theme: Theme): string[] {
     const records = this.records();
     if (!records.length) return [];
-    const hint = this.active ? "↑↓ select · enter view · esc back" : "esc to interrupt · ← for agents · ↓ to manage";
+    const hint = this.active ? "↑↓ select · enter view · esc back" : "←/↓ open agents · esc still interrupts main";
     const lines = [truncateToWidth(`  ${theme.fg("dim", hint)}`, width), "", truncateToWidth(`  ${this.selected === 0 ? theme.fg("accent", "●") : theme.fg("dim", "○")} main`, width)];
     const visible = Math.min(MAX_ROWS, records.length);
     const selectedAgent = Math.max(0, this.selected - 1);
@@ -193,36 +194,26 @@ export class FleetView {
     if (ctx.mode !== "tui") return;
     this.viewerOpen = true;
     try {
-      const action = await ctx.ui.custom<"steer" | "stop" | undefined>((tui, theme, keybindings, done) => {
-        let scroll = 0; let disposed = false;
-        const component = {
-          render: (width: number): string[] => {
-            const current = this.records().find((item) => item.key === record.key) ?? record;
-            const body = wrapTextWithAnsi(current.conversation(), Math.max(1, width - 4));
-            const max = Math.max(0, body.length - 16); scroll = Math.min(scroll, max);
-            return [
-              truncateToWidth(theme.fg("accent", theme.bold(`${current.agent} · ${current.status}`)), width),
-              truncateToWidth(theme.fg("dim", `${current.description} · ${current.id}`), width), "",
-              ...body.slice(scroll, scroll + 16).map((line) => truncateToWidth(`  ${line}`, width)), "",
-              truncateToWidth(theme.fg("dim", `${scroll > 0 ? "↑ " : ""}${scroll < max ? "↓ " : ""}j/k scroll · s steer · x stop · esc close`), width),
-            ];
-          },
-          handleInput: (data: string): void => {
-            if (keybindings.matches(data, "tui.select.cancel")) return done(undefined);
-            if (keybindings.matches(data, "tui.select.up") || matchesKey(data, "k")) scroll = Math.max(0, scroll - 1);
-            else if (keybindings.matches(data, "tui.select.down") || matchesKey(data, "j")) scroll++;
-            else if (matchesKey(data, "s")) return done("steer");
-            else if (matchesKey(data, "x")) return done("stop");
-            tui.requestRender();
-          },
-          invalidate(): void {}, dispose(): void { disposed = true; clearInterval(timer); },
-        };
-        const timer = setInterval(() => { if (!disposed) tui.requestRender(); }, 250); timer.unref?.();
-        return component;
-      }, { overlay: true, overlayOptions: { anchor: "right-center", width: "70%", minWidth: 52, maxHeight: "80%", visible: (width) => width >= 60 } });
-      const current = this.records().find((item) => item.key === record.key);
-      if (action === "stop" && current && ["running", "queued", "paused"].includes(current.status)) current.stop();
-      if (action === "steer" && current?.status === "running") { const message = await ctx.ui.input("Steer agent", "New instruction"); if (message) current.steer(message); }
+      await ctx.ui.custom<undefined>((tui, theme, keybindings, done) => new ConversationViewer(
+        tui,
+        theme,
+        keybindings,
+        () => {
+          const current = this.records().find((item) => item.key === record.key) ?? record;
+          const usage = current.usage ?? current.activity?.usage;
+          return {
+            ...current,
+            turns: current.activity?.turns,
+            toolUses: current.activity?.toolUses,
+            tokens: usage ? usage.input + usage.output + usage.cacheWrite : 0,
+            activeTools: current.activity?.activeTools,
+            responseText: current.activity?.responseText,
+          };
+        },
+        () => done(undefined),
+        () => { const current = this.records().find((item) => item.key === record.key); if (current && ["running", "queued", "paused"].includes(current.status)) current.stop(); },
+        (message) => { const current = this.records().find((item) => item.key === record.key); if (current?.status === "running") current.steer(message); },
+      ), { overlay: true, overlayOptions: { anchor: "center", width: "90%", minWidth: 52, maxHeight: "70%", visible: (width) => width >= 60 } });
     } finally { this.viewerOpen = false; this.render(); }
   }
 

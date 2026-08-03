@@ -11,7 +11,7 @@ test("cross-extension RPC exposes ping, spawn, and stop envelopes", async () => 
   const old = { binary: process.env.PI_MESH_PI_BINARY, queue: process.env.PI_MESH_TEST_QUEUE }; process.env.PI_MESH_PI_BINARY = mockPi; process.env.PI_MESH_TEST_QUEUE = queue;
   const harness = extensionHarness(); const ctx = context(root);
   for (const handler of harness.handlers.get("pi:session_start") ?? []) await handler({}, ctx);
-  assert.ok(harness.emitted.some((item) => item.event === "subagents:ready" && item.payload.version === 2));
+  assert.ok(harness.emitted.some((item) => item.event === "subagents:ready" && item.payload.version === 2 && item.payload.trust === "trusted-extension-event-bus"));
   try {
     let ping: any; harness.pi.events.on("subagents:rpc:ping:reply:p", (value: any) => { ping = value; }); harness.pi.events.emit("subagents:rpc:ping", { requestId: "p" }); assert.equal(ping.success, true); assert.equal(ping.data.version, 2);
     fs.writeFileSync(path.join(queue, "pending-001.json"), JSON.stringify({ output: "rpc", delay: 500 }));
