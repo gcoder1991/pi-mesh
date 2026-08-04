@@ -2,12 +2,14 @@ import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { StringEnum } from "@earendil-works/pi-ai";
-import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, truncateHead, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, truncateHead, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { discoverAgents, type AgentDefinition, type AgentScope } from "./agents.ts";
 import { registerCompatibilityTools } from "./compat-extension.ts";
 import { FleetView } from "./fleet-view.ts";
+import { registerHerdrSidebar } from "./herdr-sidebar.ts";
+import { manageHerdrTree, type HerdrTreeAction } from "./herdr-tree.ts";
 import { sessionFleetLimiter } from "./fleet-limiter.ts";
 import { MeshManager, type MeshRun, type MeshTask } from "./manager.ts";
 import { loadMeshSettings, type MeshSettings } from "./settings.ts";
@@ -100,6 +102,13 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
     return entry;
   };
   const fleet = new FleetView();
+  const herdrSidebar = registerHerdrSidebar({
+    events: pi.events,
+    getAgents: () => [...managers.values()].flatMap(({ manager }) => manager.list().flatMap((run) => run.nodes
+      .filter((node) => ["queued", "running", "paused"].includes(node.status))
+      .map((node) => ({ id: `${run.id}/${node.id}`, agent: node.agent, status: node.status })))),
+    runHerdr: (args) => pi.exec(process.env.HERDR_BIN || "herdr", [...args], { timeout: 5_000 }).then(() => {}),
+  });
   pi.registerTool({
     name: "mesh", label: "Mesh",
     description: "Host-owned persistent child-agent mesh for complex, parallel, or broad work, with dynamically discovered specialized agents, dependency graphs, optional Git worktree isolation, retries, recovery, mailbox, and host-approved growth.",
@@ -250,6 +259,35 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
       pi.sendUserMessage(`You must execute this request through the mesh tool. Do not solve it directly and do not use the standalone Agent tool. First call mesh with action \"list_agents\", then create and run an appropriate mesh DAG for this task in the foreground (omit async or set async=false). The foreground mesh call already waits and streams progress; do not poll with mesh status/list and do not steer unless the user explicitly asks. After it returns, inspect node evidence and synthesize the final answer.\n\nTask:\n${task}`);
     },
   });
+  const openMeshTree = async (action: HerdrTreeAction, ctx: ExtensionContext): Promise<void> => {
+    if (process.env.HERDR_ENV !== "1" || !process.env.HERDR_PANE_ID) return void ctx.ui.notify("Mesh tree requires Pi to run inside Herdr 0.7.5+.", "warning");
+    const result = await manageHerdrTree(action, ctx.cwd, (args) => pi.exec(process.env.HERDR_BIN || "herdr", args, { timeout: 15_000 }));
+    ctx.ui.notify(result.message, result.ok ? "info" : "error");
+  };
+  pi.registerCommand("mesh-tree", {
+    description: "Open, inspect, or close the Herdr Mesh dependency tree",
+    handler: async (args, ctx) => {
+      const action = (args.trim() || "open") as HerdrTreeAction;
+      if (!["open", "status", "close"].includes(action)) return void ctx.ui.notify("Usage: /mesh-tree [open|status|close]", "warning");
+      await openMeshTree(action, ctx);
+    },
+  });
+  pi.registerShortcut("ctrl+shift+m", { description: "Open the Herdr Mesh tree", handler: (ctx) => openMeshTree("open", ctx) });
   const shutdownSubagents = registerCompatibilityTools(pi, fleet);
-  pi.on("session_shutdown", async () => { await Promise.allSettled([...managers.values()].map(({ manager }) => manager.shutdown())); for (const { notifier } of managers.values()) notifier.dispose(); managers.clear(); await shutdownSubagents(); });
+  pi.on("session_start", (_event, ctx) => {
+    herdrSidebar.sessionStarted(ctx.hasUI === true);
+    if (!ctx.hasUI) return;
+    const trusted = ctx.isProjectTrusted?.() ?? false;
+    const sessionId = ctx.sessionManager.getSessionId();
+    const { manager } = currentManager(ctx.cwd, trusted, sessionId, ctx.modelRegistry);
+    fleet.bindMesh(ctx, manager, `${fs.realpathSync(path.resolve(ctx.cwd))}\0${trusted}\0${sessionId}`);
+  });
+  pi.on("session_shutdown", async () => {
+    herdrSidebar.dispose();
+    await Promise.allSettled([...managers.values()].map(({ manager }) => manager.shutdown()));
+    for (const { notifier } of managers.values()) notifier.dispose();
+    managers.clear();
+    await shutdownSubagents();
+    await herdrSidebar.flush();
+  });
 }
