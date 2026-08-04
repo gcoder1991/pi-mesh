@@ -26,7 +26,7 @@ It intentionally drops Astralink's ACP/text-frame protocol, protocol digests, re
 ## Install
 
 ```bash
-pi install /absolute/path/to/pi-mesh
+pi install npm:@gcoder1991/pi-mesh
 ```
 
 For development:

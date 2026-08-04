@@ -1,9 +1,18 @@
 {
-  "name": "pi-mesh",
+  "name": "@gcoder1991/pi-mesh",
   "version": "0.1.0",
   "description": "Host-owned child-agent mesh for Pi, exposed as typed extension tools",
   "license": "MIT",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gcoder1991/pi-mesh.git"
+  },
+  "homepage": "https://github.com/gcoder1991/pi-mesh#readme",
+  "bugs": "https://github.com/gcoder1991/pi-mesh/issues",
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": "./index.ts"
   },
