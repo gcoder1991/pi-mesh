@@ -133,6 +133,7 @@ export class FleetView {
   private renderPanel(width: number, theme: Theme): string[] {
     const records = this.records();
     if (!records.length) return [];
+    this.selected = Math.min(this.selected, records.length);
     const hint = this.active ? "↑↓ select · enter view · esc back" : "←/↓ open agents · esc still interrupts main";
     const lines = [truncateToWidth(`  ${theme.fg("dim", hint)}`, width), "", truncateToWidth(`  ${this.selected === 0 ? theme.fg("accent", "●") : theme.fg("dim", "○")} main`, width)];
     const visible = Math.min(MAX_ROWS, records.length);

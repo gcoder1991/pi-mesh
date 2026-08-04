@@ -38,6 +38,28 @@ test("FleetView renders a navigable main panel and conversation overlay", async 
   fleet.dispose();
 });
 
+test("FleetView clamps a stale selection when records shrink before rendering", () => {
+  let widgetFactory: any; let inputHandler: any;
+  let records = Array.from({ length: 6 }, (_, index) => ({ ...record, id: `agent-${index}`, agent: { name: `worker-${index}` } }));
+  const manager = { list: () => records } as any;
+  const ctx: any = {
+    mode: "tui",
+    ui: {
+      setWidget: (_key: string, value: any) => { widgetFactory = value; },
+      onTerminalInput: (handler: any) => { inputHandler = handler; return () => {}; },
+      getEditorText: () => "",
+    },
+  };
+  const fleet = new FleetView(); fleet.bind(ctx, manager, "project");
+  const component = widgetFactory({ requestRender() {} }, theme);
+  inputHandler("\u001b[B");
+  for (let index = 0; index < 6; index++) inputHandler("\u001b[B");
+  records = records.slice(0, 1);
+  assert.doesNotThrow(() => component.render(100));
+  assert.match(component.render(100).join("\n"), /worker-0/);
+  fleet.dispose();
+});
+
 test("FleetView ignores stale stop and steer actions", async () => {
   let aborts = 0; let steers = 0; let done: (action: "steer" | "stop" | undefined) => void = () => {};
   const completed = { ...record, status: "completed", completedAt: Date.now() };
