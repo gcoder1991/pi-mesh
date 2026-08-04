@@ -22,7 +22,8 @@ test("registers one mesh tool with strict actions", () => {
   assert.ok(tool.promptGuidelines.some((guideline: string) => guideline.includes("action list_agents")));
   assert.ok(tool.promptGuidelines.some((guideline: string) => guideline.includes("routing contract")));
   assert.ok(tool.promptGuidelines.some((guideline: string) => guideline.includes("Do not duplicate work")));
-  assert.deepEqual(tool.parameters.properties.action.enum, ["list_agents", "run", "status", "list", "cancel", "pause", "resume", "recover", "steer", "handoff_list", "message_send", "message_broadcast", "message_inbox", "message_ack", "growth_list", "growth_decide"]);
+  assert.ok(tool.promptGuidelines.some((guideline: string) => guideline.includes("retry_failed")));
+  assert.deepEqual(tool.parameters.properties.action.enum, ["list_agents", "run", "status", "list", "cancel", "pause", "resume", "retry_failed", "recover", "steer", "handoff_list", "message_send", "message_broadcast", "message_inbox", "message_ack", "growth_list", "growth_decide"]);
   assert.ok(events.includes("session_shutdown"));
 });
 

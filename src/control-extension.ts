@@ -41,7 +41,11 @@ export default function registerMeshControl(pi: ExtensionAPI): void {
       if (!run || !caller || caller.status !== "running" || caller.attempt !== attempt || run.status !== "running") throw new Error("Mesh child identity is no longer active");
       if (params.action === "inbox") {
         const inbox = messages(root, runId).filter((message) => message.to === nodeId && !message.ackedAt);
-        const proposals = growthProposals<MeshTask[]>(root, runId).filter((proposal) => proposal.requester === nodeId);
+        const proposals = growthProposals<MeshTask[]>(root, runId).filter((proposal) => proposal.requester === nodeId).map((proposal) => {
+          const nodes = (proposal.committedNodeIds ?? []).map((id) => run.nodes.find((node) => node.id === id)).filter((node): node is MeshRun["nodes"][number] => Boolean(node));
+          return { ...proposal, counts: nodes.reduce<Record<string, number>>((counts, node) => { counts[node.status] = (counts[node.status] ?? 0) + 1; return counts; }, {}),
+            nodes: nodes.map((node) => ({ id: node.id, status: node.status, attempt: node.attempt, error: node.error, outputPath: node.outputPath, attemptResultPath: node.attemptResultPath, diagnosticPath: node.diagnosticPath })) };
+        });
         return { content: [{ type: "text", text: boundedJson({ inbox, growth: proposals }) }], details: boundedDetails({ inboxCount: inbox.length, growthCount: proposals.length, inbox: inbox.slice(0, 256), growth: proposals.slice(0, 256) }) };
       }
       if (params.action === "ack") {

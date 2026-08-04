@@ -18,7 +18,7 @@ import { MeshTaskSchema } from "./schemas.ts";
 
 
 const MeshParams = Type.Object({
-  action: StringEnum(["list_agents", "run", "status", "list", "cancel", "pause", "resume", "recover", "steer", "handoff_list", "message_send", "message_broadcast", "message_inbox", "message_ack", "growth_list", "growth_decide"] as const),
+  action: StringEnum(["list_agents", "run", "status", "list", "cancel", "pause", "resume", "retry_failed", "recover", "steer", "handoff_list", "message_send", "message_broadcast", "message_inbox", "message_ack", "growth_list", "growth_decide"] as const),
   scope: Type.Optional(StringEnum(["bundled", "user", "project", "all"] as const)),
   tasks: Type.Optional(Type.Array(MeshTaskSchema, { minItems: 1, maxItems: 32 })),
   runId: Type.Optional(Type.String({ description: "Existing run ID; required for run-scoped actions." })),
@@ -43,6 +43,12 @@ function resolveTaskModels(tasks: MeshTask[], registry: Parameters<typeof resolv
 }
 function runCounts(run: MeshRun): Record<string, number> {
   return run.nodes.reduce<Record<string, number>>((counts, node) => { counts[node.status] = (counts[node.status] ?? 0) + 1; return counts; }, {});
+}
+function growthReceipt(proposal: GrowthProposal<MeshTask[]>, run: MeshRun): Record<string, unknown> {
+  const nodeIds = proposal.committedNodeIds ?? [];
+  const nodes = nodeIds.map((id) => run.nodes.find((node) => node.id === id)).filter((node): node is MeshRun["nodes"][number] => Boolean(node));
+  return { ...proposal, counts: nodes.reduce<Record<string, number>>((counts, node) => { counts[node.status] = (counts[node.status] ?? 0) + 1; return counts; }, {}),
+    nodes: nodes.map((node) => ({ id: node.id, status: node.status, attempt: node.attempt, error: node.error, outputPath: node.outputPath, attemptResultPath: node.attemptResultPath, diagnosticPath: node.diagnosticPath })) };
 }
 function compactRun(run: MeshRun, includeNodes = false): Record<string, unknown> {
   return { id: run.id, status: run.status, revision: run.revision, cwd: run.cwd, operator: run.operator, counts: runCounts(run), nodeCount: run.nodes.length, checkpointPath: runFile(run.cwd, run.id), finishedAt: run.finishedAt,
@@ -98,6 +104,7 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
       "Before the first mesh run in a project, or whenever agent selection is uncertain, call mesh with action list_agents and choose from the returned bundled, user, and project agents. Treat each description as the agent's routing contract; do not infer capabilities from its name alone.",
       "Use mesh when work has independent branches, needs specialized review, or broad exploration would flood the main context. Use direct read, grep, and find tools when the target is already known and narrow.",
       "Do not duplicate work already delegated to mesh nodes. Consume their bounded evidence and synthesize the results.",
+      "If a run partially fails, call retry_failed on that run instead of creating replacement IDs or resubmitting successful nodes.",
       "In mesh, only the host approves growth. Enable mesh worktree mode for parallel writers; it requires a clean Git checkout. Use mesh recover after reopening a project to restart interrupted runs.",
     ],
     parameters: MeshParams,
@@ -159,6 +166,11 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
         if (!manager.pause(params.runId!)) throw new Error("Run is not pausable");
         return { content: [{ type: "text", text: `Paused ${params.runId}. Running children finish; queued children wait.` }], details: boundedDetails({ action: params.action, run: compactRun(run!) }) };
       }
+      if (params.action === "retry_failed") {
+        const update = (value: MeshRun) => onUpdate?.({ content: [{ type: "text", text: `${value.nodes.filter((node) => terminalNodeStatuses.has(node.status)).length}/${value.nodes.length} complete` }], details: boundedDetails({ action: params.action, run: compactRun(value) }) });
+        const completed = await manager.retryFailed(params.runId!, signal, update);
+        return { content: [{ type: "text", text: summarize(completed) }], details: boundedDetails({ action: params.action, run: compactRun(completed, true) }), usage: piUsage(completed) };
+      }
       if (params.action === "resume") {
         const resumed = manager.resume(params.runId!); void resumed.catch(() => {});
         return { content: [{ type: "text", text: `Resumed ${params.runId}.` }], details: boundedDetails({ action: params.action, run: compactRun(run!) }) };
@@ -185,7 +197,7 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
         return { content: [{ type: "text", text: `Queued ${sent.length} message(s).` }], details: boundedDetails({ action: params.action, messages: sent }) };
       }
       if (params.action === "growth_list") {
-        const proposals = growthProposals<MeshTask[]>(run!.cwd, run!.id);
+        const proposals = growthProposals<MeshTask[]>(run!.cwd, run!.id).map((proposal) => growthReceipt(proposal, run!));
         return { content: [{ type: "text", text: boundedText(JSON.stringify(proposals), runFile(run!.cwd, run!.id)) }], details: boundedDetails({ action: params.action, count: proposals.length, proposals: proposals.slice(0, 256) }) };
       }
       if (params.action === "growth_decide") {
@@ -200,11 +212,14 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
           if (denied.length) throw new Error(`Growth proposal requests unauthorized agents: ${[...new Set(denied)].join(", ")}`);
         }
         if (params.decision === "approve") {
-          try { proposal.tasks = resolveTaskModels(proposal.tasks, ctx.modelRegistry); manager.grow(run!.id, proposal.requester, proposal.tasks); proposal.status = "committed"; }
-          catch (error) { proposal.status = "denied"; proposal.error = error instanceof Error ? error.message : String(error); }
+          try {
+            proposal.tasks = resolveTaskModels(proposal.tasks, ctx.modelRegistry);
+            proposal.committedNodeIds = manager.grow(run!.id, proposal.requester, proposal.tasks).map((node) => node.id);
+            proposal.status = "committed";
+          } catch (error) { proposal.status = "denied"; proposal.error = error instanceof Error ? error.message : String(error); }
         } else proposal.status = "denied";
         proposal.decidedAt = Date.now(); putGrowth(run!.cwd, proposal as GrowthProposal<MeshTask[]>);
-        return { content: [{ type: "text", text: `Growth ${proposal.status}: ${proposal.id}.` }], details: boundedDetails({ action: params.action, proposal, run: compactRun(run!) }) };
+        return { content: [{ type: "text", text: `Growth ${proposal.status}: ${proposal.id}.` }], details: boundedDetails({ action: params.action, proposal: growthReceipt(proposal, run!), run: compactRun(run!) }) };
       }
 
       if (!params.tasks?.length) throw new Error("tasks is required for run");

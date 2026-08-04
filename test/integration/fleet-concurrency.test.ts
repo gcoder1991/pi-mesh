@@ -27,7 +27,7 @@ test("direct agents and mesh nodes share one session fleet cap", async () => {
     const mesh = new MeshManager(() => agent, settings, limiter);
     const record = direct.spawn(agent, "direct", "direct", root, {});
     const pending = mesh.start({ cwd: root, tasks: [{ id: "node", agent: "worker", task: "mesh" }] });
-    await new Promise((resolve) => setTimeout(resolve, 40));
+    for (let i = 0; i < 100 && fs.readdirSync(queue).filter((name) => name.startsWith("call-")).length < 1; i++) await new Promise((resolve) => setTimeout(resolve, 10));
     assert.equal(fs.readdirSync(queue).filter((name) => name.startsWith("call-")).length, 1);
     assert.equal(mesh.list()[0]?.nodes[0]?.status, "running");
     await record.promise;

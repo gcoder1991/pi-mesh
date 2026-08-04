@@ -25,6 +25,7 @@ export interface GrowthProposal<T = unknown> {
   requesterAttempt: number;
   createdAt: number;
   decidedAt?: number;
+  committedNodeIds?: string[];
   error?: string;
 }
 

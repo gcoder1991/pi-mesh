@@ -55,6 +55,16 @@ test("child control extension proposes fenced growth and uses graph membership",
     const checkpoint = JSON.parse(fs.readFileSync(runFile(fx.root, run.id), "utf8")); checkpoint.status = "paused"; checkpoint.nodes[0].status = "paused"; atomicWrite(runFile(fx.root, run.id), checkpoint);
     const decided = await execute(meshTool, fx.root, { action: "growth_decide", runId: run.id, proposalId: proposal.id, decision: "approve" });
     assert.match(decided.content[0].text, /Growth committed/);
+    assert.deepEqual(decided.details.proposal.committedNodeIds, ["review"]);
+    assert.deepEqual(decided.details.proposal.counts, { paused: 1 });
+    assert.deepEqual(decided.details.proposal.nodes.map((node: any) => [node.id, node.status]), [["review", "paused"]]);
+    const listed = await execute(meshTool, fx.root, { action: "growth_list", runId: run.id });
+    assert.deepEqual(listed.details.proposals[0].committedNodeIds, ["review"]);
+    assert.deepEqual(listed.details.proposals[0].counts, { paused: 1 });
+    const activeCheckpoint = JSON.parse(fs.readFileSync(runFile(fx.root, run.id), "utf8")); activeCheckpoint.status = "running"; activeCheckpoint.nodes[0].status = "running"; atomicWrite(runFile(fx.root, run.id), activeCheckpoint);
+    const inboxReceipt: any = await control.execute("e2e", { action: "inbox" }, new AbortController().signal, undefined, { cwd: fx.root } as any);
+    assert.deepEqual(inboxReceipt.details.growth[0].committedNodeIds, ["review"]);
+    assert.deepEqual(inboxReceipt.details.growth[0].counts, { paused: 1 });
     const staleRun = JSON.parse(fs.readFileSync(runFile(fx.root, run.id), "utf8")); staleRun.status = "running"; staleRun.nodes[0].status = "running"; staleRun.nodes[0].attempt = 1; atomicWrite(runFile(fx.root, run.id), staleRun);
     await control.execute("e2e", { action: "grow", reason: "review stale", tasks: [{ id: "review-stale", agent: "reviewer", task: "review" }] }, new AbortController().signal, undefined, { cwd: fx.root } as any);
     const staleProposal = growthProposals(fx.root, run.id).find((item) => item.id !== proposal.id)!; const latestRun = JSON.parse(fs.readFileSync(runFile(fx.root, run.id), "utf8")); latestRun.revision = staleProposal.baseRevision + 1; atomicWrite(runFile(fx.root, run.id), latestRun);

@@ -92,6 +92,41 @@ test("failFast cancels queued dependents after failure", async () => withMock(as
   assert.equal(diagnostic.outputPath, run.nodes[0].outputPath);
 }));
 
+test("retryFailed reruns only unsuccessful nodes", async () => withMock(async (queue) => {
+  queueResponse(queue, 1, { output: "ok" });
+  queueResponse(queue, 2, { output: "bad", stderr: "boom", exitCode: 1 });
+  const manager = new MeshManager((name) => agent(name));
+  const first = await manager.start({ cwd: process.cwd(), operator: "parallel", tasks: [
+    { id: "EPIC-01", agent: "worker", task: "ok" },
+    { id: "EPIC-06", agent: "worker", task: "bad" },
+  ] });
+  assert.equal(first.status, "failed");
+  assert.deepEqual(first.nodes.map((node) => [node.id, node.status, node.attempt]), [["EPIC-01", "succeeded", 1], ["EPIC-06", "failed", 1]]);
+
+  queueResponse(queue, 3, { output: "fixed" });
+  const retried = await manager.retryFailed(first.id);
+  assert.equal(retried.status, "succeeded");
+  assert.deepEqual(retried.nodes.map((node) => [node.id, node.status, node.attempt]), [["EPIC-01", "succeeded", 1], ["EPIC-06", "succeeded", 2]]);
+  const calls = fs.readdirSync(queue).filter((name) => name.startsWith("call-"));
+  assert.equal(calls.length, 3);
+}));
+
+test("retryFailed reruns skipped dependents but preserves successful prerequisites", async () => withMock(async (queue) => {
+  queueResponse(queue, 1, { output: "base" });
+  queueResponse(queue, 2, { output: "bad", stderr: "boom", exitCode: 1 });
+  const manager = new MeshManager((name) => agent(name));
+  const first = await manager.start({ cwd: process.cwd(), tasks: [
+    { id: "base", agent: "worker", task: "base" },
+    { id: "bad", agent: "worker", task: "bad", dependsOn: ["base"] },
+    { id: "later", agent: "reviewer", task: "later", dependsOn: ["bad"] },
+  ] });
+  assert.deepEqual(first.nodes.map((node) => node.status), ["succeeded", "failed", "skipped"]);
+
+  queueResponse(queue, 3, { output: "fixed" });
+  queueResponse(queue, 4, { output: "done" });
+  const retried = await manager.retryFailed(first.id);
+  assert.deepEqual(retried.nodes.map((node) => [node.status, node.attempt]), [["succeeded", 1], ["succeeded", 2], ["succeeded", 1]]);
+}));
 test("session shutdown aborts active children and leaves the run recoverably paused", async () => withMock(async (queue) => {
   queueResponse(queue, 1, { output: "late", delay: 5000 });
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-shutdown-"));

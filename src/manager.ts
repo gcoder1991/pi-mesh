@@ -243,6 +243,28 @@ export class MeshManager {
     return this.runLoop(run);
   }
 
+  retryFailed(runId: string, signal?: AbortSignal, onUpdate?: (run: MeshRun) => void): Promise<MeshRun> {
+    const run = this.runs.get(runId);
+    if (!run || run.status !== "failed") throw new Error(`Mesh is not failed: ${runId}`);
+    const retryable = run.nodes.filter((node) => node.status !== "succeeded");
+    if (!retryable.length) throw new Error(`Mesh has no unsuccessful nodes: ${runId}`);
+    this.ensureLease(run);
+    const selected = new Set(retryable.map((node) => node.id));
+    for (const node of run.nodes) if (node.status !== "succeeded" && node.dependsOn.some((id) => selected.has(id))) selected.add(node.id);
+    // ponytail: explicit retry is the only path that reopens terminal state; successful nodes stay immutable.
+    for (const node of run.nodes) if (selected.has(node.id)) {
+      node.status = "queued";
+      node.startedAt = undefined;
+      node.finishedAt = undefined;
+      node.activity = undefined;
+    }
+    run.status = "running";
+    run.finishedAt = undefined;
+    this.touch(run);
+    this.debug(run, "failed_nodes_retried", { nodeIds: retryable.map((node) => node.id) });
+    return this.runLoop(run, signal, onUpdate);
+  }
+
   resumeRecovered(runId: string): Promise<MeshRun> {
     const run = this.runs.get(runId);
     if (!run || run.status !== "running") throw new Error(`Mesh is not recoverable: ${runId}`);

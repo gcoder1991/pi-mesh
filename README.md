@@ -161,13 +161,13 @@ Async runs send a deduplicated follow-up notification when they finish. You can 
 
 ```json
 { "action": "status", "runId": "..." }
+{ "action": "retry_failed", "runId": "..." }
 { "action": "cancel", "runId": "..." }
 { "action": "list" }
 ```
+Run checkpoints are stored under `.pi/mesh/runs/`. Every attempt writes machine-readable `attempt-result.json` and human-readable `diagnostic.md` under `.pi/mesh/artifacts/<run>/<node>/attempt-<n>/`; failed-node status output links to both files. Use `retry_failed` after a partial failure: successful nodes stay terminal and only unsuccessful nodes are queued again. On session shutdown, active children are terminated, worktrees are finalized, leases are released, and runs remain paused. After reopening Pi, call `{ "action": "recover" }` for interrupted running Runs, or `resume` for a deliberately/gracefully paused Run. Nodes interrupted without terminal attempt evidence are restarted. Tasks must therefore be idempotent or inspect existing work before writing. Synchronous runs return aggregated nested-model usage to Pi; detached async usage remains available in run/node state and its completion notification.
 
-Run checkpoints are stored under `.pi/mesh/runs/`. Every attempt writes machine-readable `attempt-result.json` and human-readable `diagnostic.md` under `.pi/mesh/artifacts/<run>/<node>/attempt-<n>/`; failed-node status output links to both files. On session shutdown, active children are terminated, worktrees are finalized, leases are released, and runs remain paused. After reopening Pi, call `{ "action": "recover" }` for interrupted running Runs, or `resume` for a deliberately/gracefully paused Run. Nodes interrupted without terminal attempt evidence are restarted. Tasks must therefore be idempotent or inspect existing work before writing. Synchronous runs return aggregated nested-model usage to Pi; detached async usage remains available in run/node state and its completion notification.
-
-Mailbox records live under `.pi/mesh/messages/`, and growth proposals under `.pi/mesh/growth/`. Children receive a restricted `mesh_control` tool for `send`, `broadcast`, `reply`, `inbox`, `ack`, and `grow`. A `grow` call only writes a proposal. The Host must inspect `growth_list` and commit it with `growth_decide`.
+Mailbox records live under `.pi/mesh/messages/`, and growth proposals under `.pi/mesh/growth/`. Children receive a restricted `mesh_control` tool for `send`, `broadcast`, `reply`, `inbox`, `ack`, and `grow`. A `grow` call only writes a proposal. The Host must inspect `growth_list` and commit it with `growth_decide`. Committed growth receipts include the added node IDs, per-node status, and success/failure counts.
 
 Advanced scheduling is selected on `run` with `operator`: `graph`, `sequence`, `parallel`, `race`, `supervisor`, `mixture`, `reflection`, or `debate`. These are DAG topology presets over one shared runtime, not eight independent reasoning protocols: supervisor/mixture use the last task as synthesizer, reflection/debate are bounded sequential chains, and race cancels remaining nodes after the first success. Per-task `retries` and `timeoutMs` cover retry and timeout behavior without a second operator runtime.
 
