@@ -18,6 +18,7 @@ test("loads global mesh settings and project overrides", () => {
     assert.deepEqual(meshSettingsFiles(cwd, { PI_CODING_AGENT_DIR: agentDir }), [path.join(agentDir, "mesh", "settings.yaml"), path.join(cwd, ".pi", "mesh", "settings.yaml")]);
     const globalOnly = loadMeshSettings(cwd, { PI_CODING_AGENT_DIR: agentDir }, false);
     assert.equal(globalOnly.maxConcurrentAgents, 3);
+    assert.equal(globalOnly.maxNodes, 128);
     assert.deepEqual(globalOnly.childExtensions, {});
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });

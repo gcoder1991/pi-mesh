@@ -43,7 +43,7 @@ test("child control extension proposes fenced growth and uses graph membership",
     process.env.PI_MESH_RUN_ID = run.id; process.env.PI_MESH_NODE_ID = "a"; process.env.PI_MESH_ATTEMPT = "1"; process.env.PI_MESH_ROOT = fx.root;
     const { discoverAndLoadExtensions } = await import("@earendil-works/pi-coding-agent");
     const loaded = await discoverAndLoadExtensions([path.resolve("src/control-extension.ts")], fx.root);
-    const control = loaded.extensions[0].tools.get("mesh_control")!.definition;
+    const control = loaded.extensions.flatMap((item) => [...item.tools.values()]).find((item) => item.definition.name === "mesh_control")!.definition;
     await control.execute("e2e", { action: "broadcast", content: "all" }, new AbortController().signal, undefined, { cwd: fx.root } as any);
     assert.deepEqual(messages(fx.root, run.id).map((message) => message.to), ["b"]);
     await assert.rejects(() => control.execute("e2e", { action: "grow", reason: "qa", tasks: [{ id: "qa", agent: "qa", task: "qa" }] }, new AbortController().signal, undefined, { cwd: fx.root } as any), /cannot request growth for: qa/);

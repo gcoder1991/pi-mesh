@@ -12,7 +12,7 @@ MeshManager → the same SubagentRuntime implementation → DAG nodes
 It keeps:
 
 - host-owned child-agent management
-- isolated Pi child processes
+- isolated in-process Pi AgentSessions with a shared Host ModelRuntime
 - graph, sequence, parallel, race, supervisor/mixture, reflection, and debate operators
 - bounded concurrency, retries, timeouts, and graph size
 - status, pause/resume, cancellation, fail-fast behavior, and result aggregation
@@ -21,7 +21,7 @@ It keeps:
 - atomic run checkpoints and interrupted-run recovery
 - bundled, user, and trusted project agent definitions
 
-It intentionally drops Astralink's ACP/text-frame protocol, protocol digests, repair turns, launch attestations, and transport-session abstraction. Pi tool schemas provide the command envelope; direct child processes provide isolation.
+It intentionally drops Astralink's ACP/text-frame protocol, protocol digests, repair turns, launch attestations, and transport-session abstraction. Pi tool schemas provide the command envelope; in-process AgentSessions reuse the Host's authenticated ModelRuntime.
 
 ## Install
 
@@ -48,7 +48,7 @@ A trusted project may override individual values in `.pi/mesh/settings.yaml`:
 ```yaml
 maxAgentDepth: 8
 maxConcurrentAgents: 8
-maxNodes: 64
+maxNodes: 128
 messagePayloadMaxBytes: 32768
 recipientUnreadMaxBytes: 1048576
 childExtensions: {}
@@ -60,7 +60,7 @@ maxTerminalRuns: 100
 debugMaxBytes: 4194304
 ```
 
-`maxAgentDepth` limits the longest dependency chain, including approved growth. `maxConcurrentAgents` is one shared per-Pi-session cap across Direct Agents, scheduled Agents, Mesh runs, and Mesh nodes; each Run's `maxConcurrency` is an additional per-run cap. `maxNodes` caps a Mesh. Mailbox settings cap each message and each recipient's unacknowledged content. `childExtensions` and `childSkills` map trusted logical names to explicit resource paths. `joinMode` is `smart`, `async`, or `group`. `retentionDays` and `maxTerminalRuns` bound terminal Run state, and `debugMaxBytes` rotates `debug.jsonl` to `debug.jsonl.1`. Settings are session-scoped; use `/reload` after changing them.
+`maxAgentDepth` limits the longest dependency chain, including approved growth. `maxConcurrentAgents` is one shared per-Pi-session cap across Direct Agents, scheduled Agents, Mesh runs, and Mesh nodes; each Run's `maxConcurrency` is an additional per-run cap. `maxNodes` caps a Mesh. Mailbox settings cap each message and each recipient's unacknowledged content. `childExtensions` and `childSkills` map trusted logical names to explicit resource paths. Child AgentSessions share the Host ModelRuntime, so extension-registered providers and authentication are inherited automatically. A Child without an explicit model inherits the Host's active model; task/Agent model pins remain authoritative. `joinMode` is `smart`, `async`, or `group`. `retentionDays` and `maxTerminalRuns` bound terminal Run state, and `debugMaxBytes` rotates `debug.jsonl` to `debug.jsonl.1`. Settings are session-scoped; use `/reload` after changing them.
 
 ## Tools
 
@@ -183,7 +183,9 @@ model: provider/model
 Run the assigned tests and report exact failures. Do not edit files.
 ```
 
-Child launches use `--no-extensions --no-skills`, then add only explicitly approved `-e` and `--skill` resources. Mesh children also load the restricted bundled `mesh_control` extension. They cannot call the Host `mesh` tool recursively. Their ordinary tool allowlist comes from the agent definition.
+Child launches use a `DefaultResourceLoader` with default extension and Skill discovery disabled, then add only explicitly approved Child resources. Mesh AgentSessions receive the restricted `mesh_control` custom tool. They cannot call the Host `mesh` tool recursively. Their ordinary tool allowlist comes from the agent definition.
+
+AgentSession isolation is logical rather than an OS sandbox: Child sessions share the Host process and ModelRuntime but receive separate conversation state, resource loaders, tool scopes, and optional persistent session files.
 
 ## Development
 
@@ -192,4 +194,4 @@ npm install
 npm test
 ```
 
-`PI_MESH_PI_BINARY` can point tests or explicitly controlled installations at a specific Pi executable. Pi extensions are trusted code with the user's full system permissions; the cross-extension RPC event bus therefore assumes trusted co-loaded extensions rather than pretending to sandbox them. Child Pi processes inherit the Host environment so configured providers can authenticate. Use only trusted Agent definitions, Child resources, extensions, and environments.
+`PI_MESH_PI_BINARY` remains an internal test transport override. Pi extensions are trusted code with the user's full system permissions; in-process AgentSessions are not a security sandbox. Use only trusted Agent definitions, Child resources, extensions, and environments.

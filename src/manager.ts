@@ -1,5 +1,5 @@
 import * as crypto from "node:crypto";
-import type { ChildProcess } from "node:child_process";
+import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { AgentDefinition } from "./agents.ts";
@@ -111,10 +111,14 @@ export interface StartRunOptions {
   onUpdate?: (run: MeshRun) => void;
 }
 
+function existingRealpath(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  try { return fs.realpathSync(value); } catch { return undefined; }
+}
+
 export class MeshManager {
   private readonly runs = new Map<string, MeshRun>();
   private readonly controllers = new Map<string, AbortController>();
-  private readonly processes = new Map<string, Map<string, ChildProcess>>();
   private readonly subagents = new Map<string, Map<string, SubagentExecution>>();
   private readonly nodeControllers = new Map<string, Map<string, AbortController>>();
   private readonly executions = new Map<string, Map<string, Promise<void>>>();
@@ -124,20 +128,22 @@ export class MeshManager {
   private readonly settings: MeshSettings;
   private readonly subagentRuntime: SubagentRuntime;
   private readonly limiter?: import("./fleet-limiter.ts").FleetLimiter;
-  constructor(resolveAgent: (name: string, cwd: string) => AgentDefinition | undefined, settings: MeshSettings = defaultMeshSettings, limiter?: import("./fleet-limiter.ts").FleetLimiter) {
+  constructor(resolveAgent: (name: string, cwd: string) => AgentDefinition | undefined, settings: MeshSettings = defaultMeshSettings, limiter?: import("./fleet-limiter.ts").FleetLimiter, modelRegistry?: ModelRegistry) {
     this.resolveAgent = resolveAgent;
     this.settings = settings;
     this.limiter = limiter;
-    this.subagentRuntime = new SubagentRuntime(settings);
+    this.subagentRuntime = new SubagentRuntime(settings, modelRegistry ? { modelRegistry } : undefined);
   }
 
   recover(cwd: string): MeshRun[] {
     const root = fs.realpathSync(path.resolve(cwd));
     for (const file of listRunFiles(cwd)) {
       const run = readJson<MeshRun>(file);
-      if (!run || run.schema !== "pi-mesh.run/v2" || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(run.id) || path.basename(file) !== `${run.id}.json` || fs.realpathSync(run.cwd) !== root
+      if (!run || run.schema !== "pi-mesh.run/v2" || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(run.id) || path.basename(file) !== `${run.id}.json` || existingRealpath(run.cwd) !== root
         || !Array.isArray(run.nodes) || run.nodes.some((node) => {
-          const relative = path.relative(root, fs.realpathSync(node.cwd));
+          const nodeCwd = existingRealpath(node.cwd);
+          if (!nodeCwd) return true;
+          const relative = path.relative(root, nodeCwd);
           return !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(node.id) || relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative);
         })) continue;
       const interrupted = run.nodes.filter((node) => node.status === "running");
@@ -408,7 +414,6 @@ export class MeshManager {
     if (externalSignal?.aborted) controller.abort();
     else externalSignal?.addEventListener("abort", relayAbort, { once: true });
     this.controllers.set(run.id, controller);
-    this.processes.set(run.id, new Map());
     this.subagents.set(run.id, new Map());
     this.nodeControllers.set(run.id, new Map());
     this.executions.set(run.id, new Map());
@@ -477,7 +482,6 @@ export class MeshManager {
         if (pendingUpdate) { clearTimeout(pendingUpdate); pendingUpdate = undefined; }
         if (run.status !== "paused") run.finishedAt = Date.now();
         this.controllers.delete(run.id);
-        this.processes.delete(run.id);
         this.subagents.delete(run.id);
         this.nodeControllers.delete(run.id);
         this.executions.delete(run.id);
@@ -544,7 +548,7 @@ export class MeshManager {
         model: node.model,
         thinking: agent.thinking,
         maxTurns: agent.maxTurns,
-        env: { PI_MESH_RUN_ID: run.id, PI_MESH_NODE_ID: node.id, PI_MESH_ATTEMPT: String(attempt), PI_MESH_ROOT: run.cwd },
+        mesh: { root: run.cwd, runId: run.id, nodeId: node.id, attempt },
         onEvent: (event) => this.trackActivity(node, event),
       });
     } catch (error) {
@@ -556,8 +560,7 @@ export class MeshManager {
       if (signal.aborted || (node.status as NodeStatus) === "cancelled") return;
       return void this.failNode(run, node, error instanceof Error ? error.message : String(error), onUpdate);
     }
-    const childPid = child.session.process.pid;
-    this.processes.get(run.id)?.set(node.id, child.session.process);
+    const childPid = process.pid;
     this.subagents.get(run.id)?.set(node.id, child);
     const abortChild = () => child.abort();
     timeoutController.signal.addEventListener("abort", abortChild, { once: true });
@@ -566,7 +569,6 @@ export class MeshManager {
     if (timer) clearTimeout(timer);
     signal.removeEventListener("abort", abort);
     if (releaseOnAbort) signal.removeEventListener("abort", releaseOnAbort);
-    this.processes.get(run.id)?.delete(node.id);
     this.subagents.get(run.id)?.delete(node.id);
     void child.close();
     releaseFleet?.();
@@ -718,8 +720,8 @@ export class MeshManager {
   }
 
   private diagnosticExplanation(run: MeshRun, node: MeshNode, result: ChildResult, pid: number | undefined, finishedAt: number): string {
-    const cause = result.error ? result.signal ? `The child process ended with signal ${result.signal}.` : result.exitCode !== 0 ? `The child process exited with code ${result.exitCode}.` : result.error : "The child completed successfully.";
-    const action = result.error ? `Inspect ${node.attemptResultPath} and ${node.outputPath ?? "the child task/logs"}; then retry only after the cause is understood.` : "No action is required.";
+    const cause = result.error ? result.error : "The in-process AgentSession completed successfully.";
+    const action = result.error ? `Inspect ${node.attemptResultPath} and ${node.outputPath ?? "the AgentSession task/logs"}; then retry only after the cause is understood.` : "No action is required.";
     return `# Mesh attempt diagnostic\n\n- Run: ${run.id}\n- Node: ${node.id}\n- Agent: ${node.agent}\n- Attempt: ${node.attempt}\n- Status: ${node.status}\n- PID: ${pid ?? "unknown"}\n- Started: ${node.startedAt ? new Date(node.startedAt).toISOString() : "unknown"}\n- Finished: ${new Date(finishedAt).toISOString()}\n- Exit code: ${result.exitCode}\n- Signal: ${result.signal ?? "none"}\n- Model: ${result.model ?? "unknown"}\n- Output: ${node.outputPath ?? "none"}\n\n## Explanation\n\n${cause}${result.error ? `\n\nReported error: ${result.error}` : ""}${result.stderr.trim() ? `\n\nStderr tail:\n\n\`\`\`text\n${result.stderr}\n\`\`\`` : ""}\n\n## Suggested action\n\n${action}\n`;
   }
 

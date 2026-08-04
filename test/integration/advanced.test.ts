@@ -32,6 +32,15 @@ test("recovers the same project through a canonical path after creation via syml
   } finally { fs.rmSync(link, { force: true }); fs.rmSync(real, { recursive: true, force: true }); }
 });
 
+test("skips checkpoints whose recorded cwd no longer exists", () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-stale-cwd-"));
+  const missing = path.join(cwd, "missing");
+  try {
+    atomicWrite(runFile(cwd, "stale"), { ...recoveredRun(missing), id: "stale" });
+    assert.deepEqual(new MeshManager(() => agent).recover(cwd), []);
+  } finally { fs.rmSync(cwd, { recursive: true, force: true }); }
+});
+
 test("recovers interrupted nodes as queued and checkpoints recovery", () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-recover-"));
   try {

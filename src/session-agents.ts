@@ -1,7 +1,7 @@
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
+import { CONFIG_DIR_NAME, getAgentDir, type ModelRegistry } from "@earendil-works/pi-coding-agent";
 import { BUNDLED_AGENTS_DIR, type AgentDefinition } from "./agents.ts";
 import type { ChildResult } from "./pi-process.ts";
 import { SubagentRuntime, type SubagentExecution, type SubagentSession } from "./subagent-runtime.ts";
@@ -28,7 +28,7 @@ export interface SessionAgentRecord {
   execution?: SubagentExecution | SubagentSession;
   promise?: Promise<void>;
   worktree?: WorktreeState;
-  launch?: { model?: string; thinking?: string; maxTurns?: number; persistent?: boolean; transcript?: boolean; transcriptPath?: string; parentContext?: string; sessionDir?: string };
+  launch?: { model?: string; thinking?: string; maxTurns?: number; persistent?: boolean; transcript?: boolean; transcriptPath?: string; parentContext?: string; sessionDir?: string; sessionFile?: string };
   activity?: { turns: number; toolUses: number; responseText: string; activeTools: string[]; usage: ChildResult["usage"] };
   generation?: number;
 }
@@ -48,8 +48,8 @@ export class SessionAgentManager {
   private onComplete?: (record: SessionAgentRecord) => void;
   private onStart?: (record: SessionAgentRecord) => void;
 
-  constructor(settings: MeshSettings, cwd: string, onComplete?: (record: SessionAgentRecord) => void, sessionId = "default", limiter?: FleetLimiter) {
-    this.runtime = new SubagentRuntime(settings);
+  constructor(settings: MeshSettings, cwd: string, onComplete?: (record: SessionAgentRecord) => void, sessionId = "default", limiter?: FleetLimiter, modelRegistry?: ModelRegistry) {
+    this.runtime = new SubagentRuntime(settings, modelRegistry ? { modelRegistry } : undefined);
     this.cwd = fs.realpathSync(path.resolve(cwd));
     const safeSessionId = crypto.createHash("sha256").update(sessionId).digest("hex").slice(0, 16);
     this.registryFile = path.join(this.cwd, CONFIG_DIR_NAME, "mesh", "subagents", `${safeSessionId}.json`);
@@ -106,6 +106,7 @@ export class SessionAgentManager {
           record.execution = execution;
           this.onStart?.(record);
           const result = await execution.completion;
+          if (record.launch && execution.sessionFile) record.launch.sessionFile = execution.sessionFile;
           this.captureResult(record, result);
           if (record.generation !== generation || record.status === "stopped") return;
           record.status = result.error ? "failed" : "completed";
@@ -120,7 +121,7 @@ export class SessionAgentManager {
         } finally {
           releaseFleet?.();
           if ((record.launch?.persistent ?? record.agent.persistSession ?? false) && !record.worktree) {
-            const settled = record.execution; record.execution = undefined; void settled?.close();
+            const settled = record.execution; record.execution = undefined; await settled?.close();
           }
           this.running--; this.startNext();
         }
@@ -144,7 +145,7 @@ export class SessionAgentManager {
       try {
         releaseFleet = await this.limiter?.acquire();
         if (record.generation !== generation || (record.status as SessionAgentStatus) === "stopped") return;
-        if (!record.execution) record.execution = this.runtime.connect(record.agent, { id: record.id, cwd: record.cwd, prompt: record.prompt, model: record.launch?.model, thinking: record.launch?.thinking, maxTurns: record.launch?.maxTurns, persistent: true, transcript: record.launch?.transcript, transcriptPath: record.launch?.transcriptPath, parentContext: record.launch?.parentContext, sessionDir: record.launch?.sessionDir });
+        if (!record.execution) record.execution = this.runtime.connect(record.agent, { id: record.id, cwd: record.cwd, prompt: record.prompt, model: record.launch?.model, thinking: record.launch?.thinking, maxTurns: record.launch?.maxTurns, persistent: true, transcript: record.launch?.transcript, transcriptPath: record.launch?.transcriptPath, parentContext: record.launch?.parentContext, sessionDir: record.launch?.sessionDir, sessionFile: record.launch?.sessionFile });
         this.onStart?.(record);
         const result = await record.execution.session.prompt(prompt);
         this.captureResult(record, result);
@@ -152,7 +153,7 @@ export class SessionAgentManager {
         record.status = result.error ? "failed" : "completed"; record.completedAt = Date.now(); this.persist(); this.onComplete?.(record);
       } finally {
         releaseFleet?.();
-        const settled = record.execution; record.execution = undefined; void settled?.close(); this.running--; this.startNext();
+        const settled = record.execution; record.execution = undefined; await settled?.close(); this.running--; this.startNext();
       }
     })();
     await record.promise;
@@ -171,6 +172,7 @@ export class SessionAgentManager {
         const execution = this.runtime.start(record.agent, { id: record.id, cwd: record.worktree?.cwd ?? record.cwd, prompt: record.prompt, ...record.launch, onEvent: (event) => this.trackActivity(record, event) });
         record.execution = execution; this.onStart?.(record);
         const result = await execution.completion;
+        if (record.launch && execution.sessionFile) record.launch.sessionFile = execution.sessionFile;
         this.captureResult(record, result);
         if (record.generation !== generation || record.status === "stopped") return;
         record.status = result.error ? "failed" : "completed"; record.completedAt = Date.now(); this.persist(); this.onComplete?.(record);
@@ -181,7 +183,7 @@ export class SessionAgentManager {
       } finally {
         releaseFleet?.();
         if ((record.launch?.persistent ?? record.agent.persistSession ?? false) && !record.worktree) {
-          const settled = record.execution; record.execution = undefined; void settled?.close();
+          const settled = record.execution; record.execution = undefined; await settled?.close();
         }
         this.running--; this.startNext();
       }
@@ -241,12 +243,13 @@ export class SessionAgentManager {
       const canonicalCwd = fs.realpathSync(path.resolve(stored.cwd));
       if (canonicalCwd !== this.cwd) throw new Error(`Invalid subagent registry ${file}: record cwd escapes project root`);
       const launch = stored.launch;
-      if (launch !== undefined && (!launch || typeof launch !== "object" || (launch.transcriptPath !== undefined && typeof launch.transcriptPath !== "string") || (launch.sessionDir !== undefined && typeof launch.sessionDir !== "string"))) throw new Error(`Invalid subagent registry ${file}: malformed launch`);
+      if (launch !== undefined && (!launch || typeof launch !== "object" || (launch.transcriptPath !== undefined && typeof launch.transcriptPath !== "string") || (launch.sessionDir !== undefined && typeof launch.sessionDir !== "string") || (launch.sessionFile !== undefined && typeof launch.sessionFile !== "string"))) throw new Error(`Invalid subagent registry ${file}: malformed launch`);
       if (launch?.transcriptPath && (!this.inside(launch.transcriptPath, path.join(this.cwd, CONFIG_DIR_NAME, "mesh", "transcripts")) || path.extname(launch.transcriptPath) !== ".jsonl")) throw new Error(`Invalid subagent registry ${file}: unsafe transcript path`);
       if (launch?.sessionDir) { const allowedSessionRoots = [path.join(this.cwd, CONFIG_DIR_NAME, "mesh", "sessions"), path.join(this.cwd, CONFIG_DIR_NAME, "sessions")]; if (!allowedSessionRoots.some((root) => this.inside(launch.sessionDir!, root))) throw new Error(`Invalid subagent registry ${file}: unsafe session directory`); }
+      if (launch?.sessionFile && (path.extname(launch.sessionFile) !== ".jsonl" || ![path.join(this.cwd, CONFIG_DIR_NAME, "mesh", "sessions"), path.join(this.cwd, CONFIG_DIR_NAME, "sessions")].some((root) => this.inside(launch.sessionFile!, root)))) throw new Error(`Invalid subagent registry ${file}: unsafe session file`);
       const record: SessionAgentRecord = { ...stored, agent: { ...agent, filePath: canonicalAgentFile } };
       if (record.status === "running" || record.status === "queued") { record.status = "stopped"; record.error = "Host restarted; resume the persisted child session"; record.completedAt = Date.now(); }
-      // Persistent sessions reconnect lazily on resume; restoring hundreds of records must not spawn hundreds of Pi processes.
+      // Persistent sessions reconnect lazily on resume; restoring records must not eagerly create AgentSessions.
       this.records.set(record.id, record);
     }
   }

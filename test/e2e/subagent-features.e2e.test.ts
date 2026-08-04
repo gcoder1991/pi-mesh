@@ -16,9 +16,10 @@ test("Agent passes thinking, parent context, memory, tool denylist, and prompt m
     fs.writeFileSync(path.join(dir, "configured.md"), "---\ndescription: Configured\ntools: read, bash\ndisallowed_tools: bash\nthinking: high\nprompt_mode: replace\ninherit_context: true\nmemory: project\n---\nConfigured prompt.\n");
     const memory = path.join(fx.root, ".pi", "agent-memory", "configured"); fs.mkdirSync(memory, { recursive: true }); fs.writeFileSync(path.join(memory, "MEMORY.md"), "memory fact");
     response(fx.queue, 1, { output: "done" });
-    await harness.tools.get("Agent").execute("x", { prompt: "do", description: "do", subagent_type: "configured" }, undefined, undefined, context(fx.root, { branch: [{ type: "message", message: { role: "user", content: "parent fact" } }] }));
+    const hostModel = { provider: "cpa", id: "host-model", name: "Host Model" };
+    await harness.tools.get("Agent").execute("x", { prompt: "do", description: "do", subagent_type: "configured" }, undefined, undefined, context(fx.root, { branch: [{ type: "message", message: { role: "user", content: "parent fact" } }], model: hostModel, modelRegistry: { getAvailable: () => [hostModel] } }));
     const call = JSON.parse(fs.readFileSync(path.join(fx.queue, fs.readdirSync(fx.queue).find((name) => name.startsWith("call-"))!), "utf8"));
-    assert.ok(call.args.includes("--thinking")); assert.ok(call.args.includes("high")); assert.ok(call.args.includes("--exclude-tools")); assert.ok(call.args.includes("bash")); assert.ok(call.args.includes("--system-prompt")); assert.ok(call.args.includes("--no-context-files"));
+    assert.ok(call.args.includes("--model")); assert.ok(call.args.includes("cpa/host-model")); assert.ok(call.args.includes("--thinking")); assert.ok(call.args.includes("high")); assert.ok(call.args.includes("--exclude-tools")); assert.ok(call.args.includes("bash")); assert.ok(call.args.includes("--system-prompt")); assert.ok(call.args.includes("--no-context-files"));
     const task = call.args.at(-1); assert.match(task, /parent fact/); assert.match(task, /memory fact/);
   } finally { await harness.shutdown(); fx.cleanup(); }
 });

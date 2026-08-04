@@ -27,11 +27,11 @@ export function extensionHarness() {
   return { pi, tools, commands, shortcuts, handlers, emitted, messages, shutdown: async () => { for (const handler of handlers.get("pi:session_shutdown") ?? []) await handler({ reason: "quit" }, {}); } };
 }
 
-export function context(root: string, options: { trusted?: boolean; branch?: any[]; modelRegistry?: any; ui?: any } = {}): any {
+export function context(root: string, options: { trusted?: boolean; branch?: any[]; modelRegistry?: any; model?: any; ui?: any } = {}): any {
   return {
     cwd: root, mode: options.ui ? "tui" : "print", hasUI: Boolean(options.ui), isProjectTrusted: () => options.trusted ?? true,
     sessionManager: { getBranch: () => options.branch ?? [], getSessionDir: () => path.join(root, ".pi", "sessions"), getSessionId: () => "test-session" },
-    modelRegistry: options.modelRegistry ?? { getAvailable: () => [] },
+    modelRegistry: options.modelRegistry ?? { getAvailable: () => [] }, model: options.model,
     ui: options.ui ?? { notify() {}, select: async () => undefined, input: async () => undefined, editor: async () => undefined, setWidget() {} },
   };
 }

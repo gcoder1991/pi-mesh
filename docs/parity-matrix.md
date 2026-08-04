@@ -12,12 +12,13 @@ Each row must have an automated check before release.
 | session-scoped persisted registry and restart resume | `test/integration/session-registry.test.ts` | pass |
 | parent context inheritance | `test/e2e/subagent-features.e2e.test.ts` | pass |
 | thinking level | `test/e2e/subagent-features.e2e.test.ts` | pass |
-| graceful max-turn protocol | `test/integration/subagent-runtime.test.ts` (RPC runtime) | pass |
+| graceful max-turn protocol | `test/integration/subagent-runtime.test.ts` | pass |
 | explicit Child extension/MCP allowlist | `test/integration/subagent-runtime.test.ts`, `test/e2e/subagent.e2e.test.ts` | pass |
 | explicit Child skill allowlist | same | pass |
 | tool allowlist/denylist and Mesh-only `mesh_control` exposure | `test/integration/manager.test.ts`, `test/integration/subagent-runtime.test.ts`, `test/e2e/process.e2e.test.ts` | pass |
 | prompt replace/append | `test/integration/subagent-runtime.test.ts`, `test/e2e/subagent-features.e2e.test.ts` | pass |
-| model fuzzy resolution | `test/unit/model-resolution.test.ts` | pass |
+| model fuzzy resolution and Host model inheritance | `test/unit/model-resolution.test.ts`, `test/unit/extension.test.ts` | pass |
+| Host extension provider/runtime inheritance | `test/integration/subagent-runtime.test.ts`, live CPA smoke | pass |
 | transcript and conversation | `test/integration/subagent-runtime.test.ts` | pass |
 | direct Agent worktree | `test/integration/direct-agent-worktree.test.ts` | pass |
 | memory scope/read-only authority | `test/unit/memory.test.ts` | pass |

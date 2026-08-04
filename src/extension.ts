@@ -5,7 +5,7 @@ import { StringEnum } from "@earendil-works/pi-ai";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, truncateHead, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
-import { discoverAgents, type AgentScope } from "./agents.ts";
+import { discoverAgents, type AgentDefinition, type AgentScope } from "./agents.ts";
 import { registerCompatibilityTools } from "./compat-extension.ts";
 import { FleetView } from "./fleet-view.ts";
 import { sessionFleetLimiter } from "./fleet-limiter.ts";
@@ -38,8 +38,11 @@ const MeshParams = Type.Object({
 
 interface MeshDetails { action: string; [key: string]: unknown }
 const terminalNodeStatuses = new Set(["succeeded", "failed", "cancelled", "skipped"]);
-function resolveTaskModels(tasks: MeshTask[], registry: Parameters<typeof resolveAgentModel>[1]): MeshTask[] {
-  return tasks.map((task) => ({ ...task, model: resolveAgentModel(task.model, registry) }));
+function resolveTaskModels(tasks: MeshTask[], registry: Parameters<typeof resolveAgentModel>[1], inheritedModel: string | undefined, resolveAgent: (name: string) => AgentDefinition | undefined): MeshTask[] {
+  return tasks.map((task) => {
+    const model = [task.model, resolveAgent(task.agent)?.model, inheritedModel].find((value) => value?.trim());
+    return { ...task, model: resolveAgentModel(model, registry) };
+  });
 }
 function runCounts(run: MeshRun): Record<string, number> {
   return run.nodes.reduce<Record<string, number>>((counts, node) => { counts[node.status] = (counts[node.status] ?? 0) + 1; return counts; }, {});
@@ -80,8 +83,8 @@ function summarize(run: MeshRun): string {
 
 export default function registerPiMesh(pi: ExtensionAPI): void {
   if (process.env.PI_MESH_CHILD === "1") return;
-  const managers = new Map<string, { manager: MeshManager; settings: MeshSettings; notifier: CompletionNotifier }>();
-  const currentManager = (cwd: string, projectTrusted: boolean, sessionId: string) => {
+  const managers = new Map<string, { manager: MeshManager; settings: MeshSettings; notifier: CompletionNotifier; resolveAgent: (name: string) => AgentDefinition | undefined }>();
+  const currentManager = (cwd: string, projectTrusted: boolean, sessionId: string, modelRegistry: Parameters<typeof resolveAgentModel>[1]) => {
     const root = fs.realpathSync(path.resolve(cwd));
     const key = `${root}\0${projectTrusted}\0${sessionId}`;
     const existing = managers.get(key);
@@ -89,9 +92,10 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
     const settings = loadMeshSettings(root, process.env, projectTrusted);
     pruneMeshState(root, settings);
     const limiter = sessionFleetLimiter(sessionId, settings.maxConcurrentAgents);
-    const manager = new MeshManager((name) => discoverAgents(root, { scope: "all", includeProject: projectTrusted, projectRoot: root }).find((agent) => agent.name === name), settings, limiter);
+    const resolveAgent = (name: string) => discoverAgents(root, { scope: "all", includeProject: projectTrusted, projectRoot: root }).find((agent) => agent.name === name);
+    const manager = new MeshManager(resolveAgent, settings, limiter, modelRegistry);
     manager.recover(root);
-    const entry = { manager, settings, notifier: new CompletionNotifier(pi, settings) };
+    const entry = { manager, settings, notifier: new CompletionNotifier(pi, settings), resolveAgent };
     managers.set(key, entry);
     return entry;
   };
@@ -126,7 +130,8 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
     async execute(_toolCallId, params, signal, onUpdate, ctx) {
       const projectTrusted = ctx.isProjectTrusted?.() ?? false;
       const sessionId = ctx.sessionManager.getSessionId();
-      const { manager, settings, notifier } = currentManager(ctx.cwd, projectTrusted, sessionId);
+      const { manager, settings, notifier, resolveAgent } = currentManager(ctx.cwd, projectTrusted, sessionId, ctx.modelRegistry);
+      const inheritedModel = ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : undefined;
       if (ctx.mode === "tui") fleet.bindMesh(ctx, manager, `${fs.realpathSync(path.resolve(ctx.cwd))}\0${projectTrusted}\0${sessionId}`);
       const requestedScope: AgentScope = params.scope ?? "all";
       const scope: AgentScope = !projectTrusted && requestedScope === "project" ? "project" : requestedScope;
@@ -213,7 +218,7 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
         }
         if (params.decision === "approve") {
           try {
-            proposal.tasks = resolveTaskModels(proposal.tasks, ctx.modelRegistry);
+            proposal.tasks = resolveTaskModels(proposal.tasks, ctx.modelRegistry, inheritedModel, resolveAgent);
             proposal.committedNodeIds = manager.grow(run!.id, proposal.requester, proposal.tasks).map((node) => node.id);
             proposal.status = "committed";
           } catch (error) { proposal.status = "denied"; proposal.error = error instanceof Error ? error.message : String(error); }
@@ -225,7 +230,7 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
       if (!params.tasks?.length) throw new Error("tasks is required for run");
       const update = (value: MeshRun) => onUpdate?.({ content: [{ type: "text", text: `${value.nodes.filter((node) => terminalNodeStatuses.has(node.status)).length}/${value.nodes.length} complete` }], details: boundedDetails({ action: params.action, run: compactRun(value) }) });
       if (signal?.aborted) throw new Error("Mesh run cancelled before creation");
-      const createdRun = manager.create({ tasks: resolveTaskModels(params.tasks as MeshTask[], ctx.modelRegistry), cwd: fs.realpathSync(path.resolve(ctx.cwd)), operator: params.operator, worktree: params.worktree, worktreeSetupHook: params.worktreeSetupHook, maxConcurrency: params.maxConcurrency, maxNodes: params.maxNodes, failFast: params.failFast });
+      const createdRun = manager.create({ tasks: resolveTaskModels(params.tasks as MeshTask[], ctx.modelRegistry, inheritedModel, resolveAgent), cwd: fs.realpathSync(path.resolve(ctx.cwd)), operator: params.operator, worktree: params.worktree, worktreeSetupHook: params.worktreeSetupHook, maxConcurrency: params.maxConcurrency, maxNodes: params.maxNodes, failFast: params.failFast });
       const start = manager.startCreated(createdRun.id, params.async ? undefined : signal, params.async ? undefined : update);
       if (params.async) {
         void start.then((completed) => notifier.enqueueMessage(`mesh:${completed.id}`, `Mesh ${completed.id} finished: ${completed.status}.\n${summarize(completed)}`), (error) => notifier.enqueueMessage(`mesh:${createdRun.id}`, `Mesh ${createdRun.id} failed outside the run state: ${error instanceof Error ? error.message : String(error)}`));

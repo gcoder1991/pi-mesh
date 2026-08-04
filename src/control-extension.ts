@@ -1,7 +1,7 @@
 import * as crypto from "node:crypto";
 import { StringEnum } from "@earendil-works/pi-ai";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, truncateHead, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { Type } from "typebox";
+import { Type, type Static } from "typebox";
 import { ackMessage, growthProposals, messages, putGrowth, putMessage, readJson, runFile, type ControlMessage, type GrowthProposal } from "./store.ts";
 import type { MeshRun, MeshTask } from "./manager.ts";
 import { MeshTaskSchema } from "./schemas.ts";
@@ -21,20 +21,14 @@ const Params = Type.Object({
   to: Type.Optional(Type.String({ maxLength: 64 })), content: Type.Optional(Type.String({ maxLength: 1_048_576 })), messageId: Type.Optional(Type.String({ maxLength: 128 })),
   reason: Type.Optional(Type.String({ maxLength: 16384 })), tasks: Type.Optional(Type.Array(MeshTaskSchema, { minItems: 1, maxItems: 16 })),
 }, { additionalProperties: false });
-
-export default function registerMeshControl(pi: ExtensionAPI): void {
-  const runId = process.env.PI_MESH_RUN_ID;
-  const nodeId = process.env.PI_MESH_NODE_ID;
-  const attempt = Number(process.env.PI_MESH_ATTEMPT);
-  const root = process.env.PI_MESH_ROOT;
-  if (!runId || !nodeId || !Number.isInteger(attempt) || attempt < 1 || !root) return;
-
-  pi.registerTool({
+type MeshControlParams = Static<typeof Params>;
+export function createMeshControlTool(root: string, runId: string, nodeId: string, attempt: number) {
+  return {
     name: "mesh_control",
     label: "Mesh Control",
     description: "Child-safe mailbox and growth proposal tool. Growth only proposes tasks; the host must approve and commit them.",
     parameters: Params,
-    async execute(_id, rawParams): Promise<any> {
+    async execute(_id: string, rawParams: MeshControlParams): Promise<any> {
       const params = rawParams;
       const run = readJson<MeshRun>(runFile(root, runId));
       const caller = run?.nodes.find((node) => node.id === nodeId);
@@ -93,5 +87,13 @@ export default function registerMeshControl(pi: ExtensionAPI): void {
       for (const message of sent) putMessage(root, message, { payloadMaxBytes, recipientUnreadMaxBytes });
       return { content: [{ type: "text", text: `Queued ${sent.length} mailbox message(s).` }], details: boundedDetails({ messages: sent }) };
     },
-  });
+  };
+}
+
+export default function registerMeshControl(pi: ExtensionAPI): void {
+  const runId = process.env.PI_MESH_RUN_ID;
+  const nodeId = process.env.PI_MESH_NODE_ID;
+  const attempt = Number(process.env.PI_MESH_ATTEMPT);
+  const root = process.env.PI_MESH_ROOT;
+  if (runId && nodeId && Number.isInteger(attempt) && attempt > 0 && root) pi.registerTool(createMeshControlTool(root, runId, nodeId, attempt));
 }

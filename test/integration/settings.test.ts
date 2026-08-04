@@ -30,7 +30,7 @@ test("settings cap concurrency/depth and debug writes diagnostics", async () => 
     fs.writeFileSync(path.join(queue, "pending-001.json"), JSON.stringify({ output: "bad", stderr: "failure details", exitCode: 1 }));
     const run = await manager.start({ cwd: root, tasks: [{ id: "bad", agent: "worker", task: "bad" }] });
     const node = run.nodes[0];
-    assert.match(fs.readFileSync(node.diagnosticPath!, "utf8"), /child process exited with code 1[\s\S]*failure details/);
+    assert.match(fs.readFileSync(node.diagnosticPath!, "utf8"), /failure details/);
     const events = fs.readFileSync(path.join(root, ".pi", "mesh", "debug.jsonl"), "utf8").trim().split("\n").map((line) => JSON.parse(line));
     assert.deepEqual(events.map((event) => event.event), ["run_started", "attempt_finished"]);
   } finally {

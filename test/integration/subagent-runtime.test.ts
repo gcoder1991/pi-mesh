@@ -3,6 +3,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { createAssistantMessageEventStream, type AssistantMessage, type Context, type Model, type SimpleStreamOptions } from "@earendil-works/pi-ai";
+import { ModelRegistry, ModelRuntime } from "@earendil-works/pi-coding-agent";
 import type { AgentDefinition } from "../../src/agents.ts";
 import { defaultMeshSettings } from "../../src/settings.ts";
 import { SubagentRuntime } from "../../src/subagent-runtime.ts";
@@ -63,3 +65,51 @@ test("child extension and skill resources require named settings allowlists", as
   const call = JSON.parse(fs.readFileSync(path.join(queue, fs.readdirSync(queue).find((name) => name.startsWith("call-"))!), "utf8"));
   assert.ok(call.args.includes(extension)); assert.ok(call.args.includes(skill));
 }));
+
+test("in-process AgentSession reuses a runtime-only Host provider", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-in-process-"));
+  const oldBinary = process.env[PI_MESH_PI_BINARY_ENV];
+  delete process.env[PI_MESH_PI_BINARY_ENV];
+  let seen: Context | undefined;
+  try {
+    const modelRuntime = await ModelRuntime.create({ authPath: path.join(root, "auth.json"), modelsPath: null });
+    modelRuntime.registerProvider("runtime-only", {
+      name: "Runtime only", baseUrl: "file://runtime-only", apiKey: "mock", api: "openai-completions",
+      models: [{ id: "model-1", name: "Model 1", reasoning: false, input: ["text"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 32000, maxTokens: 1024 }],
+      streamSimple(model: Model<any>, context: Context, _options?: SimpleStreamOptions) {
+        seen = context;
+        const stream = createAssistantMessageEventStream();
+        const message: AssistantMessage = { role: "assistant", content: [{ type: "text", text: "IN_PROCESS_TEST_OK" }], api: model.api, provider: model.provider, model: model.id, usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } }, stopReason: "stop", timestamp: Date.now() };
+        queueMicrotask(() => {
+          stream.push({ type: "start", partial: { ...message, content: [] } });
+          stream.push({ type: "text_start", contentIndex: 0, partial: { ...message, content: [{ type: "text", text: "" }] } });
+          stream.push({ type: "text_delta", contentIndex: 0, delta: "IN_PROCESS_TEST_OK", partial: message });
+          stream.push({ type: "text_end", contentIndex: 0, content: "IN_PROCESS_TEST_OK", partial: message });
+          stream.push({ type: "done", reason: "stop", message });
+          stream.end();
+        });
+        return stream;
+      },
+    });
+    const modelRegistry = new ModelRegistry(modelRuntime);
+    const runtime = new SubagentRuntime(defaultMeshSettings, { modelRegistry });
+    const selectedAgent = { ...agent, model: "runtime-only/model-1" };
+    const sessionDir = path.join(root, "sessions");
+    const execution = runtime.start(selectedAgent, { id: "in-process", cwd: root, prompt: "test", persistent: true, sessionDir });
+    const result = await execution.completion;
+    assert.equal(result.output, "IN_PROCESS_TEST_OK");
+    assert.equal(result.model, "runtime-only/model-1");
+    assert.match(seen?.systemPrompt ?? "", /work/);
+    assert.deepEqual(seen?.tools?.map((tool) => tool.name), ["read"]);
+    const sessionFile = execution.sessionFile;
+    assert.ok(sessionFile);
+    await execution.close();
+    const resumed = runtime.connect(selectedAgent, { id: "in-process", cwd: root, prompt: "unused", persistent: true, sessionDir, sessionFile });
+    assert.equal((await resumed.session.prompt("resume")).output, "IN_PROCESS_TEST_OK");
+    assert.ok(seen?.messages.some((message) => message.role === "user" && JSON.stringify(message.content).includes("Task: test")));
+    await resumed.close();
+  } finally {
+    if (oldBinary === undefined) delete process.env[PI_MESH_PI_BINARY_ENV]; else process.env[PI_MESH_PI_BINARY_ENV] = oldBinary;
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});

@@ -40,7 +40,7 @@ export function response(queue: string, index: number, value: object): void {
 export async function loadMeshTool(root: string, extension = path.resolve("index.ts")): Promise<any> {
   const loaded = await discoverAndLoadExtensions([extension], root);
   if (loaded.errors.length) throw new Error(loaded.errors.map((error) => error.error).join("\n"));
-  const tool = loaded.extensions[0]?.tools.get("mesh")?.definition;
+  const tool = loaded.extensions.flatMap((item) => [...item.tools.values()]).find((item) => item.definition.name === "mesh")?.definition;
   if (!tool) throw new Error("mesh tool was not registered");
   return tool;
 }

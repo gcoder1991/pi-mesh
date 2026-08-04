@@ -59,7 +59,7 @@ export function registerCompatibilityTools(pi: ExtensionAPI, fleet = new FleetVi
     if (!entry) {
       const settings = loadMeshSettings(root, process.env, trusted);
       const notifier = new CompletionNotifier(pi, settings);
-      const manager = new SessionAgentManager(settings, root, undefined, sessionId, sessionFleetLimiter(sessionId, settings.maxConcurrentAgents));
+      const manager = new SessionAgentManager(settings, root, undefined, sessionId, sessionFleetLimiter(sessionId, settings.maxConcurrentAgents), ctx.modelRegistry);
       manager.setOnStart((record) => pi.events.emit("subagents:started", { id: record.id, type: record.agent.name, description: record.description }));
       manager.setOnComplete((record) => {
         const usage = record.result?.usage;
@@ -113,13 +113,13 @@ export function registerCompatibilityTools(pi: ExtensionAPI, fleet = new FleetVi
           });
           schedulers.set(schedulerKey, scheduler);
         }
-        const model = resolveAgentModel(agent.model ?? params.model, ctx.modelRegistry);
+        const model = resolveAgentModel([params.model, agent.model, ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : undefined].find((value) => value?.trim()), ctx.modelRegistry);
         const persistent = agent.persistSession ?? false;
         const job = scheduler.add({ name: params.description, schedule: params.schedule, prompt: params.prompt, agent: agent.name, model, thinking: agent.thinking ?? params.thinking, maxTurns: agent.maxTurns ?? params.max_turns, persistent, transcript: agent.outputTranscript, sessionDir: persistent ? ctx.sessionManager.getSessionDir() : undefined });
         pi.events.emit("subagents:scheduled", { type: "added", jobId: job.id, schedule: params.schedule });
         return result(`Scheduled agent ${job.id}. Next run: ${job.nextRun ? new Date(job.nextRun).toISOString() : "cron"}.`, { jobId: job.id, status: "scheduled" });
       }
-      const selectedModel = resolveAgentModel(agent.model ?? params.model, ctx.modelRegistry);
+      const selectedModel = resolveAgentModel([params.model, agent.model, ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : undefined].find((value) => value?.trim()), ctx.modelRegistry);
       const persistent = agent.persistSession ?? false;
       const record = manager.spawn(effectiveAgent, params.prompt, params.description, root, { model: selectedModel, thinking: agent.thinking ?? params.thinking, maxTurns: agent.maxTurns ?? params.max_turns, persistent, parentContext, worktree, sessionDir: persistent ? ctx.sessionManager.getSessionDir() : undefined });
       signal?.addEventListener("abort", () => manager.abort(record.id), { once: true });
