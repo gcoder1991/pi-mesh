@@ -6,13 +6,13 @@ const record = { id: "12345678-rest", status: "running", createdAt: Date.now() -
 const theme = { fg: (_c: string, value: string) => value, bold: (value: string) => value } as any;
 
 test("FleetView renders a navigable main panel and conversation overlay", async () => {
-  let widgetFactory: any; let inputHandler: any; let overlay: any; let renderRequests = 0; let editorText = "";
+  let widgetFactory: any; let inputHandler: any; let overlay: any; let renderRequests = 0; let widgetRegistrations = 0; let editorText = "";
   const manager = { list: () => [record], get: () => record, abort: () => true, steer() {} } as any;
   const ctx: any = {
     mode: "tui",
     ui: {
       theme,
-      setWidget: (_key: string, value: any) => { widgetFactory = value; },
+      setWidget: (_key: string, value: any) => { widgetFactory = value; if (value) widgetRegistrations++; },
       onTerminalInput: (handler: any) => { inputHandler = handler; return () => { inputHandler = undefined; }; },
       getEditorText: () => editorText,
       notify() {}, input: async () => undefined, select: async () => undefined,
@@ -23,8 +23,10 @@ test("FleetView renders a navigable main panel and conversation overlay", async 
     },
   };
   const fleet = new FleetView(); fleet.bind(ctx, manager, "project"); fleet.bind(ctx, manager, "project");
-  const render = () => widgetFactory({ requestRender: () => renderRequests++ }, theme).render(100).join("\n");
+  const component = widgetFactory({ requestRender: () => renderRequests++ }, theme);
+  const render = () => component.render(100).join("\n");
   assert.match(render(), /main[\s\S]*worker[\s\S]*fix the bug[\s\S]*↻3≤30[\s\S]*2 tools[\s\S]*11s[\s\S]*13\.1k tokens[\s\S]*read/);
+  component.invalidate(); fleet.bind(ctx, manager, "project"); assert.equal(widgetRegistrations, 1);
   assert.deepEqual(inputHandler("\u001b[B"), { consume: true });
   assert.match(render(), /enter view/);
   assert.deepEqual(inputHandler("\u001b[B"), { consume: true });

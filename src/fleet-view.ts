@@ -124,7 +124,7 @@ export class FleetView {
     if (!this.widgetRegistered) {
       this.ui.setWidget("pi-mesh-fleet", (tui: any, theme: Theme) => {
         this.tui = tui;
-        return { render: (width: number) => this.renderPanel(width, theme), invalidate: () => { this.widgetRegistered = false; this.tui = undefined; } };
+        return { render: (width: number) => this.renderPanel(width, theme), invalidate: () => {} };
       }, { placement: "belowEditor" });
       this.widgetRegistered = true;
     } else this.tui?.requestRender();
