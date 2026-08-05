@@ -24,6 +24,7 @@ test("registers one mesh tool with strict actions", () => {
   assert.match(tool.promptSnippet, /specialized sub-agents/);
   assert.ok(tool.promptGuidelines.some((guideline: string) => guideline.includes("action list_agents")));
   assert.ok(tool.promptGuidelines.some((guideline: string) => guideline.includes("routing contract")));
+  assert.ok(tool.promptGuidelines.some((guideline: string) => guideline.includes("absolute definition path")));
   assert.ok(tool.promptGuidelines.some((guideline: string) => guideline.includes("Do not duplicate work")));
   assert.ok(tool.promptGuidelines.some((guideline: string) => guideline.includes("retry_failed")));
   assert.deepEqual(tool.parameters.properties.action.enum, ["list_agents", "run", "status", "list", "cancel", "pause", "resume", "retry_failed", "recover", "steer", "handoff_list", "message_send", "message_broadcast", "message_inbox", "message_ack", "growth_list", "growth_decide"]);
@@ -64,7 +65,9 @@ test("ignores project agents until Pi trusts the project", async () => {
     const untrusted = await execute(false);
     assert.equal(untrusted.details.agents.some((agent: any) => agent.name === "project-only"), false);
     const trusted = await execute(true);
-    assert.equal(trusted.details.agents.some((agent: any) => agent.name === "project-only"), true);
+    const projectAgent = trusted.details.agents.find((agent: any) => agent.name === "project-only");
+    assert.equal(projectAgent.filePath, fs.realpathSync(path.join(root, ".pi", "agents", "project-only.md")));
+    assert.match(trusted.content[0].text, /definition: .*project-only\.md/);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
