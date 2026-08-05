@@ -48,8 +48,14 @@ export function prepareWorktreeRun(cwd: string, taskCwds: string[], setupHook?: 
   for (const taskCwd of taskCwds) {
     if (repoRoot(taskCwd) !== root) throw new Error(`worktree task cwd must belong to ${root}: ${taskCwd}`);
   }
-  if (setupHook && !fs.statSync(path.resolve(cwd, setupHook)).isFile()) throw new Error(`worktree setup hook is not a file: ${setupHook}`);
-  return { repoRoot: root, baseCommit, setupHook: setupHook ? path.resolve(cwd, setupHook) : undefined };
+  let hookPath: string | undefined;
+  if (setupHook) {
+    hookPath = fs.realpathSync(path.resolve(cwd, setupHook));
+    const relative = path.relative(root, hookPath);
+    if (relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) throw new Error(`worktree setup hook must be inside repository: ${setupHook}`);
+    if (!fs.statSync(hookPath).isFile()) throw new Error(`worktree setup hook is not a file: ${setupHook}`);
+  }
+  return { repoRoot: root, baseCommit, setupHook: hookPath };
 }
 
 function safe(value: string): string {

@@ -16,8 +16,9 @@ import {
 import type { AgentDefinition } from "./agents.ts";
 import { createMeshControlTool } from "./control-extension.ts";
 import { memoryPrompt } from "./memory.ts";
-import { buildChildArgs, PI_MESH_PI_BINARY_ENV, resolveChildExtensions, resolveChildSkills, type ChildResult, type Usage } from "./pi-process.ts";
+import { buildChildArgs, PI_MESH_PI_BINARY_ENV, resolveChildExtensions, resolveChildSkills, type ChildResult } from "./pi-process.ts";
 import { createRpcChild } from "./rpc-child.ts";
+import { addUsage, emptyUsage, truncateUtf8 } from "./runtime-utils.ts";
 import type { MeshSettings } from "./settings.ts";
 
 const MAX_TRANSCRIPT_BYTES = 1024 * 1024;
@@ -66,23 +67,6 @@ export interface SubagentExecution extends SubagentSession {
 
 type HostContext = Pick<ExtensionContext, "modelRegistry">;
 
-function emptyUsage(): Usage {
-  return { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 };
-}
-
-function addUsage(target: Usage, source: any): void {
-  target.turns++;
-  target.input += source?.input ?? 0;
-  target.output += source?.output ?? 0;
-  target.cacheRead += source?.cacheRead ?? 0;
-  target.cacheWrite += source?.cacheWrite ?? 0;
-  target.cost += source?.cost?.total ?? 0;
-  target.costInput = (target.costInput ?? 0) + (source?.cost?.input ?? 0);
-  target.costOutput = (target.costOutput ?? 0) + (source?.cost?.output ?? 0);
-  target.costCacheRead = (target.costCacheRead ?? 0) + (source?.cost?.cacheRead ?? 0);
-  target.costCacheWrite = (target.costCacheWrite ?? 0) + (source?.cost?.cacheWrite ?? 0);
-}
-
 function messageText(message: Message): string {
   if (message.role === "user") return typeof message.content === "string" ? message.content : message.content.filter((part) => part.type === "text").map((part) => part.text).join("\n");
   if (message.role === "assistant") return message.content.filter((part) => part.type === "text").map((part) => part.text).join("\n");
@@ -96,7 +80,7 @@ function conversation(session: AgentSession | undefined): string {
     if (message.role === "toolResult") return `[Tool Result (${message.toolName})]: ${body.slice(0, 200)}${body.length > 200 ? "..." : ""}`;
     return body ? `[${message.role === "assistant" ? "Assistant" : "User"}]: ${body}` : "";
   }).filter(Boolean).join("\n\n");
-  return Buffer.byteLength(text, "utf8") <= MAX_CONVERSATION_BYTES ? text : Buffer.from(text).subarray(-MAX_CONVERSATION_BYTES).toString("utf8");
+  return truncateUtf8(text, MAX_CONVERSATION_BYTES, "tail");
 }
 
 export class SubagentRuntime {
@@ -139,7 +123,7 @@ export class SubagentRuntime {
     }
     const meshEnv = options.mesh ? { PI_MESH_RUN_ID: options.mesh.runId, PI_MESH_NODE_ID: options.mesh.nodeId, PI_MESH_ATTEMPT: String(options.mesh.attempt), PI_MESH_ROOT: options.mesh.root } : {};
     const rpc = createRpcChild(configured, options.cwd, { args, env: { ...options.env, ...meshEnv }, transcriptPath, maxTurns: options.maxTurns ?? agent.maxTurns, onEvent: options.onEvent });
-    const inherited = options.parentContext ? `\n\n## Parent conversation context\n${Buffer.from(options.parentContext).subarray(-128 * 1024).toString("utf8")}` : "";
+    const inherited = options.parentContext ? `\n\n## Parent conversation context\n${truncateUtf8(options.parentContext, 128 * 1024, "tail")}` : "";
     const prompt = `Task: ${options.prompt}${inherited}${memoryPrompt(configured, options.cwd)}`;
     const managed: ManagedSession = {
       prompt: (message) => rpc.prompt(message),
@@ -296,7 +280,7 @@ export class SubagentRuntime {
       },
       conversation: () => conversation(session),
     };
-    const inherited = options.parentContext ? `\n\n## Parent conversation context\n${Buffer.from(options.parentContext).subarray(-128 * 1024).toString("utf8")}` : "";
+    const inherited = options.parentContext ? `\n\n## Parent conversation context\n${truncateUtf8(options.parentContext, 128 * 1024, "tail")}` : "";
     const prompt = `Task: ${options.prompt}${inherited}${memoryPrompt(configured, options.cwd)}`;
     const connection: SubagentSession = {
       id: options.id,

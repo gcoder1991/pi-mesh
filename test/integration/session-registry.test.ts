@@ -38,6 +38,23 @@ test("session agent registry survives manager recreation and resumes the same Pi
   }
 });
 
+test("resume failures settle and persist the Agent record", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-registry-resume-failure-")); const queue = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-registry-resume-failure-q-"));
+  const oldBinary = process.env[PI_MESH_PI_BINARY_ENV], oldQueue = process.env.PI_MESH_TEST_QUEUE; process.env[PI_MESH_PI_BINARY_ENV] = mockPi; process.env.PI_MESH_TEST_QUEUE = queue;
+  try {
+    fs.writeFileSync(path.join(queue, "pending-001.json"), JSON.stringify({ output: "first" }));
+    const completed: string[] = []; const manager = new SessionAgentManager(defaultMeshSettings, root, (record) => completed.push(record.status), "resume-failure");
+    const record = manager.spawn(agent, "first", "first", root, { persistent: true }); await record.promise; completed.length = 0;
+    (manager as unknown as { runtime: { connect: () => never } }).runtime.connect = () => { throw new Error("resume failed"); };
+    const resumed = await manager.resume(record.id, "again");
+    assert.equal(resumed.status, "failed"); assert.equal(resumed.error, "resume failed"); assert.deepEqual(completed, ["failed"]);
+    await manager.shutdown();
+    const restored = new SessionAgentManager(defaultMeshSettings, root, undefined, "resume-failure");
+    assert.equal(restored.get(record.id)?.status, "failed"); assert.equal(restored.get(record.id)?.error, "resume failed");
+    await restored.shutdown();
+  } finally { if (oldBinary === undefined) delete process.env[PI_MESH_PI_BINARY_ENV]; else process.env[PI_MESH_PI_BINARY_ENV] = oldBinary; if (oldQueue === undefined) delete process.env.PI_MESH_TEST_QUEUE; else process.env.PI_MESH_TEST_QUEUE = oldQueue; fs.rmSync(root, { recursive: true, force: true }); fs.rmSync(queue, { recursive: true, force: true }); }
+});
+
 test("session registry keeps a bounded preview and full output artifact", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-registry-output-")); const queue = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-registry-output-q-"));
   const oldBinary = process.env[PI_MESH_PI_BINARY_ENV], oldQueue = process.env.PI_MESH_TEST_QUEUE; process.env[PI_MESH_PI_BINARY_ENV] = mockPi; process.env.PI_MESH_TEST_QUEUE = queue;

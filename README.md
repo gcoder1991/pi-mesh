@@ -21,7 +21,7 @@ It keeps:
 - atomic run checkpoints and interrupted-run recovery
 - bundled, user, and trusted project agent definitions
 
-It intentionally drops Astralink's ACP/text-frame protocol, protocol digests, repair turns, launch attestations, and transport-session abstraction. Pi tool schemas provide the command envelope; in-process AgentSessions reuse the Host's authenticated ModelRuntime.
+Normal Host execution intentionally avoids Astralink's ACP/text-frame protocol, protocol digests, repair turns, launch attestations, and transport-session abstraction. Pi tool schemas provide the command envelope; in-process AgentSessions reuse the Host's authenticated ModelRuntime. A subprocess RPC/JSON path remains only behind `PI_MESH_PI_BINARY` for deterministic tests.
 
 ## Install
 
@@ -79,6 +79,18 @@ rows = [
 Herdr 0.7.5+ can open the full Astralink-style dependency tree in a real left split pane. Run `/mesh-tree` or press `ctrl+shift+m`; use `/mesh-tree status` and `/mesh-tree close` to inspect or close only that pane. It live-refreshes project Mesh checkpoints and displays every active Run and all of its nodes, plus completed Runs for Astralink's 20-second linger window, with status, Agent role, task, blockers, elapsed time, tokens, active tools, and recent output. Closing the pane never stops a Mesh run.
 
 See `docs/parity-matrix.md`, `docs/replacement-delta.md`, and `docs/release-review.md` for the final replacement audit.
+
+### Multi-model consensus
+
+Use `/consensus <task>` for independent implementations followed by two critique/revision rounds, normalized ledgers, majority voting, and one canonical integration result. The command reads `ctx.modelRegistry.getAvailable()`, so it sees the same authenticated/custom provider catalog as `/model`, then asks once for the participant count, exact model set, and Finalizer model through `ask_user_question`. If that tool is unavailable, it asks the same choices in a normal response and waits.
+
+The default recommendation is three distinct models (18 Mesh nodes); five models create 28 nodes and cost more. The generated run uses `operator: "graph"`, `worktree: true`, `failFast: true`, explicit task models, stable node IDs, and a foreground Mesh call. A strict majority selects the baseline when available; ties use the chosen Finalizer and are reported as `FINALIZER_TIEBREAK`. Minority opinions remain in the final audit object but only one canonical result is returned.
+
+`/consensus` requires at least three available models and a clean Git checkout. It validates custom `provider/model` IDs against the Host catalog, calls `mesh list_agents` before routing, and never disables Worktree isolation. The current implementation is a Host prompt/Graph template rather than a second scheduler; existing Mesh recovery, retries, evidence, model precedence, and resource restrictions remain authoritative.
+
+```text
+/consensus Implement the requested change and run focused tests
+```
 
 ### Native mesh
 

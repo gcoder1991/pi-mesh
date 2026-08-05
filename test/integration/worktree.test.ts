@@ -109,3 +109,14 @@ test("worktree mode rejects dirty repositories before spawning", async () => fix
   await assert.rejects(() => manager.start({ cwd: repo, worktree: true, tasks: [{ agent: "worker", task: "write" }] }), /clean git working tree/);
   assert.equal(fs.readdirSync(queue).some((name) => name.startsWith("call-")), false);
 }));
+
+test("worktree setup hook must stay inside the repository", async () => fixture(async (repo, queue) => {
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-worktree-hook-"));
+  try {
+    const hook = path.join(outside, "setup.sh");
+    fs.writeFileSync(hook, "#!/bin/sh\nexit 0\n", { mode: 0o700 });
+    const manager = new MeshManager(() => agent);
+    await assert.rejects(() => manager.start({ cwd: repo, worktree: true, worktreeSetupHook: hook, tasks: [{ agent: "worker", task: "write" }] }), /setup hook must be inside repository/);
+    assert.equal(fs.readdirSync(queue).some((name) => name.startsWith("call-")), false);
+  } finally { fs.rmSync(outside, { recursive: true, force: true }); }
+}));

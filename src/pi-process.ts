@@ -6,23 +6,13 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Message } from "@earendil-works/pi-ai";
 import type { AgentDefinition } from "./agents.ts";
+import { addUsage, appendUtf8Tail, emptyUsage, type Usage } from "./runtime-utils.ts";
 
 const PI_PACKAGE = "@earendil-works/pi-coding-agent";
 const CONTROL_EXTENSION = fileURLToPath(new URL("./control-extension.ts", import.meta.url));
 export const PI_MESH_PI_BINARY_ENV = "PI_MESH_PI_BINARY";
 
-export interface Usage {
-  input: number;
-  output: number;
-  cacheRead: number;
-  cacheWrite: number;
-  cost: number;
-  costInput?: number;
-  costOutput?: number;
-  costCacheRead?: number;
-  costCacheWrite?: number;
-  turns: number;
-}
+export type { Usage } from "./runtime-utils.ts";
 
 export interface ChildResult { exitCode: number; signal: NodeJS.Signals | null; output: string; stderr: string; usage: Usage; model?: string; error?: string }
 
@@ -39,14 +29,6 @@ export function killChildProcess(child: { pid?: number; kill(signal?: NodeJS.Sig
 }
 const MAX_LINE_BYTES = 4 * 1024 * 1024;
 const MAX_STDERR_BYTES = 128 * 1024;
-
-function appendTail(current: Buffer, chunk: Buffer, limit: number): Buffer {
-  const combined = Buffer.concat([current, chunk]);
-  if (combined.length <= limit) return combined;
-  let start = combined.length - limit;
-  while (start < combined.length && (combined[start]! & 0xc0) === 0x80) start++;
-  return combined.subarray(start);
-}
 
 function packageRootFromEntry(entry: string): string | undefined {
   let dir = path.dirname(entry);
@@ -142,7 +124,7 @@ export function startChild(agent: AgentDefinition, task: string, cwd: string, si
   });
 
   const completion = new Promise<Awaited<ChildExecution["completion"]>>((resolve) => {
-    const usage: Usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 };
+    const usage = emptyUsage();
     let pending: Buffer<ArrayBufferLike> = Buffer.alloc(0);
     let stderrTail: Buffer<ArrayBufferLike> = Buffer.alloc(0);
     let output = "";
@@ -159,16 +141,7 @@ export function startChild(agent: AgentDefinition, task: string, cwd: string, si
       try {
         const event = JSON.parse(line.toString("utf8")) as { type?: string; message?: Message };
         if ((event.type === "message_end" || event.type === "tool_result_end") && event.message?.role === "assistant") {
-          usage.turns++;
-          usage.input += event.message.usage?.input ?? 0;
-          usage.output += event.message.usage?.output ?? 0;
-          usage.cacheRead += event.message.usage?.cacheRead ?? 0;
-          usage.cacheWrite += event.message.usage?.cacheWrite ?? 0;
-          usage.cost += event.message.usage?.cost?.total ?? 0;
-          usage.costInput = (usage.costInput ?? 0) + (event.message.usage?.cost?.input ?? 0);
-          usage.costOutput = (usage.costOutput ?? 0) + (event.message.usage?.cost?.output ?? 0);
-          usage.costCacheRead = (usage.costCacheRead ?? 0) + (event.message.usage?.cost?.cacheRead ?? 0);
-          usage.costCacheWrite = (usage.costCacheWrite ?? 0) + (event.message.usage?.cost?.cacheWrite ?? 0);
+          addUsage(usage, event.message.usage);
           modelName = event.message.model ?? modelName;
           spawnError = event.message.errorMessage ?? spawnError;
           const text = textFromMessage(event.message);
@@ -206,7 +179,7 @@ export function startChild(agent: AgentDefinition, task: string, cwd: string, si
       drainTimer = setTimeout(() => { child.stdout.destroy(); child.stderr.destroy(); }, 1000);
       drainTimer.unref?.();
     };
-    child.stderr.on("data", (chunk: Buffer) => { stderrTail = appendTail(stderrTail, Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk), MAX_STDERR_BYTES); armDrain(); });
+    child.stderr.on("data", (chunk: Buffer) => { stderrTail = appendUtf8Tail(stderrTail, Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk), MAX_STDERR_BYTES); armDrain(); });
     child.stdout.on("data", armDrain);
     child.on("exit", () => {
       exited = true;

@@ -10,12 +10,13 @@ import { registerCompatibilityTools } from "./compat-extension.ts";
 import { FleetView } from "./fleet-view.ts";
 import { registerHerdrSidebar } from "./herdr-sidebar.ts";
 import { manageHerdrTree, type HerdrTreeAction } from "./herdr-tree.ts";
-import { sessionFleetLimiter } from "./fleet-limiter.ts";
+import { clearSessionFleetLimiters, sessionFleetLimiter } from "./fleet-limiter.ts";
 import { MeshManager, type MeshRun, type MeshTask } from "./manager.ts";
 import { loadMeshSettings, type MeshSettings } from "./settings.ts";
 import { ackMessage, growthProposals, messages, pruneMeshState, putGrowth, putMessage, runFile, type ControlMessage, type GrowthProposal } from "./store.ts";
 import { resolveAgentModel } from "./model-resolution.ts";
 import { CompletionNotifier } from "./notifications.ts";
+import { buildConsensusPrompt } from "./consensus-template.ts";
 import { MeshTaskSchema } from "./schemas.ts";
 
 
@@ -259,6 +260,24 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
       pi.sendUserMessage(`You must execute this request through the mesh tool. Do not solve it directly and do not use the standalone Agent tool. First call mesh with action \"list_agents\", then create and run an appropriate mesh DAG for this task in the foreground (omit async or set async=false). The foreground mesh call already waits and streams progress; do not poll with mesh status/list and do not steer unless the user explicitly asks. After it returns, inspect node evidence and synthesize the final answer.\n\nTask:\n${task}`);
     },
   });
+  pi.registerCommand("consensus", {
+    description: "Run a task through independent multi-model implementation, critique, voting, and integration",
+    handler: async (args, ctx) => {
+      if (!ctx.isIdle()) { ctx.ui.notify("Agent is busy; wait for the current turn before starting /consensus.", "warning"); return; }
+      try {
+        const hostModel = ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : undefined;
+        const prompt = buildConsensusPrompt({
+          task: args,
+          models: ctx.modelRegistry.getAvailable(),
+          hostModel,
+          questionToolAvailable: pi.getAllTools().some((tool) => tool.name === "ask_user_question"),
+        });
+        pi.sendUserMessage(prompt);
+      } catch (error) {
+        ctx.ui.notify(error instanceof Error ? error.message : String(error), "warning");
+      }
+    },
+  });
   const openMeshTree = async (action: HerdrTreeAction, ctx: ExtensionContext): Promise<void> => {
     if (process.env.HERDR_ENV !== "1" || !process.env.HERDR_PANE_ID) return void ctx.ui.notify("Mesh tree requires Pi to run inside Herdr 0.7.5+.", "warning");
     const result = await manageHerdrTree(action, ctx.cwd, (args) => pi.exec(process.env.HERDR_BIN || "herdr", args, { timeout: 15_000 }));
@@ -288,6 +307,7 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
     for (const { notifier } of managers.values()) notifier.dispose();
     managers.clear();
     await shutdownSubagents();
+    clearSessionFleetLimiters();
     await herdrSidebar.flush();
   });
 }

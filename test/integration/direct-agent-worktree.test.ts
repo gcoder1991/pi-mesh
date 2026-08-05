@@ -18,10 +18,14 @@ test("direct Agent worktree preserves changes and leaves the main checkout untou
   const oldBinary = process.env[PI_MESH_PI_BINARY_ENV], oldQueue = process.env.PI_MESH_TEST_QUEUE;
   process.env[PI_MESH_PI_BINARY_ENV] = mockPi; process.env.PI_MESH_TEST_QUEUE = queue;
   try {
-    git(root, "init"); fs.writeFileSync(path.join(root, "base.txt"), "base\n"); git(root, "add", "."); git(root, "-c", "user.name=test", "-c", "user.email=test@example.com", "commit", "-m", "base");
-    fs.writeFileSync(path.join(queue, "pending-001.json"), JSON.stringify({ output: "done", writeFile: "change.txt", writeContent: "changed" }));
-    const manager = new SessionAgentManager(defaultMeshSettings, root);
-    const record = manager.spawn(agent, "change", "change", root, { worktree: true }); await record.promise;
+    git(root, "init"); fs.writeFileSync(path.join(root, ".gitignore"), ".pi/\n"); fs.writeFileSync(path.join(root, "base.txt"), "base\n"); git(root, "add", "."); git(root, "-c", "user.name=test", "-c", "user.email=test@example.com", "commit", "-m", "base");
+    fs.writeFileSync(path.join(queue, "pending-001.json"), JSON.stringify({ output: "blocker", delay: 100 }));
+    fs.writeFileSync(path.join(queue, "pending-002.json"), JSON.stringify({ output: "done", writeFile: "change.txt", writeContent: "changed" }));
+    const manager = new SessionAgentManager({ ...defaultMeshSettings, maxConcurrentAgents: 1 }, root);
+    const blocker = manager.spawn(agent, "block", "block", root, {});
+    const record = manager.spawn(agent, "change", "change", root, { worktree: true });
+    assert.equal(record.status, "queued");
+    await blocker.promise; await record.promise;
     assert.equal(record.status, "completed"); assert.equal(fs.existsSync(path.join(root, "change.txt")), false);
     await assert.rejects(() => manager.resume(record.id, "again"), /Worktree Agent is not resumable/);
     assert.ok(record.worktree?.finalCommit); assert.ok(record.worktree?.handoffPath && fs.existsSync(record.worktree.handoffPath));

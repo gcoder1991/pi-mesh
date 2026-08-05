@@ -73,14 +73,20 @@ test("recovers a terminal attempt result without rerunning the child", () => {
   } finally { fs.rmSync(cwd, { recursive: true, force: true }); }
 });
 
-test("rejects an attempt result whose identity does not match the checkpoint", () => {
+test("isolates an invalid attempt result and continues recovering other runs", () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-bad-result-"));
   try {
-    const persisted = recoveredRun(cwd);
-    putAttemptResult(cwd, persisted.id, "a", 1, { schema: "pi-mesh.attempt-result/v1", runId: persisted.id, nodeId: "wrong", attempt: 1, status: "succeeded", finishedAt: 1 });
-    atomicWrite(runFile(cwd, persisted.id), persisted);
-    const manager = new MeshManager(() => agent);
-    assert.throws(() => manager.recover(cwd), /Invalid attempt result state/);
+    const broken = recoveredRun(cwd);
+    const healthy = { ...recoveredRun(cwd), id: "healthy" };
+    putAttemptResult(cwd, broken.id, "a", 1, { schema: "pi-mesh.attempt-result/v1", runId: broken.id, nodeId: "wrong", attempt: 1, status: "succeeded", finishedAt: 1 });
+    atomicWrite(runFile(cwd, broken.id), broken);
+    atomicWrite(runFile(cwd, healthy.id), healthy);
+    const runs = new MeshManager(() => agent).recover(cwd);
+    const recoveredBroken = runs.find((run) => run.id === broken.id)!;
+    const recoveredHealthy = runs.find((run) => run.id === healthy.id)!;
+    assert.equal(recoveredBroken.nodes[0].status, "failed");
+    assert.match(recoveredBroken.nodes[0].error!, /Invalid attempt result state/);
+    assert.equal(recoveredHealthy.nodes[0].status, "queued");
   } finally { fs.rmSync(cwd, { recursive: true, force: true }); }
 });
 

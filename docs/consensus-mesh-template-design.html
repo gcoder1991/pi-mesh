@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multi-Model Consensus Mesh 模板设计报告</title>
+  <style>
+    :root {
+      --ivory:#FAF9F5; --slate:#141413; --clay:#D97757; --oat:#E3DACC;
+      --olive:#788C5D; --rust:#B04A3F; --gray-150:#F0EEE6; --gray-300:#D1CFC5;
+      --gray-500:#87867F; --gray-700:#3D3D3A; --white:#FFFFFF;
+      --serif:ui-serif,Georgia,'Times New Roman',serif;
+      --sans:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+      --mono:ui-monospace,'SF Mono',Menlo,Monaco,monospace;
+    }
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:var(--sans);background:var(--ivory);color:var(--gray-700);line-height:1.55;padding:56px 32px 96px;-webkit-font-smoothing:antialiased}
+    .page{max-width:1120px;margin:0 auto}
+    .page-head{margin-bottom:36px;max-width:900px}
+    .eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--gray-500);margin-bottom:12px}
+    h1{font-family:var(--serif);font-weight:500;font-size:42px;line-height:1.12;color:var(--slate);margin-bottom:18px;letter-spacing:-.01em}
+    .prompt-box{background:var(--gray-150);border:1.5px solid var(--gray-300);border-radius:12px;padding:16px 20px;font-size:14.5px;color:var(--gray-700)}
+    .prompt-box .label{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--gray-500);display:block;margin-bottom:6px}
+    .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin:20px 0 36px}
+    .btn-primary,.btn-secondary{border-radius:999px;padding:9px 16px;font-family:var(--mono);font-size:12px;cursor:pointer}
+    .btn-primary{background:var(--slate);color:var(--ivory);border:1.5px solid var(--slate)}
+    .btn-primary:hover{background:var(--gray-700)}
+    .btn-primary.copied{background:var(--olive);border-color:var(--olive)}
+    .btn-secondary{background:var(--white);color:var(--gray-700);border:1.5px solid var(--gray-300)}
+    .btn-secondary:hover{transform:translateY(-2px);box-shadow:0 5px 16px rgba(20,20,19,.08)}
+    .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:64px}
+    .summary .cell{background:var(--white);border:1.5px solid var(--gray-300);border-radius:12px;padding:18px 20px}
+    .summary .k{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--gray-500);margin-bottom:6px}
+    .summary .v{font-size:17px;color:var(--slate);font-weight:600}.summary .v.accent{color:var(--clay)}
+    section{margin-bottom:64px;scroll-margin-top:20px}
+    .sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:8px}
+    .sec-head .num{font-family:var(--mono);font-size:12px;background:var(--oat);color:var(--slate);padding:3px 9px;border-radius:8px}
+    .sec-head h2{font-family:var(--serif);font-weight:500;font-size:26px;color:var(--slate)}
+    .sec-intro{font-size:14.5px;color:var(--gray-500);max-width:780px;margin-bottom:28px}
+    .approaches{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}
+    .card{background:var(--white);border:1.5px solid var(--gray-300);border-radius:12px;padding:24px}
+    .card h3{font-family:var(--serif);font-size:19px;font-weight:500;color:var(--slate);margin-bottom:8px}
+    .card p,.card li{font-size:13.5px}.card ul{padding-left:18px;display:grid;gap:6px}
+    .chip,.tag{font-family:var(--mono);font-size:11.5px;background:var(--gray-150);border:1px solid var(--gray-300);color:var(--gray-700);border-radius:8px;padding:4px 9px;display:inline-block}
+    .tag{border-radius:6px;padding:3px 8px}.chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+    .risk-tag{font-size:11px;text-transform:uppercase;letter-spacing:.06em;padding:3px 8px;border-radius:6px;font-weight:600}
+    .risk-tag.safe{background:rgba(120,140,93,.15);color:var(--olive)}
+    .risk-tag.attention{background:rgba(217,119,87,.15);color:var(--clay)}
+    .reco{border-left:4px solid var(--clay);background:var(--white);border-radius:0 12px 12px 0;padding:24px 28px;margin-bottom:28px}
+    .reco h2{font-family:var(--serif);font-size:22px;font-weight:500;color:var(--slate);margin-bottom:8px}
+    .diagram{background:var(--white);border:1.5px solid var(--gray-300);border-radius:12px;padding:24px;overflow-x:auto}
+    .diagram svg{display:block;min-width:920px;width:100%;height:auto}.diagram text{font-family:var(--mono)}
+    .caption{font-size:13px;color:var(--gray-500);margin-top:12px}
+    .code{background:var(--slate);border-radius:12px;padding:18px 20px;overflow-x:auto}
+    .code pre{font-family:var(--mono);font-size:12.5px;line-height:1.65;color:#E8E6DE;white-space:pre}
+    .code .kw{color:var(--clay)}.code .str{color:var(--olive)}.code .cm{color:var(--gray-500)}.code .fn{color:#C9B98A}
+    .code-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}.file-label{font-family:var(--mono);font-size:12px;color:var(--gray-500);margin-bottom:8px}
+    .timeline{position:relative;padding:4px 0 4px 16px}.timeline:before{content:"";position:absolute;left:16px;top:8px;bottom:8px;width:2px;background:var(--gray-300)}
+    .tl-entry{position:relative;padding:0 0 24px 30px}.tl-dot{position:absolute;left:-5px;top:6px;width:12px;height:12px;border-radius:50%;background:var(--clay);border:2px solid var(--ivory);box-sizing:content-box}
+    .tl-dot.done{background:var(--olive)}.tl-time{display:inline-block;font-family:var(--mono);font-size:12px;color:var(--gray-700);background:var(--gray-150);border:1px solid var(--gray-300);border-radius:6px;padding:2px 8px;margin-bottom:6px}
+    .tl-body strong{color:var(--slate)}.tl-body p{font-size:13.5px;color:var(--gray-500);margin-top:3px;max-width:760px}
+    .table{border:1.5px solid var(--gray-300);border-radius:12px;overflow:hidden;background:var(--white)}
+    .row{display:grid;grid-template-columns:1.1fr 1.6fr 1.5fr}.row+.row{border-top:1.5px solid var(--gray-300)}
+    .cell{padding:14px 18px;font-size:13.5px}.cell+.cell{border-left:1.5px solid var(--gray-300)}
+    .row.head{background:var(--gray-150);font-weight:600;color:var(--slate);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+    details.file-collapsed{border:1.5px solid var(--gray-300);border-radius:12px;background:var(--white);margin-bottom:14px}
+    details.file-collapsed summary{list-style:none;cursor:pointer;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+    details.file-collapsed summary::-webkit-details-marker{display:none}details.file-collapsed summary:after{content:"+";font-family:var(--mono);color:var(--gray-500);font-size:16px}details.file-collapsed[open] summary:after{content:"−"}
+    details .body{padding:0 20px 18px;font-size:13.5px}.file-path{font-family:var(--mono);font-size:12.5px;color:var(--slate)}
+    footer{border-top:1.5px solid var(--gray-300);padding-top:24px;font-size:12.5px;color:var(--gray-500)}
+    @media(max-width:1100px){.approaches{grid-template-columns:1fr}}
+    @media(max-width:980px){.code-grid{grid-template-columns:1fr}}
+    @media(max-width:900px){.summary{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:780px){body{padding:32px 18px 72px}h1{font-size:34px}.row{grid-template-columns:1fr}.cell+.cell{border-left:none;border-top:1px dashed var(--gray-300)}}
+  </style>
+</head>
+<body>
+<div class="page">
+  <header class="page-head">
+    <div class="eyebrow">Design report · pi-mesh · consensus template</div>
+    <h1>多模型共识 Mesh 模板设计</h1>
+    <div class="prompt-box"><span class="label">目标</span>新增 <code>/consensus &lt;任务&gt;</code> 命令：从与 <code>/model</code> 相同的 ModelRegistry 获取可用模型，通过一次 <code>ask_user_question</code> 选择参与数量、模型组合与 Finalizer，然后生成“独立实现 → 两轮辩论与修订 → 多数投票 → 最终集成”的 Mesh DAG。</div>
+  </header>
+
+  <div class="toolbar">
+    <button id="copyBtn" class="btn-primary">复制为 Markdown</button>
+    <button class="btn-secondary" data-jump="architecture">查看架构</button>
+    <button class="btn-secondary" data-jump="dag">查看 DAG</button>
+    <button class="btn-secondary" data-jump="plan">查看实施计划</button>
+  </div>
+
+  <div class="summary">
+    <div class="cell"><div class="k">形态</div><div class="v accent">Mesh 模板命令</div></div>
+    <div class="cell"><div class="k">默认参与者</div><div class="v">3 个模型</div></div>
+    <div class="cell"><div class="k">辩论轮次</div><div class="v">2 轮</div></div>
+    <div class="cell"><div class="k">裁决方式</div><div class="v">多数共识</div></div>
+  </div>
+
+  <section id="decision">
+    <div class="sec-head"><span class="num">01</span><h2>设计结论</h2></div>
+    <p class="sec-intro">最小且兼容的方案不是新增调度引擎，而是在现有 Mesh Graph 之上增加一个命令模板。</p>
+    <aside class="reco"><h2>推荐：<code>/consensus</code> = Command + ModelRegistry + ask_user_question + Graph Template</h2><p>复用现有 <code>graph</code>、显式 task model、Worktree、依赖证据、重试、恢复与最终集成能力。现有 <code>debate</code> 保持顺序链语义，不承担多模型共识协议。</p></aside>
+    <div class="approaches">
+      <article class="card"><h3>命令层</h3><p>注册 <code>/consensus</code>，读取任务文本和模型目录，并向 Host Agent 注入受约束的模板指令。</p><div class="chips"><span class="chip">registerCommand</span><span class="chip">sendUserMessage</span></div></article>
+      <article class="card"><h3>交互层</h3><p>Host Agent 只调用一次 <code>ask_user_question</code>，询问模型数量、模型组合和 Finalizer。</p><div class="chips"><span class="chip">3 questions</span><span class="chip">preset sets</span></div></article>
+      <article class="card"><h3>执行层</h3><p>使用 <code>operator: graph</code> 和 <code>worktree: true</code> 展开固定两轮共识 DAG。</p><div class="chips"><span class="chip">isolated Git</span><span class="chip">majority vote</span></div></article>
+    </div>
+  </section>
+
+  <section id="architecture">
+    <div class="sec-head"><span class="num">02</span><h2>端到端架构</h2></div>
+    <p class="sec-intro"><code>/model</code> 是 UI；扩展不调用它，而是读取相同的 <code>ctx.modelRegistry.getAvailable()</code> 目录。</p>
+    <div class="diagram">
+      <svg viewBox="0 0 1040 360" xmlns="http://www.w3.org/2000/svg">
+        <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10z" fill="#87867F"/></marker><marker id="arrC" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10z" fill="#D97757"/></marker></defs>
+        <g fill="#fff" stroke="#D1CFC5" stroke-width="1.5">
+          <rect x="20" y="138" width="150" height="68" rx="10"/><rect x="220" y="40" width="180" height="68" rx="10"/><rect x="220" y="138" width="180" height="68" rx="10"/><rect x="220" y="236" width="180" height="68" rx="10"/>
+          <rect x="460" y="138" width="170" height="68" rx="10"/><rect x="690" y="138" width="150" height="68" rx="10"/><rect x="890" y="138" width="130" height="68" rx="10"/>
+        </g>
+        <g font-size="12" fill="#141413" text-anchor="middle">
+          <text x="95" y="165" font-weight="600">/consensus</text><text x="95" y="184" fill="#87867F" font-size="10.5">任务入口</text>
+          <text x="310" y="67" font-weight="600">ModelRegistry</text><text x="310" y="86" fill="#87867F" font-size="10.5">与 /model 同源</text>
+          <text x="310" y="165" font-weight="600">ask_user_question</text><text x="310" y="184" fill="#87867F" font-size="10.5">一次三个问题</text>
+          <text x="310" y="263" font-weight="600">模型组合预设</text><text x="310" y="282" fill="#87867F" font-size="10.5">跨厂商 / 编码 / 成本</text>
+          <text x="545" y="165" font-weight="600">Consensus DAG</text><text x="545" y="184" fill="#87867F" font-size="10.5">Graph 模板展开</text>
+          <text x="765" y="165" font-weight="600">独立 Worktrees</text><text x="765" y="184" fill="#87867F" font-size="10.5">实现 / 修订 / 集成</text>
+          <text x="955" y="165" font-weight="600">Canonical Result</text><text x="955" y="184" fill="#87867F" font-size="10.5">唯一最终输出</text>
+        </g>
+        <g fill="none" stroke="#87867F" stroke-width="1.5" marker-end="url(#arr)"><path d="M170 172 L220 172"/><path d="M400 74 C430 74 430 150 460 160"/><path d="M400 172 L460 172"/><path d="M400 270 C430 270 430 194 460 184"/><path d="M630 172 L690 172"/><path d="M840 172 L890 172"/></g>
+        <path d="M95 138 C95 74 180 74 220 74" fill="none" stroke="#D97757" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#arrC)"/>
+      </svg>
+      <p class="caption">虚线表示命令在生成问卷前读取模型目录；实线表示用户确认后的执行流。</p>
+    </div>
+  </section>
+
+  <section id="ux">
+    <div class="sec-head"><span class="num">03</span><h2>问卷与模型选择</h2></div>
+    <p class="sec-intro"><code>ask_user_question</code> 每题最多四个选项，因此展示“模型组合预设”，而不是把全部模型逐项塞入问卷。自定义行仍可输入精确的 <code>provider/model</code> 列表。</p>
+    <div class="approaches">
+      <article class="card"><h3>问题 1 · 模型数量</h3><ul><li>3 个模型（推荐，有明确多数）</li><li>5 个模型（更稳定，成本更高）</li><li>4 个模型（可能平票，由 Finalizer 裁决）</li></ul></article>
+      <article class="card"><h3>问题 2 · 模型组合</h3><ul><li>跨厂商组合（推荐）</li><li>编码优先</li><li>成本平衡</li><li>当前 Provider</li></ul><p style="margin-top:10px;color:var(--gray-500)">每个选项使用 preview 展示准确模型 ID。</p></article>
+      <article class="card"><h3>问题 3 · Finalizer</h3><ul><li>最强参与模型</li><li>当前 Host 模型</li><li>独立第四模型</li><li>自定义 provider/model</li></ul></article>
+    </div>
+    <div style="height:24px"></div>
+    <div class="code"><pre><span class="kw">const</span> models = ctx.modelRegistry.<span class="fn">getAvailable</span>();
+<span class="kw">const</span> ids = models.<span class="fn">map</span>(m =&gt; <span class="str">`${m.provider}/${m.id}`</span>);
+
+<span class="cm">// 只接受 Registry 中真实、已加载的模型；不猜测 Provider 或模型 ID。</span></pre></div>
+  </section>
+
+  <section id="dag">
+    <div class="sec-head"><span class="num">04</span><h2>两轮共识 DAG</h2></div>
+    <p class="sec-intro">以三个参与模型为例，共 18 个节点。Ledger 节点压缩争议，避免每一轮把全部历史输出重复注入所有模型。</p>
+    <div class="diagram">
+      <svg viewBox="0 0 1040 610" xmlns="http://www.w3.org/2000/svg">
+        <defs><marker id="da" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10z" fill="#87867F"/></marker></defs>
+        <g stroke="#D1CFC5" stroke-width="1.5">
+          <g fill="#fff"><rect x="35" y="40" width="150" height="48" rx="10"/><rect x="35" y="108" width="150" height="48" rx="10"/><rect x="35" y="176" width="150" height="48" rx="10"/></g>
+          <g fill="#F0EEE6"><rect x="245" y="40" width="150" height="48" rx="10"/><rect x="245" y="108" width="150" height="48" rx="10"/><rect x="245" y="176" width="150" height="48" rx="10"/></g>
+          <rect x="455" y="108" width="130" height="48" rx="10" fill="#E3DACC"/>
+          <g fill="#fff"><rect x="645" y="40" width="150" height="48" rx="10"/><rect x="645" y="108" width="150" height="48" rx="10"/><rect x="645" y="176" width="150" height="48" rx="10"/></g>
+          <g fill="#F0EEE6"><rect x="35" y="330" width="150" height="48" rx="10"/><rect x="35" y="398" width="150" height="48" rx="10"/><rect x="35" y="466" width="150" height="48" rx="10"/></g>
+          <rect x="245" y="398" width="130" height="48" rx="10" fill="#E3DACC"/>
+          <g fill="#fff"><rect x="435" y="330" width="150" height="48" rx="10"/><rect x="435" y="398" width="150" height="48" rx="10"/><rect x="435" y="466" width="150" height="48" rx="10"/></g>
+          <rect x="690" y="398" width="190" height="58" rx="10" fill="#141413" stroke="#141413"/>
+        </g>
+        <g font-size="11.5" fill="#141413" text-anchor="middle"><text x="110" y="70">implement-a</text><text x="110" y="138">implement-b</text><text x="110" y="206">implement-c</text><text x="320" y="70">debate-1-a</text><text x="320" y="138">debate-1-b</text><text x="320" y="206">debate-1-c</text><text x="520" y="138" font-weight="600">ledger-1</text><text x="720" y="70">revise-1-a</text><text x="720" y="138">revise-1-b</text><text x="720" y="206">revise-1-c</text><text x="110" y="360">debate-2-a</text><text x="110" y="428">debate-2-b</text><text x="110" y="496">debate-2-c</text><text x="310" y="428" font-weight="600">ledger-2</text><text x="510" y="360">revise-2-a</text><text x="510" y="428">revise-2-b</text><text x="510" y="496">revise-2-c</text></g>
+        <g font-size="12" fill="#FAF9F5" text-anchor="middle"><text x="785" y="424" font-weight="600">consensus-final</text><text x="785" y="442" fill="#C9B98A" font-size="10.5">majority + integration</text></g>
+        <g stroke="#87867F" stroke-width="1.35" fill="none" marker-end="url(#da)"><path d="M185 64 L245 64"/><path d="M185 132 L245 132"/><path d="M185 200 L245 200"/><path d="M395 64 C430 64 425 120 455 126"/><path d="M395 132 L455 132"/><path d="M395 200 C430 200 425 148 455 140"/><path d="M585 132 L645 64"/><path d="M585 132 L645 132"/><path d="M585 132 L645 200"/><path d="M720 224 C720 270 110 270 110 330"/><path d="M720 224 C720 280 110 340 110 398"/><path d="M720 224 C720 290 110 410 110 466"/><path d="M185 354 C220 354 215 410 245 416"/><path d="M185 422 L245 422"/><path d="M185 490 C220 490 215 438 245 430"/><path d="M375 422 L435 354"/><path d="M375 422 L435 422"/><path d="M375 422 L435 490"/><path d="M585 354 L690 412"/><path d="M585 422 L690 427"/><path d="M585 490 L690 442"/></g>
+        <g font-size="10.5" fill="#87867F"><text x="35" y="27">独立实现</text><text x="245" y="27">第一轮互评</text><text x="455" y="95">争议压缩</text><text x="645" y="27">第一轮修订</text><text x="35" y="317">第二轮互评</text><text x="245" y="385">选项归一</text><text x="435" y="317">最终修订与投票</text></g>
+      </svg>
+      <p class="caption">每个实现和修订节点使用对应参与模型；Ledger 可使用较快模型；Finalizer 可使用当前 Host、最强参与者或独立模型。</p>
+    </div>
+  </section>
+
+  <section id="contracts">
+    <div class="sec-head"><span class="num">05</span><h2>阶段输出契约</h2></div>
+    <p class="sec-intro">结构化输出使后续模型能够引用证据、归并候选并稳定计票；最终结果仍可同时包含人类可读说明。</p>
+    <div class="code-grid">
+      <div><div class="file-label">debate / ledger</div><div class="code"><pre>{
+  <span class="str">"preferredImplementation"</span>: <span class="str">"implement-b"</span>,
+  <span class="str">"acceptedArguments"</span>: [],
+  <span class="str">"rejectedArguments"</span>: [],
+  <span class="str">"requiredChanges"</span>: [],
+  <span class="str">"currentVote"</span>: <span class="str">"OPTION-A"</span>
+}</pre></div></div>
+      <div><div class="file-label">consensus-final</div><div class="code"><pre>{
+  <span class="str">"status"</span>: <span class="str">"CONSENSUS_BY_MAJORITY"</span>,
+  <span class="str">"selectedOption"</span>: <span class="str">"OPTION-A"</span>,
+  <span class="str">"votes"</span>: {},
+  <span class="str">"minorityOpinions"</span>: [],
+  <span class="str">"finalCommit"</span>: <span class="str">"..."</span>,
+  <span class="str">"canonicalResult"</span>: <span class="str">"..."</span>
+}</pre></div></div>
+    </div>
+  </section>
+
+  <section id="command">
+    <div class="sec-head"><span class="num">06</span><h2>命令模板</h2></div>
+    <p class="sec-intro">命令不直接调用第三方 Tool；它向当前 Host Agent 发送严格模板，由 Host 正常调用 <code>ask_user_question</code> 和 <code>mesh</code>。</p>
+    <div class="code"><pre><span class="kw">pi</span>.<span class="fn">registerCommand</span>(<span class="str">"consensus"</span>, {
+  description: <span class="str">"Run a task through multi-model implementation and consensus"</span>,
+  handler: <span class="kw">async</span> (args, ctx) =&gt; {
+    <span class="kw">const</span> models = ctx.modelRegistry.<span class="fn">getAvailable</span>();
+    <span class="kw">const</span> catalog = <span class="fn">compactModelCatalog</span>(models, ctx.model);
+
+    pi.<span class="fn">sendUserMessage</span>(<span class="fn">buildConsensusPrompt</span>({
+      task: args,
+      catalog,
+      fixedPolicy: {
+        worktree: <span class="kw">true</span>,
+        rounds: <span class="str">2</span>,
+        decision: <span class="str">"majority"</span>
+      }
+    }));
+  }
+});</pre></div>
+  </section>
+
+  <section id="plan">
+    <div class="sec-head"><span class="num">07</span><h2>实施计划</h2></div>
+    <p class="sec-intro">建议分四个小提交完成；每一步均可独立测试和回退。</p>
+    <div class="timeline">
+      <div class="tl-entry"><span class="tl-dot"></span><span class="tl-time">Step 1</span><div class="tl-body"><strong>命令与模型目录</strong><p>注册 <code>/consensus</code>；从 ModelRegistry 获取可用模型；生成紧凑、去重、跨 Provider 的候选目录。</p></div></div>
+      <div class="tl-entry"><span class="tl-dot"></span><span class="tl-time">Step 2</span><div class="tl-body"><strong>Ask User Question 模板</strong><p>一次询问模型数量、组合和 Finalizer；支持预设 preview 与自定义 provider/model 输入。</p></div></div>
+      <div class="tl-entry"><span class="tl-dot"></span><span class="tl-time">Step 3</span><div class="tl-body"><strong>DAG 生成器</strong><p>用纯函数展开 18 节点 Graph，保留每个参与者的显式 model，并强制 Worktree 与 Finalizer integration。</p></div></div>
+      <div class="tl-entry"><span class="tl-dot"></span><span class="tl-time">Step 4</span><div class="tl-body"><strong>测试、文档和发布</strong><p>覆盖模型校验、DAG 拓扑、问卷 Prompt、Worktree 交接、投票汇总与打包加载。</p></div></div>
+    </div>
+  </section>
+
+  <section id="files">
+    <div class="sec-head"><span class="num">08</span><h2>预计改动面</h2></div>
+    <details class="file-collapsed" open><summary><span class="file-path">src/compat-extension.ts</span><span class="risk-tag attention">command</span></summary><div class="body">注册 <code>/consensus</code>，读取 ModelRegistry，构建模板 Prompt，并通过 <code>sendUserMessage</code> 启动 Host 工作流。</div></details>
+    <details class="file-collapsed"><summary><span class="file-path">src/consensus-template.ts</span><span class="risk-tag safe">new helper</span></summary><div class="body">新增纯函数：模型候选分组、问卷指令、DAG Task 展开和输出契约。避免把模板细节继续堆入大型 Extension 文件。</div></details>
+    <details class="file-collapsed"><summary><span class="file-path">test/unit/consensus-template.test.ts</span><span class="risk-tag safe">unit</span></summary><div class="body">验证模型去重、跨 Provider 预设、节点数量、依赖关系、显式 model 保留和 Finalizer 设置。</div></details>
+    <details class="file-collapsed"><summary><span class="file-path">test/e2e/consensus.e2e.test.ts</span><span class="risk-tag attention">e2e</span></summary><div class="body">使用 Mock Provider 验证命令注入、问卷后生成的 Graph、独立 Worktree 和最终多数输出。</div></details>
+  </section>
+
+  <section id="risks">
+    <div class="sec-head"><span class="num">09</span><h2>风险与边界</h2></div>
+    <div class="table">
+      <div class="row head"><div class="cell">风险</div><div class="cell">影响</div><div class="cell">处理</div></div>
+      <div class="row"><div class="cell">问卷每题最多四个选项</div><div class="cell">无法逐项显示全部模型</div><div class="cell">展示四个动态模型组合；Type something 支持自定义模型列表。</div></div>
+      <div class="row"><div class="cell">18 个节点成本较高</div><div class="cell">Token、时间和 Provider 费用增加</div><div class="cell">默认 3 模型；命令启动前展示节点数与成本提示。</div></div>
+      <div class="row"><div class="cell">多数不等于全体一致</div><div class="cell">少数模型可能仍反对</div><div class="cell">最终只暴露 Canonical Result，同时保留 minorityOpinions 审计字段。</div></div>
+      <div class="row"><div class="cell">多个实现不能直接同时合并</div><div class="cell">容易产生冲突或错误拼接</div><div class="cell">Finalizer 选择多数方案作为基线，再有选择地应用必要修改并运行验证。</div></div>
+      <div class="row"><div class="cell">模型别名可能指向同一底层模型</div><div class="cell">看似多模型，实际同源</div><div class="cell">优先跨 Provider；显示 Provider/ID；不声称能够完全识别所有代理别名。</div></div>
+    </div>
+  </section>
+
+  <section id="acceptance">
+    <div class="sec-head"><span class="num">10</span><h2>验收标准</h2></div>
+    <div class="approaches">
+      <article class="card"><h3>交互</h3><ul><li><code>/consensus</code> 无任务时给出提示</li><li>一次 ask_user_question 完成选择</li><li>自定义模型 ID 能被严格校验</li></ul></article>
+      <article class="card"><h3>执行</h3><ul><li>参与模型相互隔离</li><li>两轮辩论与修订依赖正确</li><li>Finalizer 获得 Commit、Patch、Ledger 和投票</li></ul></article>
+      <article class="card"><h3>结果</h3><ul><li>只生成一份 Canonical Result</li><li>多数票和少数意见可审计</li><li>最终实现包含验证结果与 Handoff</li></ul></article>
+    </div>
+  </section>
+
+  <footer>状态：<strong>IMPLEMENTED</strong> · 已实现 <code>/consensus</code> Host Prompt / Graph 模板、模型目录注入、问卷降级路径与单元测试；实际 Consensus Mesh 仅在用户运行命令后启动。</footer>
+</div>
+<script>
+(function(){
+  var copyBtn=document.getElementById('copyBtn'),timer;
+  function reportMarkdown(){return `# 多模型共识 Mesh 模板设计\n\n## 结论\n\n已实现 \`/consensus <任务>\` Mesh 模板命令，而不是新增底层调度引擎。\n\n组合：\n\n- ModelRegistry：与 \`/model\` 同源的可用模型目录\n- ask_user_question：一次选择参与数量、模型组合和 Finalizer\n- Mesh graph：独立实现、两轮辩论与修订、多数投票、最终集成\n- worktree: true：隔离每个实现和修订\n\n## 固定策略\n\n- 默认参与模型：3\n- 辩论轮次：2\n- 分歧处理：多数意见\n- 最终输出：Canonical Result + minorityOpinions\n\n## DAG\n\nimplement × N → critique-1 × N → ledger-1 → revise-1 × N → critique-2 × N → ledger-2 → revise-2 × N → consensus-final\n\n三个参与者共 18 个节点。\n\n## 状态\n\nIMPLEMENTED\n`; }
+  function flash(){copyBtn.textContent='已复制 ✓';copyBtn.classList.add('copied');clearTimeout(timer);timer=setTimeout(function(){copyBtn.textContent='复制为 Markdown';copyBtn.classList.remove('copied')},1200)}
+  copyBtn.addEventListener('click',function(){var text=reportMarkdown();if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(flash,flash)}else{var ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.left='-9999px';document.body.appendChild(ta);ta.select();try{document.execCommand('copy')}catch(e){}document.body.removeChild(ta);flash()}});
+  document.querySelectorAll('[data-jump]').forEach(function(btn){btn.addEventListener('click',function(){document.getElementById(btn.getAttribute('data-jump')).scrollIntoView({behavior:'smooth'})})});
+})();
+</script>
+</body>
+</html>

@@ -4,6 +4,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import type { AgentDefinition } from "./agents.ts";
 import type { ChildResult, Usage } from "./pi-process.ts";
+import { trackActivity, truncateUtf8, type AgentActivity } from "./runtime-utils.ts";
 import { SubagentRuntime, type SubagentExecution } from "./subagent-runtime.ts";
 import { acquireRunLease, type RunLease } from "./run-lease.ts";
 import { appendDebugEvent, atomicWrite, attemptResultFile, listRunFiles, putAttemptResult, putDiagnosticExplanation, putNodeOutput, readJson, runFile } from "./store.ts";
@@ -54,7 +55,7 @@ export interface MeshNode {
   usage?: Usage;
   worktree?: WorktreeState;
   worktreeHistory?: WorktreeState[];
-  activity?: { turns: number; toolUses: number; responseText: string; activeTools: string[]; usage: Usage };
+  activity?: AgentActivity;
 }
 
 export interface AttemptResult {
@@ -151,7 +152,16 @@ export class MeshManager {
         this.ensureLease(run);
         run.recoveryCount++;
         for (const node of interrupted) {
-          const result = this.recoveredAttemptResult(run, node);
+          let result: AttemptResult | undefined;
+          try {
+            result = this.recoveredAttemptResult(run, node);
+          } catch (error) {
+            transitionNode(node, "failed");
+            node.finishedAt = Date.now();
+            node.error = `Recovery error: ${error instanceof Error ? error.message : String(error)}`;
+            this.debug(run, "attempt_result_recovery_failed", { nodeId: node.id, attempt: node.attempt, error: node.error });
+            continue;
+          }
           if (result) {
             this.applyRecoveredAttemptResult(node, result);
             if (node.worktree?.cleanupStatus === "pending") {
@@ -549,7 +559,7 @@ export class MeshManager {
         thinking: agent.thinking,
         maxTurns: agent.maxTurns,
         mesh: { root: run.cwd, runId: run.id, nodeId: node.id, attempt },
-        onEvent: (event) => this.trackActivity(node, event),
+        onEvent: (event) => trackActivity(node, event),
       });
     } catch (error) {
       if (timer) clearTimeout(timer);
@@ -584,7 +594,7 @@ export class MeshManager {
       node.outputPath = putNodeOutput(run.cwd, run.id, node.id, attempt, result.output);
       node.outputBytes = Buffer.byteLength(result.output);
       node.outputTruncated = node.outputBytes > 200 * 1024;
-      node.output = node.outputTruncated ? `${Buffer.from(result.output).subarray(0, 200 * 1024).toString("utf8")}\n[truncated; full output: ${node.outputPath}]` : result.output;
+      node.output = node.outputTruncated ? `${truncateUtf8(result.output, 200 * 1024)}\n[truncated; full output: ${node.outputPath}]` : result.output;
     }
     if ((node.status as NodeStatus) === "cancelled" || signal.aborted) {
       if ((node.status as NodeStatus) === "running") transitionNode(node, "cancelled");
@@ -635,20 +645,6 @@ export class MeshManager {
     onUpdate?.(run);
   }
 
-  private trackActivity(node: MeshNode, event: any): void {
-    const activity = node.activity ??= { turns: 0, toolUses: 0, responseText: "", activeTools: [], usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 } };
-    if (event.type === "turn_start") activity.turns++;
-    if (event.type === "tool_execution_start") { activity.toolUses++; activity.activeTools = [...activity.activeTools.filter((name) => name !== event.toolName), event.toolName].slice(-3); }
-    if (event.type === "tool_execution_end") activity.activeTools = activity.activeTools.filter((name) => name !== event.toolName);
-    if (event.type === "message_update" && event.assistantMessageEvent?.type === "text_delta") activity.responseText = `${activity.responseText}${event.assistantMessageEvent.delta ?? ""}`.slice(-160);
-    if (event.type === "message_end" && event.message?.role === "assistant") {
-      const usage = event.message.usage; activity.turns = Math.max(activity.turns, activity.usage.turns + 1); activity.usage.turns++;
-      activity.usage.input += usage?.input ?? 0; activity.usage.output += usage?.output ?? 0; activity.usage.cacheRead += usage?.cacheRead ?? 0; activity.usage.cacheWrite += usage?.cacheWrite ?? 0;
-      activity.usage.cost += usage?.cost?.total ?? 0; activity.usage.costInput = (activity.usage.costInput ?? 0) + (usage?.cost?.input ?? 0); activity.usage.costOutput = (activity.usage.costOutput ?? 0) + (usage?.cost?.output ?? 0);
-      activity.usage.costCacheRead = (activity.usage.costCacheRead ?? 0) + (usage?.cost?.cacheRead ?? 0); activity.usage.costCacheWrite = (activity.usage.costCacheWrite ?? 0) + (usage?.cost?.cacheWrite ?? 0);
-    }
-  }
-
   private failNode(run: MeshRun, node: MeshNode, error: string, onUpdate?: (run: MeshRun) => void): void {
     transitionNode(node, "failed");
     node.error = error;
@@ -660,7 +656,7 @@ export class MeshManager {
   private nodePrompt(run: MeshRun, node: MeshNode): string {
     const dependencies = node.dependsOn.map((id) => run.nodes.find((candidate) => candidate.id === id)).filter((item): item is MeshNode => Boolean(item));
     const evidence = dependencies.map((dependency) => {
-      const output = dependency.output ? Buffer.from(dependency.output).subarray(0, 32 * 1024).toString("utf8") : "";
+      const output = dependency.output ? truncateUtf8(dependency.output, 32 * 1024) : "";
       return [`### ${dependency.id}`, `Agent: ${dependency.agent}`, `Status: ${dependency.status}`,
         dependency.worktree?.finalCommit ? `Commit: ${dependency.worktree.finalCommit}` : "",
         dependency.worktree?.patchPath ? `Patch: ${dependency.worktree.patchPath}` : "",
@@ -712,7 +708,7 @@ export class MeshManager {
     if (result.outputPath) {
       try {
         const output = fs.readFileSync(result.outputPath, "utf8");
-        node.output = result.outputTruncated ? `${Buffer.from(output).subarray(0, 200 * 1024).toString("utf8")}\n[truncated; full output: ${result.outputPath}]` : output;
+        node.output = result.outputTruncated ? `${truncateUtf8(output, 200 * 1024)}\n[truncated; full output: ${result.outputPath}]` : output;
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
       }

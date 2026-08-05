@@ -52,3 +52,7 @@ export function sessionFleetLimiter(sessionId: string, limit: number): FleetLimi
   sessionLimiters.set(sessionId, limiter);
   return limiter;
 }
+
+export function clearSessionFleetLimiters(): void {
+  sessionLimiters.clear();
+}

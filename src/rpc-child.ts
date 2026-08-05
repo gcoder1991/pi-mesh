@@ -5,7 +5,8 @@ import * as path from "node:path";
 import type { Readable, Writable } from "node:stream";
 import { StringDecoder } from "node:string_decoder";
 import type { AgentDefinition } from "./agents.ts";
-import { getPiInvocation, killChildProcess, type ChildResult, type Usage } from "./pi-process.ts";
+import { getPiInvocation, killChildProcess, type ChildResult } from "./pi-process.ts";
+import { addUsage, appendUtf8Tail, emptyUsage, truncateUtf8, type Usage } from "./runtime-utils.ts";
 
 export interface RpcChildOptions {
   args: string[];
@@ -40,29 +41,9 @@ const MAX_LINE_BYTES = 4 * 1024 * 1024;
 const MAX_STDERR_BYTES = 128 * 1024;
 const MAX_CONVERSATION_BYTES = 1024 * 1024;
 const ABORT_GRACE_MS = 3000;
-function appendTail(value: Buffer<ArrayBufferLike>, chunk: Buffer<ArrayBufferLike>, limit: number): Buffer<ArrayBufferLike> {
-  const joined = Buffer.concat([value, chunk]);
-  if (joined.length <= limit) return joined;
-  let start = joined.length - limit;
-  while (start < joined.length && (joined[start]! & 0xc0) === 0x80) start++;
-  return joined.subarray(start);
-}
-
 function appendConversation(current: string, entry: string): string {
   const next = current ? `${current}\n\n${entry}` : entry;
-  return Buffer.byteLength(next, "utf8") <= MAX_CONVERSATION_BYTES ? next : Buffer.from(next).subarray(-MAX_CONVERSATION_BYTES).toString("utf8");
-}
-
-function emptyUsage(): Usage {
-  return { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 };
-}
-
-function addUsage(target: Usage, source: any): void {
-  target.turns++;
-  target.input += source?.input ?? 0; target.output += source?.output ?? 0; target.cacheRead += source?.cacheRead ?? 0; target.cacheWrite += source?.cacheWrite ?? 0;
-  target.cost += source?.cost?.total ?? 0;
-  target.costInput = (target.costInput ?? 0) + (source?.cost?.input ?? 0); target.costOutput = (target.costOutput ?? 0) + (source?.cost?.output ?? 0);
-  target.costCacheRead = (target.costCacheRead ?? 0) + (source?.cost?.cacheRead ?? 0); target.costCacheWrite = (target.costCacheWrite ?? 0) + (source?.cost?.cacheWrite ?? 0);
+  return truncateUtf8(next, MAX_CONVERSATION_BYTES, "tail");
 }
 
 export function createRpcChild(agent: AgentDefinition, cwd: string, options: RpcChildOptions): RpcChildSession {
@@ -153,7 +134,7 @@ export function createRpcChild(agent: AgentDefinition, cwd: string, options: Rpc
   });
   child.stderr.on("data", (chunk: Buffer) => {
     const value = Buffer.isBuffer(chunk) ? Buffer.from(chunk) : Buffer.from(chunk);
-    stderrWrites = stderrWrites.then(() => { stderrTail = appendTail(stderrTail, value, MAX_STDERR_BYTES); });
+    stderrWrites = stderrWrites.then(() => { stderrTail = appendUtf8Tail(stderrTail, value, MAX_STDERR_BYTES); });
   });
   child.on("error", (error) => finish(error.message));
   child.on("close", (code, signal) => {

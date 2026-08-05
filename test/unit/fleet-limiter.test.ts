@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { FleetLimiter } from "../../src/fleet-limiter.ts";
+import { clearSessionFleetLimiters, FleetLimiter, sessionFleetLimiter } from "../../src/fleet-limiter.ts";
 
 test("fleet limiter shares a bounded session slot pool", async () => {
   const limiter = new FleetLimiter(1);
@@ -29,4 +29,12 @@ test("fleet limiter removes aborted waiters", async () => {
   assert.equal(limiter.queued, 0);
   release();
   assert.equal(limiter.active, 0);
+});
+
+test("session fleet limiter cache can be cleared on shutdown", () => {
+  const first = sessionFleetLimiter("clear-test", 1);
+  assert.equal(sessionFleetLimiter("clear-test", 1), first);
+  clearSessionFleetLimiters();
+  assert.notEqual(sessionFleetLimiter("clear-test", 1), first);
+  clearSessionFleetLimiters();
 });

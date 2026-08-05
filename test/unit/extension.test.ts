@@ -30,6 +30,7 @@ test("registers one mesh tool with strict actions", () => {
   assert.deepEqual(tool.parameters.properties.action.enum, ["list_agents", "run", "status", "list", "cancel", "pause", "resume", "retry_failed", "recover", "steer", "handoff_list", "message_send", "message_broadcast", "message_inbox", "message_ack", "growth_list", "growth_decide"]);
   assert.ok(events.includes("session_shutdown"));
   assert.ok(commands.includes("mesh-tree"));
+  assert.ok(commands.includes("consensus"));
   assert.ok(shortcuts.includes("ctrl+shift+m"));
 });
 
