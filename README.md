@@ -66,17 +66,7 @@ debugMaxBytes: 4194304
 
 The extension registers native `mesh` plus compatibility tools `Agent`, `get_subagent_result`, and `steer_subagent`. Direct Agent supports foreground/background execution, bounded queueing, steer/resume, opt-in persistent sessions, transcripts, context inheritance, explicit Child extension/skill allowlists, memory, schedules, and strict Worktree isolation. Direct registries are isolated per Pi session and large results keep a bounded preview plus a full artifact. While agents run, a below-editor main panel shows `main` plus Direct Agents and Mesh nodes with live elapsed time, turns, tool count/activity, and tokens. At an empty prompt press `↓` or `←`, navigate with `↑`/`↓`, and press `Enter` for the live status/conversation page. The page supports `j/k`, arrows, PageUp/PageDown, Home/End, inline `Enter` steering, and two-press `x` stop confirmation. Use `/agents` or `ctrl+shift+a` for management; `/agents` also lists and cancels scheduled jobs.
 
-When Pi runs inside [Herdr](https://herdr.dev), pi-mesh also projects active Mesh nodes into Herdr's left Agent sidebar using an Astralink-style `● N agents active · names` summary. The bridge is enabled only when Herdr provides `HERDR_ENV=1` and `HERDR_PANE_ID`; otherwise it registers no polling or subprocess work. Include `state_text` or `$summary` in the Herdr sidebar row layout:
-
-```toml
-[ui.sidebar.agents]
-rows = [
-  ["state_icon", "workspace", "tab"],
-  ["agent", "state_text"],
-]
-```
-
-Herdr 0.7.5+ can open the full Astralink-style dependency tree in a real left split pane. Run `/mesh-tree` or press `ctrl+shift+m`; use `/mesh-tree status` and `/mesh-tree close` to inspect or close only that pane. It live-refreshes project Mesh checkpoints and displays every active Run and all of its nodes, plus completed Runs for Astralink's 20-second linger window, with status, Agent role, task, blockers, elapsed time, tokens, active tools, and recent output. Closing the pane never stops a Mesh run.
+Run `/mesh-tree` or press `ctrl+shift+m` to open the native live Mesh inspector modeled on `pi-subagents`' `/subagents-fleet`. The dependency-shaped node roster stays on the left; the selected node's task, status, model, elapsed time, tokens, tools, conversation, and artifacts appear on the right. Use `↑`/`↓` or `j`/`k` to select nodes, `Shift+K`/`Shift+J` or `PgUp`/`PgDn` to scroll detail, `r` to refresh, and `Esc` to close. Active Runs remain visible, and completed Runs linger for 20 seconds.
 
 See `docs/parity-matrix.md`, `docs/replacement-delta.md`, and `docs/release-review.md` for the final replacement audit.
 
