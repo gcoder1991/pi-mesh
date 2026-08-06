@@ -1,6 +1,6 @@
 {
   "name": "@gcoder1991/pi-mesh",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Host-owned child-agent mesh for Pi, exposed as typed extension tools",
   "license": "MIT",
   "type": "module",
