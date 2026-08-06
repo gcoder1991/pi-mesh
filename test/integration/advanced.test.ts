@@ -12,7 +12,7 @@ const agent: AgentDefinition = { name: "worker", description: "worker", tools: [
 function recoveredRun(cwd: string): MeshRun {
   const now = Date.now();
   return {
-    schema: "pi-mesh.run/v2", id: "recovered", status: "running", cwd, operator: "graph", maxConcurrency: 1, maxNodes: 8,
+    schema: "pi-mesh.run/v2", id: "recovered", sessionId: "default", status: "running", cwd, operator: "graph", maxConcurrency: 1, maxNodes: 8,
     failFast: false, revision: 1, recoveryCount: 0, createdAt: now, updatedAt: now,
     nodes: [{ id: "a", agent: "worker", task: "work", dependsOn: [], cwd, retries: 0, attempt: 1, status: "running" }],
   };
@@ -30,6 +30,17 @@ test("recovers the same project through a canonical path after creation via syml
     assert.equal(recovered.some((item) => item.id === run.id), true);
     assert.equal(recovered.find((item) => item.id === run.id)?.cwd, fs.realpathSync(real));
   } finally { fs.rmSync(link, { force: true }); fs.rmSync(real, { recursive: true, force: true }); }
+});
+
+test("only the originating session recovers its runs", async () => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-session-run-"));
+  try {
+    const original = new MeshManager(() => agent, undefined, undefined, undefined, "session-a");
+    const created = original.create({ cwd, tasks: [{ id: "a", agent: "worker", task: "a" }] });
+    await original.shutdown();
+    assert.deepEqual(new MeshManager(() => agent, undefined, undefined, undefined, "session-b").recover(cwd), []);
+    assert.equal(new MeshManager(() => agent, undefined, undefined, undefined, "session-a").recover(cwd)[0]?.id, created.id);
+  } finally { fs.rmSync(cwd, { recursive: true, force: true }); }
 });
 
 test("skips checkpoints whose recorded cwd no longer exists", () => {

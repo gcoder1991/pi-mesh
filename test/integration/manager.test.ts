@@ -92,6 +92,15 @@ test("failFast cancels queued dependents after failure", async () => withMock(as
   assert.equal(diagnostic.outputPath, run.nodes[0].outputPath);
 }));
 
+test("reports node timeouts instead of generic cancellation", async () => withMock(async (queue) => {
+  queueResponse(queue, 1, { output: "late", delay: 500 });
+  const manager = new MeshManager((name) => agent(name));
+  const run = await manager.start({ cwd: process.cwd(), tasks: [{ id: "slow", agent: "worker", task: "slow", timeoutMs: 100 }] });
+  assert.equal(run.nodes[0].error, "Timed out after 100ms");
+  const attempt = JSON.parse(fs.readFileSync(run.nodes[0].attemptResultPath!, "utf8"));
+  assert.equal(attempt.error, "Timed out after 100ms");
+}));
+
 test("retryFailed reruns only unsuccessful nodes", async () => withMock(async (queue) => {
   queueResponse(queue, 1, { output: "ok" });
   queueResponse(queue, 2, { output: "bad", stderr: "boom", exitCode: 1 });
@@ -107,8 +116,10 @@ test("retryFailed reruns only unsuccessful nodes", async () => withMock(async (q
   const retried = await manager.retryFailed(first.id);
   assert.equal(retried.status, "succeeded");
   assert.deepEqual(retried.nodes.map((node) => [node.id, node.status, node.attempt]), [["EPIC-01", "succeeded", 1], ["EPIC-06", "succeeded", 2]]);
-  const calls = fs.readdirSync(queue).filter((name) => name.startsWith("call-"));
+  const calls = fs.readdirSync(queue).filter((name) => name.startsWith("call-")).sort().map((name) => JSON.parse(fs.readFileSync(path.join(queue, name), "utf8")));
   assert.equal(calls.length, 3);
+  const retryPrompt = calls.at(-1).args.find((value: string) => value.startsWith("Task: "));
+  assert.match(retryPrompt, /Continue previous attempt[\s\S]*Do not restart[\s\S]*Failure: boom[\s\S]*Previous output:[\s\S]*Previous output tail:\nbad/);
 }));
 
 test("retryFailed reruns skipped dependents but preserves successful prerequisites", async () => withMock(async (queue) => {

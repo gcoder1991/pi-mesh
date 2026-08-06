@@ -95,7 +95,7 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
     pruneMeshState(root, settings);
     const limiter = sessionFleetLimiter(sessionId, settings.maxConcurrentAgents);
     const resolveAgent = (name: string) => discoverAgents(root, { scope: "all", includeProject: projectTrusted, projectRoot: root }).find((agent) => agent.name === name);
-    const manager = new MeshManager(resolveAgent, settings, limiter, modelRegistry);
+    const manager = new MeshManager(resolveAgent, settings, limiter, modelRegistry, sessionId);
     manager.recover(root);
     const entry = { manager, settings, notifier: new CompletionNotifier(pi, settings), resolveAgent };
     managers.set(key, entry);
@@ -110,8 +110,8 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
       "Before the first mesh run in a project, or whenever agent selection is uncertain, call mesh with action list_agents and choose from the returned bundled, user, and project agents. Treat each description as the agent's routing contract; do not infer capabilities from its name alone. When reading an Agent definition, use the exact absolute definition path returned by list_agents; never guess an agents/ directory, and remember that cwd changes do not persist across separate tool calls.",
       "Use mesh when work has independent branches, needs specialized review, or broad exploration would flood the main context. Use direct read, grep, and find tools when the target is already known and narrow.",
       "Do not duplicate work already delegated to mesh nodes. Consume their bounded evidence and synthesize the results.",
-      "If a run partially fails, call retry_failed on that run instead of creating replacement IDs or resubmitting successful nodes.",
-      "In mesh, only the host approves growth. Enable mesh worktree mode for parallel writers; it requires a clean Git checkout. Use mesh recover after reopening a project to restart interrupted runs.",
+      "If a run partially fails, call retry_failed on that run instead of creating replacement IDs or resubmitting successful nodes. It resumes the failed node's persisted Agent session when available and otherwise supplies the previous error and output as repair context.",
+      "In mesh, only the host approves growth. Enable mesh worktree mode for parallel writers; it requires a clean Git checkout. Use mesh recover after reopening the same Pi session to restart interrupted runs.",
     ],
     parameters: MeshParams,
     renderCall(args, theme) {

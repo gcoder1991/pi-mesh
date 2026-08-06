@@ -5,6 +5,13 @@ import { ConversationViewer } from "../../src/conversation-viewer.ts";
 const theme = { fg: (_color: string, text: string) => text, bold: (text: string) => text } as any;
 const record = () => ({ id: "a", agent: "worker", description: "work", status: "running", createdAt: Date.now() - 1000, turns: 2, toolUses: 1, tokens: 1200, conversation: () => "one\ntwo\nthree", activeTools: ["read"] });
 
+test("conversation viewer shows thinking beside active tools", () => {
+  const current = { ...record(), thinkingText: "checking assumptions", responseText: "drafting answer" };
+  const viewer = new ConversationViewer({ terminal: { rows: 30 }, requestRender() {} }, theme, undefined, () => current, () => {}, () => {}, () => {});
+  assert.match(viewer.render(100).join("\n"), /tool: read · thinking: checking assumptions/);
+  viewer.dispose();
+});
+
 test("conversation viewer uses two-key stop confirmation", () => {
   let stops = 0; const current = record();
   const viewer = new ConversationViewer({ terminal: { rows: 30 }, requestRender() {} }, theme, undefined, () => current, () => {}, () => { stops++; }, () => {});

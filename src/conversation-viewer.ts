@@ -15,6 +15,7 @@ export interface ConversationRecord {
   tokens?: number;
   activeTools?: string[];
   responseText?: string;
+  thinkingText?: string;
   conversation(): string;
 }
 
@@ -139,7 +140,10 @@ export class ConversationViewer {
     const text = record.conversation().trim();
     const lines = text ? wrapTextWithAnsi(text, width) : [this.theme.fg("dim", "(waiting for first message…)")];
     if (record.status === "running") {
-      const activity = record.activeTools?.length ? record.activeTools.join(", ") : record.responseText?.trim().replace(/\s+/g, " ").slice(-80) || "thinking…";
+      const tools = record.activeTools?.length ? `tool: ${record.activeTools.join(", ")}` : "";
+      const thinking = record.thinkingText?.trim().replace(/\s+/g, " ").slice(-80);
+      const output = record.responseText?.trim().replace(/\s+/g, " ").slice(-80);
+      const activity = [tools, thinking ? `thinking: ${thinking}` : "", !thinking && output ? `output: ${output}` : ""].filter(Boolean).join(" · ") || "thinking…";
       lines.push("", truncateToWidth(`${this.theme.fg("accent", "▍")} ${this.theme.fg("dim", activity)}`, width));
     }
     return lines.map((line) => truncateToWidth(line, width));

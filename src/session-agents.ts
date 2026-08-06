@@ -92,7 +92,7 @@ export class SessionAgentManager {
     if (options.worktree) worktree = createNodeWorktree(prepareWorktreeRun(cwd, [cwd]), "agent", id, 1, cwd);
     const transcriptPath = this.transcriptPath(id, options.transcript ?? agent.outputTranscript);
     const startImmediately = this.running < this.maxConcurrent && (!this.limiter || this.limiter.available > 0);
-    const record: SessionAgentRecord = { id, agent, description, prompt, cwd, status: "queued", createdAt: Date.now(), worktree, launch: { model: options.model, thinking: options.thinking, maxTurns: options.maxTurns, persistent: options.persistent, transcript: options.transcript, transcriptPath, parentContext: options.parentContext, sessionDir: options.sessionDir }, activity: { turns: 0, toolUses: 0, responseText: "", activeTools: [], usage: emptyUsage() } };
+    const record: SessionAgentRecord = { id, agent, description, prompt, cwd, status: "queued", createdAt: Date.now(), worktree, launch: { model: options.model, thinking: options.thinking, maxTurns: options.maxTurns, persistent: options.persistent, transcript: options.transcript, transcriptPath, parentContext: options.parentContext, sessionDir: options.sessionDir }, activity: { turns: 0, toolUses: 0, responseText: "", thinkingText: "", activeTools: [], usage: emptyUsage() } };
     this.records.set(id, record);
     if (startImmediately) this.startRecord(record);
     else { this.queued.push(record); this.persist(); }

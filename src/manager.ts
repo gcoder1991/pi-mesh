@@ -1,5 +1,5 @@
 import * as crypto from "node:crypto";
-import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
+import { CONFIG_DIR_NAME, type ModelRegistry } from "@earendil-works/pi-coding-agent";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { AgentDefinition } from "./agents.ts";
@@ -56,6 +56,7 @@ export interface MeshNode {
   worktree?: WorktreeState;
   worktreeHistory?: WorktreeState[];
   activity?: AgentActivity;
+  sessionFile?: string;
 }
 
 export interface AttemptResult {
@@ -81,6 +82,7 @@ export interface AttemptResult {
 export interface MeshRun {
   schema: "pi-mesh.run/v2";
   id: string;
+  sessionId: string;
   status: RunStatus;
   cwd: string;
   maxConcurrency: number;
@@ -129,10 +131,12 @@ export class MeshManager {
   private readonly settings: MeshSettings;
   private readonly subagentRuntime: SubagentRuntime;
   private readonly limiter?: import("./fleet-limiter.ts").FleetLimiter;
-  constructor(resolveAgent: (name: string, cwd: string) => AgentDefinition | undefined, settings: MeshSettings = defaultMeshSettings, limiter?: import("./fleet-limiter.ts").FleetLimiter, modelRegistry?: ModelRegistry) {
+  private readonly sessionId: string;
+  constructor(resolveAgent: (name: string, cwd: string) => AgentDefinition | undefined, settings: MeshSettings = defaultMeshSettings, limiter?: import("./fleet-limiter.ts").FleetLimiter, modelRegistry?: ModelRegistry, sessionId = "default") {
     this.resolveAgent = resolveAgent;
     this.settings = settings;
     this.limiter = limiter;
+    this.sessionId = sessionId;
     this.subagentRuntime = new SubagentRuntime(settings, modelRegistry ? { modelRegistry } : undefined);
   }
 
@@ -140,7 +144,7 @@ export class MeshManager {
     const root = fs.realpathSync(path.resolve(cwd));
     for (const file of listRunFiles(cwd)) {
       const run = readJson<MeshRun>(file);
-      if (!run || run.schema !== "pi-mesh.run/v2" || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(run.id) || path.basename(file) !== `${run.id}.json` || existingRealpath(run.cwd) !== root
+      if (!run || run.schema !== "pi-mesh.run/v2" || run.sessionId !== this.sessionId || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(run.id) || path.basename(file) !== `${run.id}.json` || existingRealpath(run.cwd) !== root
         || !Array.isArray(run.nodes) || run.nodes.some((node) => {
           const nodeCwd = existingRealpath(node.cwd);
           if (!nodeCwd) return true;
@@ -344,6 +348,7 @@ export class MeshManager {
     const run: MeshRun = {
       schema: "pi-mesh.run/v2",
       id: crypto.randomUUID(),
+      sessionId: this.sessionId,
       status: "running",
       cwd: fs.realpathSync(path.resolve(options.cwd)),
       maxConcurrency,
@@ -526,7 +531,7 @@ export class MeshManager {
     transitionNode(node, "running");
     node.startedAt = Date.now();
     node.finishedAt = undefined;
-    node.activity = { turns: 0, toolUses: 0, responseText: "", activeTools: [], usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 } };
+    node.activity = { turns: 0, toolUses: 0, responseText: "", thinkingText: "", activeTools: [], usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 } };
     this.touch(run);
     onUpdate?.(run);
 
@@ -538,6 +543,7 @@ export class MeshManager {
     let releaseFleet: (() => void) | undefined;
     let releaseOnAbort: (() => void) | undefined;
     let timer: NodeJS.Timeout | undefined;
+    let timedOut = false;
     try {
       releaseFleet = await this.limiter?.acquire(signal);
       releaseOnAbort = () => releaseFleet?.();
@@ -549,7 +555,8 @@ export class MeshManager {
         this.nodeControllers.get(run.id)?.delete(node.id);
         return;
       }
-      timer = node.timeoutMs ? setTimeout(abort, node.timeoutMs) : undefined;
+      if (node.sessionFile && !this.validSessionFile(run, node.sessionFile)) node.sessionFile = undefined;
+      timer = node.timeoutMs ? setTimeout(() => { timedOut = true; abort(); }, node.timeoutMs) : undefined;
       timer?.unref?.();
       child = this.subagentRuntime.start(agent, {
         id: `${run.id}-${node.id}-${attempt}`,
@@ -558,6 +565,9 @@ export class MeshManager {
         model: node.model,
         thinking: agent.thinking,
         maxTurns: agent.maxTurns,
+        persistent: true,
+        sessionDir: path.join(run.cwd, CONFIG_DIR_NAME, "mesh", "sessions"),
+        sessionFile: node.sessionFile,
         mesh: { root: run.cwd, runId: run.id, nodeId: node.id, attempt },
         onEvent: (event) => trackActivity(node, event),
       });
@@ -575,11 +585,13 @@ export class MeshManager {
     const abortChild = () => child.abort();
     timeoutController.signal.addEventListener("abort", abortChild, { once: true });
     const result = await child.completion;
+    if (timedOut) result.error = `Timed out after ${node.timeoutMs}ms`;
     timeoutController.signal.removeEventListener("abort", abortChild);
     if (timer) clearTimeout(timer);
     signal.removeEventListener("abort", abort);
     if (releaseOnAbort) signal.removeEventListener("abort", releaseOnAbort);
     this.subagents.get(run.id)?.delete(node.id);
+    if (child.sessionFile) node.sessionFile = child.sessionFile;
     void child.close();
     releaseFleet?.();
     releaseFleet = undefined;
@@ -663,8 +675,18 @@ export class MeshManager {
         dependency.outputPath ? `Full output: ${dependency.outputPath}` : "",
         output ? `Output:\n${output}` : ""].filter(Boolean).join("\n");
     }).join("\n\n");
-    const retry = node.attempt > 1 && node.error ? `\n\n## Previous attempt failed\n${node.error}` : "";
-    return `${node.task}${evidence ? `\n\n## Direct dependency evidence\n${evidence}` : ""}${retry}`;
+    const retryOutput = node.attempt > 1 && !node.sessionFile && node.output ? truncateUtf8(node.output, 32 * 1024, "tail") : "";
+    const retry = node.attempt > 1 ? ["## Continue previous attempt", "Continue from the existing work. Do not restart completed analysis or repeat successful steps.", node.sessionFile ? `The original ${node.agent} session has been restored.` : "", node.error ? `Failure: ${node.error}` : "", node.outputPath ? `Previous output: ${node.outputPath}` : "", retryOutput ? `Previous output tail:\n${retryOutput}` : ""].filter(Boolean).join("\n") : "";
+    return `${node.task}${evidence ? `\n\n## Direct dependency evidence\n${evidence}` : ""}${retry ? `\n\n${retry}` : ""}`;
+  }
+
+  private validSessionFile(run: MeshRun, file: string): boolean {
+    try {
+      const root = fs.realpathSync(path.join(run.cwd, CONFIG_DIR_NAME, "mesh", "sessions"));
+      const candidate = fs.realpathSync(file);
+      const relative = path.relative(root, candidate);
+      return path.extname(candidate) === ".jsonl" && relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
+    } catch { return false; }
   }
 
   private touch(run: MeshRun): void {

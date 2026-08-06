@@ -25,7 +25,11 @@ test("FleetView renders a navigable main panel and conversation overlay", async 
   const fleet = new FleetView(); fleet.bind(ctx, manager, "project"); fleet.bind(ctx, manager, "project");
   const component = widgetFactory({ requestRender: () => renderRequests++ }, theme);
   const render = () => component.render(100).join("\n");
-  assert.match(render(), /main[\s\S]*worker[\s\S]*fix the bug[\s\S]*↻3≤30[\s\S]*2 tools[\s\S]*11s[\s\S]*13\.1k tokens[\s\S]*read/);
+  const output = render();
+  assert.match(output, /main[\s\S]*worker[\s\S]*fix the bug/);
+  assert.match(output, /↻3 · 2 tools · \d+s · ↓ 13\.1k tokens/);
+  assert.doesNotMatch(output, /reviewing files|⎿ read/);
+  assert.match(component.render(50).join("\n"), /↻3 · 2 tools · \d+s · ↓ 13\.1k tokens/);
   component.invalidate(); fleet.bind(ctx, manager, "project"); assert.equal(widgetRegistrations, 1);
   assert.deepEqual(inputHandler("\u001b[B"), { consume: true });
   assert.match(render(), /enter view/);
@@ -84,6 +88,7 @@ test("FleetView includes active mesh nodes in the same main panel", () => {
   const ctx: any = { mode: "tui", ui: { setWidget: (_key: string, value: any) => { widgetFactory = value; }, onTerminalInput: () => () => {}, getEditorText: () => "" } };
   const fleet = new FleetView(); fleet.bindMesh(ctx, manager, "project");
   const output = widgetFactory({ requestRender() {} }, theme).render(100).join("\n");
-  assert.match(output, /main[\s\S]*reviewer[\s\S]*review changes[\s\S]*↻2[\s\S]*1 tools[\s\S]*read/);
+  assert.match(output, /main[\s\S]*reviewer[\s\S]*review changes[\s\S]*↻2 · 1 tools · \d+s · ↓ 1\.0k tokens/);
+  assert.doesNotMatch(output, /⎿ read/);
   fleet.dispose();
 });

@@ -9,7 +9,7 @@ import { execute, fixture, loadMeshTool } from "../support/e2e.ts";
 
 function activeRun(cwd: string): MeshRun {
   const now = Date.now();
-  return { schema: "pi-mesh.run/v2", id: crypto.randomUUID(), status: "paused", cwd, maxConcurrency: 2, maxNodes: 8, failFast: false,
+  return { schema: "pi-mesh.run/v2", id: crypto.randomUUID(), sessionId: "e2e-session", status: "paused", cwd, maxConcurrency: 2, maxNodes: 8, failFast: false,
     operator: "graph", revision: 4, recoveryCount: 0, messagePayloadMaxBytes: 8, recipientUnreadMaxBytes: 10, createdAt: now, updatedAt: now, nodes: [
       { id: "a", agent: "worker", task: "a", dependsOn: [], cwd, retries: 0, attempt: 1, status: "paused" },
       { id: "b", agent: "worker", task: "b", dependsOn: [], cwd, retries: 0, attempt: 1, status: "paused" },

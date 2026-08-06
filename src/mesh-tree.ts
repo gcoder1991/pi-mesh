@@ -213,7 +213,10 @@ export class MeshTreeComponent implements Component {
     const { run, node } = item;
     const now = Date.now();
     const stats = [node.model, tokens(node), node.activity?.toolUses ? `${node.activity.toolUses} tools` : "", node.activity?.turns ? `${node.activity.turns} turns` : "", elapsed(node.startedAt ?? run.createdAt, node.finishedAt, now)].filter(Boolean);
-    const activity = node.activity?.activeTools.length ? `${node.activity.activeTools.join(", ")} · running` : node.activity?.responseText ? "assistant response" : node.status;
+    const toolActivity = node.activity?.activeTools.length ? `tool: ${node.activity.activeTools.join(", ")}` : "";
+    const thinking = node.activity?.thinkingText?.trim().replace(/\s+/g, " ").slice(-80);
+    const response = node.activity?.responseText?.trim().replace(/\s+/g, " ").slice(-80);
+    const activity = [toolActivity, thinking ? `thinking: ${thinking}` : "", !thinking && response ? `output: ${response}` : ""].filter(Boolean).join(" · ") || node.status;
     const header = [
       rightAligned(` ${glyph(node.status, this.theme)} ${this.theme.bold(node.agent)}`, this.theme.fg("dim", node.status), width),
       `  ${this.theme.fg("dim", `mesh · ${run.id.slice(0, 8)} · node ${node.id} · ${run.operator}`)}`,

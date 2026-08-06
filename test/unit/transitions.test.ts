@@ -4,7 +4,7 @@ import type { MeshNode, MeshRun } from "../../src/manager.ts";
 import { transitionNode, transitionRun } from "../../src/transitions.ts";
 
 const node = (status: MeshNode["status"]): MeshNode => ({ id: "n", agent: "worker", task: "x", dependsOn: [], cwd: "/tmp", retries: 0, attempt: 0, status });
-const run = (status: MeshRun["status"]): MeshRun => ({ schema: "pi-mesh.run/v2", id: "r", status, cwd: "/tmp", maxConcurrency: 1, maxNodes: 1, failFast: false, operator: "graph", revision: 1, recoveryCount: 0, createdAt: 1, updatedAt: 1, nodes: [] });
+const run = (status: MeshRun["status"]): MeshRun => ({ schema: "pi-mesh.run/v2", id: "r", sessionId: "default", status, cwd: "/tmp", maxConcurrency: 1, maxNodes: 1, failFast: false, operator: "graph", revision: 1, recoveryCount: 0, createdAt: 1, updatedAt: 1, nodes: [] });
 
 test("lifecycle transitions are validated and terminal states are monotonic", () => {
   const active = node("queued");

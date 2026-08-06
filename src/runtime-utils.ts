@@ -15,6 +15,7 @@ export interface AgentActivity {
   turns: number;
   toolUses: number;
   responseText: string;
+  thinkingText: string;
   activeTools: string[];
   usage: Usage;
 }
@@ -73,10 +74,11 @@ export function truncateUtf8(text: string, limit: number, keep: "head" | "tail" 
 }
 
 export function trackActivity(target: { activity?: AgentActivity }, event: ActivityEvent): void {
-  const activity = target.activity ??= { turns: 0, toolUses: 0, responseText: "", activeTools: [], usage: emptyUsage() };
+  const activity = target.activity ??= { turns: 0, toolUses: 0, responseText: "", thinkingText: "", activeTools: [], usage: emptyUsage() };
   if (event.type === "turn_start") activity.turns++;
   if (event.type === "tool_execution_start" && event.toolName) { activity.toolUses++; activity.activeTools = [...activity.activeTools.filter((name) => name !== event.toolName), event.toolName].slice(-3); }
   if (event.type === "tool_execution_end" && event.toolName) activity.activeTools = activity.activeTools.filter((name) => name !== event.toolName);
   if (event.type === "message_update" && event.assistantMessageEvent?.type === "text_delta") activity.responseText = `${activity.responseText}${event.assistantMessageEvent.delta ?? ""}`.slice(-160);
+  if (event.type === "message_update" && event.assistantMessageEvent?.type === "thinking_delta") activity.thinkingText = `${activity.thinkingText}${event.assistantMessageEvent.delta ?? ""}`.slice(-160);
   if (event.type === "message_end" && event.message?.role === "assistant") { addUsage(activity.usage, event.message.usage); activity.turns = Math.max(activity.turns, activity.usage.turns); }
 }

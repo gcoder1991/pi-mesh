@@ -145,8 +145,7 @@ export class FleetView {
       const marker = index + 1 === this.selected ? theme.fg("accent", "●") : theme.fg("dim", "○");
       const left = `  ${marker} ${statusIcon(record.status)} ${theme.fg("muted", record.agent)}  ${record.description}`;
       const activity = record.activity;
-      const activityText = activity?.activeTools.length ? activity.activeTools.join(", ") : activity?.responseText.trim().replace(/\s+/g, " ").slice(-40);
-      const stats = [activity?.turns ? `↻${activity.turns}${record.maxTurns ? `≤${record.maxTurns}` : ""}` : "", activity?.toolUses ? `${activity.toolUses} tools` : "", formatElapsed((record.completedAt ?? Date.now()) - record.createdAt), formatTokens(record), activityText ? `⎿ ${activityText}` : ""].filter(Boolean).join(" · ");
+      const stats = [activity?.turns ? `↻${activity.turns}` : "", activity?.toolUses ? `${activity.toolUses} tools` : "", formatElapsed((record.completedAt ?? Date.now()) - record.createdAt), formatTokens(record)].filter(Boolean).join(" · ");
       lines.push(rightAlign(left, theme.fg("dim", stats), width));
     }
     const hidden = records.length - start - visible;
@@ -209,6 +208,7 @@ export class FleetView {
             tokens: usage ? usage.input + usage.output + usage.cacheWrite : 0,
             activeTools: current.activity?.activeTools,
             responseText: current.activity?.responseText,
+            thinkingText: current.activity?.thinkingText,
           };
         },
         () => done(undefined),
