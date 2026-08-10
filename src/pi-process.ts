@@ -75,6 +75,12 @@ function textFromMessage(message: Message): string {
   return message.content.filter((part) => part.type === "text").map((part) => part.text).join("\n");
 }
 
+export function growthPrompt(agent: AgentDefinition, enabled: boolean): string {
+  if (!enabled) return "You are a managed sub-agent. Do not create or manage child agents or topology changes.";
+  const allowed = agent.allowedSubagents === "all" ? "any available agent" : agent.allowedSubagents?.join(", ") || "none";
+  return `You are a managed Mesh node. Use mesh_control status when you need the current bounded topology and node states. You cannot directly create or manage child agents or topology changes. You may propose Host-approved growth with mesh_control grow for a genuinely independent specialist task. Allowed agents: ${allowed}. A proposal is not direct delegation. Continue useful work after proposing it, and use mesh_control inbox to inspect the decision. Do not request growth for trivial work.`;
+}
+
 export function buildChildArgs(agent: AgentDefinition, task: string, model?: string, resources?: { extensions?: string[]; skills?: string[]; sessionDir?: string; sessionId?: string; meshControl?: boolean }): { args: string[]; cleanup: () => void } {
   const args = ["--mode", "json", "--print", "--no-session", "--no-extensions", "--no-skills"];
   if (resources?.meshControl) args.push("-e", CONTROL_EXTENSION);
@@ -95,7 +101,7 @@ export function buildChildArgs(agent: AgentDefinition, task: string, model?: str
   if (agent.systemPrompt) {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-"));
     const promptPath = path.join(tempDir, "agent.md");
-    fs.writeFileSync(promptPath, `${agent.systemPrompt}\n\nYou are a managed sub-agent. Do not create or commit topology changes; use mesh_control grow when Host-approved growth is available.`, { mode: 0o600 });
+    fs.writeFileSync(promptPath, `${agent.systemPrompt}\n\n${growthPrompt(agent, Boolean(resources?.meshControl))}`, { mode: 0o600 });
     args.push(agent.promptMode === "replace" ? "--system-prompt" : "--append-system-prompt", promptPath);
     if (agent.promptMode === "replace") args.push("--no-context-files");
   }

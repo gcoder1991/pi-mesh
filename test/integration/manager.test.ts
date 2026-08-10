@@ -6,6 +6,8 @@ import test from "node:test";
 import type { AgentDefinition } from "../../src/agents.ts";
 import { MeshManager } from "../../src/manager.ts";
 import { PI_MESH_PI_BINARY_ENV } from "../../src/pi-process.ts";
+import { defaultMeshSettings } from "../../src/settings.ts";
+import { putGrowth, type GrowthProposal } from "../../src/store.ts";
 
 const mockPi = path.resolve("test/support/mock-pi.mjs");
 
@@ -59,6 +61,21 @@ test("runs dependency ordered children and strips recursive extensions", async (
   }
 }));
 
+test("pending growth pauses scheduling and returns control to the Host", async () => withMock(async (queue) => {
+  queueResponse(queue, 1, { output: "requester done", delay: 80 });
+  const manager = new MeshManager((name) => ({ ...agent(name), allowedSubagents: ["reviewer"] }));
+  let runId = "";
+  const completion = manager.start({ cwd: process.cwd(), maxConcurrency: 1, tasks: [{ id: "requester", agent: "worker", task: "request" }, { id: "later", agent: "worker", task: "later", dependsOn: ["requester"] }], onCreated: (run) => { runId = run.id; } });
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  const run = manager.get(runId)!;
+  const proposal: GrowthProposal<unknown[]> = { id: "proposal", runId, requester: "requester", reason: "review", tasks: [], status: "proposed", baseRevision: run.revision, requesterAttempt: 1, createdAt: Date.now() };
+  putGrowth(run.cwd, proposal);
+  const paused = await completion;
+  assert.equal(paused.status, "paused");
+  assert.equal(paused.nodes.find((node) => node.id === "later")?.status, "paused");
+  assert.equal(paused.nodes.find((node) => node.id === "requester")?.status, "succeeded");
+}));
+
 test("rejects dependency cycles before spawning", async () => {
   const manager = new MeshManager((name) => agent(name));
   await assert.rejects(() => manager.start({
@@ -92,6 +109,14 @@ test("failFast cancels queued dependents after failure", async () => withMock(as
   assert.equal(diagnostic.outputPath, run.nodes[0].outputPath);
 }));
 
+test("does not retry deterministic failures implicitly", async () => withMock(async (queue) => {
+  queueResponse(queue, 1, { output: "bad", stderr: "validation failed", exitCode: 1 });
+  const manager = new MeshManager((name) => agent(name));
+  const run = await manager.start({ cwd: process.cwd(), tasks: [{ id: "bad", agent: "worker", task: "bad" }] });
+  assert.equal(run.status, "failed");
+  assert.equal(run.nodes[0].attempt, 1);
+}));
+
 test("reports node timeouts instead of generic cancellation", async () => withMock(async (queue) => {
   queueResponse(queue, 1, { output: "late", delay: 500 });
   const manager = new MeshManager((name) => agent(name));
@@ -99,6 +124,14 @@ test("reports node timeouts instead of generic cancellation", async () => withMo
   assert.equal(run.nodes[0].error, "Timed out after 100ms");
   const attempt = JSON.parse(fs.readFileSync(run.nodes[0].attemptResultPath!, "utf8"));
   assert.equal(attempt.error, "Timed out after 100ms");
+}));
+
+test("default timeout warns before hard cancellation", async () => withMock(async (queue) => {
+  queueResponse(queue, 1, { output: "late", delay: 500 });
+  const manager = new MeshManager((name) => agent(name), { ...defaultMeshSettings, defaultNodeTimeoutMs: 150 });
+  const run = await manager.start({ cwd: process.cwd(), tasks: [{ id: "slow", agent: "worker", task: "slow" }] });
+  assert.equal(run.nodes[0].timeoutMs, 150);
+  assert.equal(run.nodes[0].error, "Timed out after 150ms");
 }));
 
 test("retryFailed reruns only unsuccessful nodes", async () => withMock(async (queue) => {
@@ -120,6 +153,23 @@ test("retryFailed reruns only unsuccessful nodes", async () => withMock(async (q
   assert.equal(calls.length, 3);
   const retryPrompt = calls.at(-1).args.find((value: string) => value.startsWith("Task: "));
   assert.match(retryPrompt, /Continue previous attempt[\s\S]*Do not restart[\s\S]*Failure: boom[\s\S]*Previous output:[\s\S]*Previous output tail:\nbad/);
+}));
+
+test("retryFailed selectively resumes cancelled runs", async () => withMock(async (queue) => {
+  queueResponse(queue, 1, { output: "ok" });
+  queueResponse(queue, 2, { output: "late", delay: 1000 });
+  const manager = new MeshManager((name) => agent(name));
+  const controller = new AbortController();
+  const completion = manager.start({ cwd: process.cwd(), operator: "parallel", signal: controller.signal, tasks: [{ id: "done", agent: "worker", task: "ok" }, { id: "cancelled", agent: "worker", task: "late" }] });
+  while (manager.get(manager.list()[0]?.id ?? "")?.nodes.find((node) => node.id === "done")?.status !== "succeeded") await new Promise((resolve) => setTimeout(resolve, 5));
+  controller.abort();
+  const first = await completion;
+  assert.equal(first.status, "cancelled");
+  assert.deepEqual(first.nodes.map((node) => [node.id, node.status, node.attempt]), [["done", "succeeded", 1], ["cancelled", "cancelled", 1]]);
+  queueResponse(queue, 3, { output: "recovered" });
+  const retried = await manager.retryFailed(first.id);
+  assert.equal(retried.status, "succeeded");
+  assert.deepEqual(retried.nodes.map((node) => [node.id, node.status, node.attempt]), [["done", "succeeded", 1], ["cancelled", "succeeded", 2]]);
 }));
 
 test("retryFailed reruns skipped dependents but preserves successful prerequisites", async () => withMock(async (queue) => {

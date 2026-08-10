@@ -8,10 +8,16 @@ import { ModelRegistry, ModelRuntime } from "@earendil-works/pi-coding-agent";
 import type { AgentDefinition } from "../../src/agents.ts";
 import { defaultMeshSettings } from "../../src/settings.ts";
 import { SubagentRuntime } from "../../src/subagent-runtime.ts";
-import { PI_MESH_PI_BINARY_ENV } from "../../src/pi-process.ts";
+import { growthPrompt, PI_MESH_PI_BINARY_ENV } from "../../src/pi-process.ts";
 
 const mockPi = path.resolve("test/support/mock-pi.mjs");
 const agent: AgentDefinition = { name: "worker", description: "worker", tools: ["read"], systemPrompt: "work", promptMode: "replace", source: "bundled", filePath: "worker.md" };
+
+test("growth guidance names the node allowlist", () => {
+  assert.match(growthPrompt({ ...agent, allowedSubagents: ["reviewer", "qa"] }, true), /Allowed agents: reviewer, qa/);
+  assert.match(growthPrompt({ ...agent, allowedSubagents: ["reviewer", "qa"] }, true), /mesh_control status/);
+  assert.match(growthPrompt(agent, false), /Do not create or manage child agents/);
+});
 
 async function fixture(fn: (root: string, queue: string) => Promise<void>): Promise<void> {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-runtime-"));
@@ -71,21 +77,29 @@ test("in-process AgentSession reuses a runtime-only Host provider", async () => 
   const oldBinary = process.env[PI_MESH_PI_BINARY_ENV];
   delete process.env[PI_MESH_PI_BINARY_ENV];
   let seen: Context | undefined;
+  let calls = 0;
   try {
+    fs.mkdirSync(path.join(root, ".pi"), { recursive: true });
+    fs.writeFileSync(path.join(root, ".pi", "settings.json"), JSON.stringify({ retry: { enabled: true, maxRetries: 1, baseDelayMs: 1 } }));
     const modelRuntime = await ModelRuntime.create({ authPath: path.join(root, "auth.json"), modelsPath: null });
     modelRuntime.registerProvider("runtime-only", {
       name: "Runtime only", baseUrl: "file://runtime-only", apiKey: "mock", api: "openai-completions",
       models: [{ id: "model-1", name: "Model 1", reasoning: false, input: ["text"], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 32000, maxTokens: 1024 }],
       streamSimple(model: Model<any>, context: Context, _options?: SimpleStreamOptions) {
         seen = context;
+        calls++;
         const stream = createAssistantMessageEventStream();
-        const message: AssistantMessage = { role: "assistant", content: [{ type: "text", text: "IN_PROCESS_TEST_OK" }], api: model.api, provider: model.provider, model: model.id, usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } }, stopReason: "stop", timestamp: Date.now() };
+        const retrying = calls === 1;
+        const message: AssistantMessage = { role: "assistant", content: retrying ? [] : [{ type: "text", text: "IN_PROCESS_TEST_OK" }], api: model.api, provider: model.provider, model: model.id, usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } }, stopReason: retrying ? "error" : "stop", timestamp: Date.now(), ...(retrying ? { errorMessage: "500: internal_server_error" } : {}) };
         queueMicrotask(() => {
           stream.push({ type: "start", partial: { ...message, content: [] } });
-          stream.push({ type: "text_start", contentIndex: 0, partial: { ...message, content: [{ type: "text", text: "" }] } });
-          stream.push({ type: "text_delta", contentIndex: 0, delta: "IN_PROCESS_TEST_OK", partial: message });
-          stream.push({ type: "text_end", contentIndex: 0, content: "IN_PROCESS_TEST_OK", partial: message });
-          stream.push({ type: "done", reason: "stop", message });
+          if (retrying) stream.push({ type: "error", reason: "error", error: message });
+          else {
+            stream.push({ type: "text_start", contentIndex: 0, partial: { ...message, content: [{ type: "text", text: "" }] } });
+            stream.push({ type: "text_delta", contentIndex: 0, delta: "IN_PROCESS_TEST_OK", partial: message });
+            stream.push({ type: "text_end", contentIndex: 0, content: "IN_PROCESS_TEST_OK", partial: message });
+            stream.push({ type: "done", reason: "stop", message });
+          }
           stream.end();
         });
         return stream;
@@ -97,7 +111,10 @@ test("in-process AgentSession reuses a runtime-only Host provider", async () => 
     const sessionDir = path.join(root, "sessions");
     const execution = runtime.start(selectedAgent, { id: "in-process", cwd: root, prompt: "test", persistent: true, sessionDir });
     const result = await execution.completion;
+    assert.equal(calls, 2);
     assert.equal(result.output, "IN_PROCESS_TEST_OK");
+    assert.equal(result.error, undefined);
+    assert.equal(result.exitCode, 0);
     assert.equal(result.model, "runtime-only/model-1");
     assert.match(seen?.systemPrompt ?? "", /work/);
     assert.deepEqual(seen?.tools?.map((tool) => tool.name), ["read"]);

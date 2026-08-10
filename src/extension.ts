@@ -79,7 +79,9 @@ function piUsage(run: MeshRun) {
     cost: { input: totals.costInput, output: totals.costOutput, cacheRead: totals.costCacheRead, cacheWrite: totals.costCacheWrite, total: totals.costTotal } };
 }
 function summarize(run: MeshRun): string {
-  const text = [`Mesh ${run.id}: ${run.status} r${run.revision}`, ...run.nodes.map((node) => `\n### ${node.id} · ${node.agent} · ${node.status}${node.error ? ` — ${node.error}${node.attemptResultPath ? `\nResult: ${node.attemptResultPath}` : ""}${node.diagnosticPath ? `\nExplanation: ${node.diagnosticPath}` : ""}` : node.output ? `\n${node.output}` : ""}`)].join("\n");
+  const pending = growthProposals<MeshTask[]>(run.cwd, run.id).filter((proposal) => proposal.status === "proposed");
+  const growth = pending.length ? `\n\nHost approval required for ${pending.length} growth proposal(s):\n${pending.map((proposal) => `- ${proposal.id} from ${proposal.requester}: ${proposal.reason}`).join("\n")}\nUse growth_list and growth_decide.` : "";
+  const text = [`Mesh ${run.id}: ${run.status} r${run.revision}`, ...run.nodes.map((node) => `\n### ${node.id} · ${node.agent} · ${node.status}${node.error ? ` — ${node.error}${node.attemptResultPath ? `\nResult: ${node.attemptResultPath}` : ""}${node.diagnosticPath ? `\nExplanation: ${node.diagnosticPath}` : ""}` : node.output ? `\n${node.output}` : ""}`)].join("\n") + growth;
   return boundedText(text, runFile(run.cwd, run.id));
 }
 
@@ -212,7 +214,7 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
         const proposal = growthProposals<MeshTask[]>(run!.cwd, run!.id).find((item) => item.id === params.proposalId);
         if (!proposal || proposal.status !== "proposed") throw new Error("Growth proposal is not pending");
         const requester = run!.nodes.find((node) => node.id === proposal.requester);
-        if (!requester || !["running", "paused"].includes(requester.status) || requester.attempt !== proposal.requesterAttempt || run!.revision !== proposal.baseRevision) throw new Error("Growth proposal requester/revision is stale");
+        if (!requester || !["running", "paused", "succeeded"].includes(requester.status) || requester.attempt !== proposal.requesterAttempt) throw new Error("Growth proposal requester is stale");
         if (requester.allowedSubagents !== "all") {
           const allowed = new Set((requester.allowedSubagents ?? []).map((name) => name.toLowerCase()));
           const denied = proposal.tasks.map((task) => task.agent).filter((name) => !allowed.has(name.toLowerCase()));
@@ -226,7 +228,9 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
           } catch (error) { proposal.status = "denied"; proposal.error = error instanceof Error ? error.message : String(error); }
         } else proposal.status = "denied";
         proposal.decidedAt = Date.now(); putGrowth(run!.cwd, proposal as GrowthProposal<MeshTask[]>);
-        return { content: [{ type: "text", text: `Growth ${proposal.status}: ${proposal.id}.` }], details: boundedDetails({ action: params.action, proposal: growthReceipt(proposal, run!), run: compactRun(run!) }) };
+        const shouldResume = run!.status === "paused" && !growthProposals<MeshTask[]>(run!.cwd, run!.id).some((item) => item.status === "proposed");
+        if (shouldResume) void manager.resume(run!.id).catch(() => {});
+        return { content: [{ type: "text", text: `Growth ${proposal.status}: ${proposal.id}.${shouldResume ? " Mesh resumed." : ""}` }], details: boundedDetails({ action: params.action, proposal: growthReceipt(proposal, run!), run: compactRun(run!) }) };
       }
 
       if (!params.tasks?.length) throw new Error("tasks is required for run");

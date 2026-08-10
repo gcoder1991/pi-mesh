@@ -17,7 +17,7 @@ function boundedDetails(value: Record<string, unknown>): Record<string, unknown>
 }
 
 const Params = Type.Object({
-  action: StringEnum(["send", "broadcast", "reply", "inbox", "ack", "grow"] as const),
+  action: StringEnum(["status", "send", "broadcast", "reply", "inbox", "ack", "grow"] as const),
   to: Type.Optional(Type.String({ maxLength: 64 })), content: Type.Optional(Type.String({ maxLength: 1_048_576 })), messageId: Type.Optional(Type.String({ maxLength: 128 })),
   reason: Type.Optional(Type.String({ maxLength: 16384 })), tasks: Type.Optional(Type.Array(MeshTaskSchema, { minItems: 1, maxItems: 16 })),
 }, { additionalProperties: false });
@@ -26,13 +26,22 @@ export function createMeshControlTool(root: string, runId: string, nodeId: strin
   return {
     name: "mesh_control",
     label: "Mesh Control",
-    description: "Child-safe mailbox and growth proposal tool. Growth only proposes tasks; the host must approve and commit them.",
+    description: "Child-safe topology, mailbox, and growth proposal tool. Growth only proposes tasks; the host must approve and commit them.",
     parameters: Params,
     async execute(_id: string, rawParams: MeshControlParams): Promise<any> {
       const params = rawParams;
       const run = readJson<MeshRun>(runFile(root, runId));
       const caller = run?.nodes.find((node) => node.id === nodeId);
       if (!run || !caller || caller.status !== "running" || caller.attempt !== attempt || run.status !== "running") throw new Error("Mesh child identity is no longer active");
+      if (params.action === "status") {
+        const snapshot = {
+          run: { id: run.id, status: run.status, operator: run.operator, revision: run.revision, maxConcurrency: run.maxConcurrency, maxNodes: run.maxNodes },
+          self: { id: caller.id, agent: caller.agent, status: caller.status, attempt: caller.attempt, dependsOn: caller.dependsOn, allowedSubagents: caller.allowedSubagents ?? [] },
+          nodes: run.nodes.map((node) => ({ id: node.id, agent: node.agent, status: node.status, attempt: node.attempt, dependsOn: node.dependsOn, requestedBy: node.requestedBy })),
+          pendingGrowth: growthProposals(root, runId).filter((proposal) => proposal.status === "proposed").length,
+        };
+        return { content: [{ type: "text", text: boundedJson(snapshot) }], details: boundedDetails(snapshot) };
+      }
       if (params.action === "inbox") {
         const inbox = messages(root, runId).filter((message) => message.to === nodeId && !message.ackedAt);
         const proposals = growthProposals<MeshTask[]>(root, runId).filter((proposal) => proposal.requester === nodeId).map((proposal) => {

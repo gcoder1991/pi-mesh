@@ -10,6 +10,8 @@ test("discovers bundled agents", () => {
   assert.deepEqual(agents.map((agent) => agent.name), ["analyst", "planner", "qa", "reviewer", "scout", "worker"]);
   const scout = agents.find((agent) => agent.name === "scout");
   assert.equal(scout?.source, "bundled");
+  assert.deepEqual(scout?.allowedSubagents, ["analyst", "reviewer"]);
+  assert.deepEqual(agents.find((agent) => agent.name === "worker")?.allowedSubagents, ["reviewer", "qa"]);
   assert.match(scout?.description ?? "", /broad codebase exploration/);
   assert.match(agents.find((agent) => agent.name === "analyst")?.description ?? "", /vague or conflicting/);
   assert.match(agents.find((agent) => agent.name === "planner")?.description ?? "", /unresolved design boundaries/);

@@ -7,6 +7,7 @@ export interface MeshSettings {
   maxAgentDepth: number;
   maxConcurrentAgents: number;
   maxNodes: number;
+  defaultNodeTimeoutMs: number;
   messagePayloadMaxBytes: number;
   recipientUnreadMaxBytes: number;
   childExtensions: Record<string, string>;
@@ -22,6 +23,7 @@ export const defaultMeshSettings: MeshSettings = {
   maxAgentDepth: 8,
   maxConcurrentAgents: 8,
   maxNodes: 128,
+  defaultNodeTimeoutMs: 30 * 60 * 1000,
   messagePayloadMaxBytes: 32 * 1024,
   recipientUnreadMaxBytes: 1024 * 1024,
   childExtensions: {},
@@ -57,7 +59,7 @@ function readSettings(file: string): Partial<MeshSettings> {
   const record = value as Record<string, unknown>;
   if (record.childExtensions !== undefined) record.childExtensions = resolvePathMap(record.childExtensions, file);
   if (record.childSkills !== undefined) record.childSkills = resolvePathMap(record.childSkills, file);
-  const allowed = new Set(["maxAgentDepth", "maxConcurrentAgents", "maxNodes", "messagePayloadMaxBytes", "recipientUnreadMaxBytes", "childExtensions", "childSkills", "joinMode", "debug", "retentionDays", "maxTerminalRuns", "debugMaxBytes"]);
+  const allowed = new Set(["maxAgentDepth", "maxConcurrentAgents", "maxNodes", "defaultNodeTimeoutMs", "messagePayloadMaxBytes", "recipientUnreadMaxBytes", "childExtensions", "childSkills", "joinMode", "debug", "retentionDays", "maxTerminalRuns", "debugMaxBytes"]);
   for (const key of Object.keys(record)) if (!allowed.has(key)) throw new Error(`Invalid mesh settings ${file}: unknown key ${key}`);
   const integer = (key: keyof MeshSettings, min: number, max: number) => {
     const item = record[key];
@@ -67,6 +69,7 @@ function readSettings(file: string): Partial<MeshSettings> {
   integer("maxAgentDepth", 1, 32);
   integer("maxConcurrentAgents", 1, 32);
   integer("maxNodes", 1, 128);
+  integer("defaultNodeTimeoutMs", 100, 3_600_000);
   integer("messagePayloadMaxBytes", 1, 1024 * 1024);
   integer("recipientUnreadMaxBytes", 1, 64 * 1024 * 1024);
   integer("retentionDays", 1, 3650);

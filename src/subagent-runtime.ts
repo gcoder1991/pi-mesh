@@ -16,7 +16,7 @@ import {
 import type { AgentDefinition } from "./agents.ts";
 import { createMeshControlTool } from "./control-extension.ts";
 import { memoryPrompt } from "./memory.ts";
-import { buildChildArgs, PI_MESH_PI_BINARY_ENV, resolveChildExtensions, resolveChildSkills, type ChildResult } from "./pi-process.ts";
+import { buildChildArgs, growthPrompt, PI_MESH_PI_BINARY_ENV, resolveChildExtensions, resolveChildSkills, type ChildResult } from "./pi-process.ts";
 import { createRpcChild } from "./rpc-child.ts";
 import { addUsage, emptyUsage, truncateUtf8 } from "./runtime-utils.ts";
 import type { MeshSettings } from "./settings.ts";
@@ -143,7 +143,7 @@ export class SubagentRuntime {
     const persistent = options.persistent || agent.persistSession;
     const sessionDir = persistent ? options.sessionDir ?? path.join(options.cwd, CONFIG_DIR_NAME, "mesh", "sessions") : undefined;
     const transcriptPath = options.transcript === false || agent.outputTranscript === false ? undefined : options.transcriptPath ?? path.join(os.tmpdir(), "pi-mesh-subagents", options.id, "conversation.jsonl");
-    const managedPrompt = `${configured.systemPrompt}\n\nYou are a managed sub-agent. Do not create or commit topology changes; use mesh_control grow when Host-approved growth is available.`;
+    const managedPrompt = `${configured.systemPrompt}\n\n${growthPrompt(configured, Boolean(options.mesh))}`;
     const model = configured.model?.includes("/") ? this.host.modelRegistry.find(configured.model.slice(0, configured.model.indexOf("/")), configured.model.slice(configured.model.indexOf("/") + 1)) : undefined;
     if (configured.model && !model) throw new Error(`Model not found in Host runtime: ${configured.model}`);
     const parentModelRuntime = (this.host.modelRegistry as unknown as { runtime?: unknown }).runtime;
@@ -240,7 +240,7 @@ export class SubagentRuntime {
           const text = messageText(event.message as Message).trim();
           if (text) output = text;
           modelName = `${event.message.provider}/${event.message.model}`;
-          if (event.message.stopReason === "error") error = event.message.errorMessage?.trim() || "Provider error";
+          error = event.message.stopReason === "error" ? event.message.errorMessage?.trim() || "Provider error" : undefined;
           if (maxTurns && usage.turns >= maxTurns && !softLimitReached) {
             softLimitReached = true;
             void active.steer("Wrap up immediately and provide your final answer now.");

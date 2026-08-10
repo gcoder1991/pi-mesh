@@ -7,7 +7,7 @@ import type { ChildResult, Usage } from "./pi-process.ts";
 import { trackActivity, truncateUtf8, type AgentActivity } from "./runtime-utils.ts";
 import { SubagentRuntime, type SubagentExecution } from "./subagent-runtime.ts";
 import { acquireRunLease, type RunLease } from "./run-lease.ts";
-import { appendDebugEvent, atomicWrite, attemptResultFile, listRunFiles, putAttemptResult, putDiagnosticExplanation, putNodeOutput, readJson, runFile } from "./store.ts";
+import { appendDebugEvent, atomicWrite, attemptResultFile, growthProposals, listRunFiles, putAttemptResult, putDiagnosticExplanation, putNodeOutput, readJson, runFile } from "./store.ts";
 import { defaultMeshSettings, type MeshSettings } from "./settings.ts";
 import { transitionNode, transitionRun } from "./transitions.ts";
 import { createNodeWorktree, finalizeNodeWorktree, prepareWorktreeRun, type WorktreeRunState, type WorktreeState } from "./worktree.ts";
@@ -265,7 +265,7 @@ export class MeshManager {
 
   retryFailed(runId: string, signal?: AbortSignal, onUpdate?: (run: MeshRun) => void): Promise<MeshRun> {
     const run = this.runs.get(runId);
-    if (!run || run.status !== "failed") throw new Error(`Mesh is not failed: ${runId}`);
+    if (!run || !["failed", "cancelled"].includes(run.status)) throw new Error(`Mesh is not failed or cancelled: ${runId}`);
     const retryable = run.nodes.filter((node) => node.status !== "succeeded");
     if (!retryable.length) throw new Error(`Mesh has no unsuccessful nodes: ${runId}`);
     this.ensureLease(run);
@@ -322,7 +322,7 @@ export class MeshManager {
     if (!run || !["running", "paused"].includes(run.status)) throw new Error(`Mesh is not active: ${runId}`);
     const requesterNode = run.nodes.find((node) => node.id === requester);
     if (!requesterNode) throw new Error(`Unknown requester node: ${requester}`);
-    if (!['running', 'paused'].includes(requesterNode.status)) throw new Error(`Requester ${requester} is not active`);
+    if (!["running", "paused", "succeeded"].includes(requesterNode.status)) throw new Error(`Requester ${requester} is not available`);
     if (requesterNode.allowedSubagents !== "all") {
       const allowed = new Set((requesterNode.allowedSubagents ?? []).map((name) => name.toLowerCase()));
       const denied = tasks.map((task) => task.agent).filter((name) => !allowed.has(name.toLowerCase()));
@@ -413,7 +413,7 @@ export class MeshManager {
       if (task.timeoutMs !== undefined && (task.timeoutMs < 100 || task.timeoutMs > 3_600_000)) throw new Error(`timeoutMs must be 100-3600000 for ${id}`);
       return {
         id, agent: task.agent, task: task.task, dependsOn: task.dependsOn ?? [], cwd: nodeCwd,
-        model: task.model, timeoutMs: task.timeoutMs, retries: task.retries ?? 0, attempt: 0,
+        model: task.model, timeoutMs: task.timeoutMs ?? this.settings.defaultNodeTimeoutMs, retries: task.retries ?? 0, attempt: 0,
         dynamic, requestedBy: requester, allowedSubagents: agent.allowedSubagents, integration: task.integration, status: run.status === "paused" ? "paused" : "queued",
       };
     });
@@ -454,6 +454,13 @@ export class MeshManager {
     const loop = (async () => {
       try {
         while (run.status === "running" || run.status === "cancelling") {
+          if (run.status === "running" && growthProposals(run.cwd, run.id).some((proposal) => proposal.status === "proposed")) {
+            transitionRun(run, "paused");
+            for (const node of run.nodes) if (node.status === "queued") transitionNode(node, "paused");
+            this.touch(run);
+            emitUpdate(true);
+            continue;
+          }
           const active = this.executions.get(run.id)?.size ?? 0;
           const ready = run.nodes.filter((node) => node.status === "queued" && node.dependsOn.every((id) => run.nodes.find((candidate) => candidate.id === id)?.status === "succeeded"));
           const blocked = run.nodes.filter((node) => node.status === "queued" && node.dependsOn.some((id) => ["failed", "cancelled", "skipped"].includes(run.nodes.find((candidate) => candidate.id === id)?.status ?? "")));
@@ -543,6 +550,7 @@ export class MeshManager {
     let releaseFleet: (() => void) | undefined;
     let releaseOnAbort: (() => void) | undefined;
     let timer: NodeJS.Timeout | undefined;
+    let warningTimer: NodeJS.Timeout | undefined;
     let timedOut = false;
     try {
       releaseFleet = await this.limiter?.acquire(signal);
@@ -556,8 +564,6 @@ export class MeshManager {
         return;
       }
       if (node.sessionFile && !this.validSessionFile(run, node.sessionFile)) node.sessionFile = undefined;
-      timer = node.timeoutMs ? setTimeout(() => { timedOut = true; abort(); }, node.timeoutMs) : undefined;
-      timer?.unref?.();
       child = this.subagentRuntime.start(agent, {
         id: `${run.id}-${node.id}-${attempt}`,
         cwd: node.worktree?.cwd ?? node.cwd,
@@ -571,8 +577,14 @@ export class MeshManager {
         mesh: { root: run.cwd, runId: run.id, nodeId: node.id, attempt },
         onEvent: (event) => trackActivity(node, event),
       });
+      if (node.timeoutMs) {
+        warningTimer = setTimeout(() => child.steer("Time limit is approaching. Stop retrying the same strategy, preserve current work, run bounded validation, and return your best result now."), Math.max(1, Math.floor(node.timeoutMs * 0.8)));
+        timer = setTimeout(() => { timedOut = true; abort(); }, node.timeoutMs);
+        warningTimer.unref?.(); timer.unref?.();
+      }
     } catch (error) {
       if (timer) clearTimeout(timer);
+      if (warningTimer) clearTimeout(warningTimer);
       signal.removeEventListener("abort", abort);
       if (releaseOnAbort) signal.removeEventListener("abort", releaseOnAbort);
       this.nodeControllers.get(run.id)?.delete(node.id);
@@ -588,6 +600,7 @@ export class MeshManager {
     if (timedOut) result.error = `Timed out after ${node.timeoutMs}ms`;
     timeoutController.signal.removeEventListener("abort", abortChild);
     if (timer) clearTimeout(timer);
+    if (warningTimer) clearTimeout(warningTimer);
     signal.removeEventListener("abort", abort);
     if (releaseOnAbort) signal.removeEventListener("abort", releaseOnAbort);
     this.subagents.get(run.id)?.delete(node.id);
