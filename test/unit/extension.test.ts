@@ -13,7 +13,7 @@ test("registers one mesh tool with strict actions", () => {
   const shortcuts: string[] = [];
   const pi = {
     registerTool(value: any) { tools.push(value); if (value.name === "mesh") tool = value; },
-    getAllTools() { return tools; },
+    getAllTools() { return tools; }, getCommands() { return []; },
     events: { emit() {}, on() { return () => {}; } }, sendMessage() {}, sendUserMessage() {},
     registerCommand(name: string) { commands.push(name); }, registerShortcut(name: string) { shortcuts.push(name); },
     on(name: string) { events.push(name); },
@@ -34,13 +34,75 @@ test("registers one mesh tool with strict actions", () => {
   assert.ok(shortcuts.includes("ctrl+shift+m"));
 });
 
+test("registers trusted project workflow files as commands", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-command-"));
+  const oldDir = process.env.PI_CODING_AGENT_DIR;
+  try {
+    process.env.PI_CODING_AGENT_DIR = path.join(root, "agent-dir");
+    const dir = path.join(root, ".pi", "mesh", "workflows"); fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, "review.yaml"), "description: Review target\nasync: true\npromptInput: target\ntasks:\n  - agent: scout\n    task: Review {{target}}\n");
+    const commands = new Map<string, any>();
+    let startHandler: any;
+    const pi = { registerTool() {}, getAllTools() { return []; }, getCommands() { return []; }, events: { emit() {}, on() { return () => {}; } }, sendMessage() {}, sendUserMessage() {}, registerCommand(name: string, command: any) { commands.set(name, command); }, registerShortcut() {}, on(name: string, handler: any) { if (name === "session_start") startHandler = handler; } };
+    const notices: string[] = [];
+    const ctx: any = { cwd: root, hasUI: false, mode: "print", isIdle: () => true, isProjectTrusted: () => true, sessionManager: { getSessionId: () => "workflow-session" }, modelRegistry: { getAvailable: () => [] }, ui: { notify(message: string) { notices.push(message); } } };
+    registerPiMesh(pi as any);
+    await startHandler({}, ctx);
+    await commands.get("review").handler("src auth module with spaces", ctx);
+    assert.match(notices[0] ?? "", /Started mesh/);
+  } finally {
+    if (oldDir === undefined) delete process.env.PI_CODING_AGENT_DIR; else process.env.PI_CODING_AGENT_DIR = oldDir;
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("workflow commands fail closed after switching away from their trusted project", async () => {
+  const project = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-project-a-"));
+  const other = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-project-b-"));
+  const oldDir = process.env.PI_CODING_AGENT_DIR;
+  try {
+    process.env.PI_CODING_AGENT_DIR = path.join(project, "agent-dir");
+    const dir = path.join(project, ".pi", "mesh", "workflows"); fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, "project-only.yaml"), "promptInput: prompt\nasync: true\ntasks:\n  - agent: scout\n    task: '{{prompt}}'\n");
+    const commands = new Map<string, any>(); let startHandler: any;
+    const pi = { registerTool() {}, getAllTools() { return []; }, getCommands() { return []; }, events: { emit() {}, on() { return () => {}; } }, sendMessage() {}, sendUserMessage() {}, registerCommand(name: string, command: any) { commands.set(name, command); }, registerShortcut() {}, on(name: string, handler: any) { if (name === "session_start") startHandler = handler; } };
+    const notices: string[] = [];
+    const ctx: any = { cwd: project, hasUI: false, mode: "print", isIdle: () => true, isProjectTrusted: () => true, sessionManager: { getSessionId: () => "workflow-switch" }, modelRegistry: { getAvailable: () => [] }, ui: { notify(message: string) { notices.push(message); } } };
+    registerPiMesh(pi as any); await startHandler({}, ctx);
+    ctx.cwd = other; ctx.isProjectTrusted = () => false;
+    await commands.get("project-only").handler("must not run", ctx);
+    assert.match(notices.at(-1) ?? "", /not available in the current project/);
+  } finally {
+    if (oldDir === undefined) delete process.env.PI_CODING_AGENT_DIR; else process.env.PI_CODING_AGENT_DIR = oldDir;
+    fs.rmSync(project, { recursive: true, force: true }); fs.rmSync(other, { recursive: true, force: true });
+  }
+});
+
+test("does not register a workflow over another extension command", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-command-conflict-"));
+  const oldDir = process.env.PI_CODING_AGENT_DIR;
+  try {
+    process.env.PI_CODING_AGENT_DIR = path.join(root, "agent-dir");
+    const dir = path.join(root, ".pi", "mesh", "workflows"); fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, "llama.yaml"), "tasks:\n  - agent: scout\n    task: test\n");
+    const commands = new Map<string, any>(); let startHandler: any;
+    const pi = { registerTool() {}, getAllTools() { return []; }, getCommands() { return [{ name: "llama" }]; }, events: { emit() {}, on() { return () => {}; } }, sendMessage() {}, sendUserMessage() {}, registerCommand(name: string, command: any) { commands.set(name, command); }, registerShortcut() {}, on(name: string, handler: any) { if (name === "session_start") startHandler = handler; } };
+    const ctx: any = { cwd: root, hasUI: false, isProjectTrusted: () => true, sessionManager: { getSessionId: () => "conflict" }, modelRegistry: { getAvailable: () => [] } };
+    registerPiMesh(pi as any); await startHandler({}, ctx);
+    assert.equal(commands.has("llama"), false);
+  } finally {
+    if (oldDir === undefined) delete process.env.PI_CODING_AGENT_DIR; else process.env.PI_CODING_AGENT_DIR = oldDir;
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("resolves mesh task model overrides through the host registry", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-model-")); let tool: any;
   try {
     fs.mkdirSync(path.join(root, ".pi", "agents"), { recursive: true });
     fs.writeFileSync(path.join(root, ".pi", "agents", "pinned.md"), "---\nname: pinned\ndescription: pinned\nmodel: anthropic/pinned-model\n---\nPinned\n");
     const tools: any[] = [];
-    registerPiMesh({ registerTool(value: any) { tools.push(value); if (value.name === "mesh") tool = value; }, getAllTools() { return tools; }, events: { emit() {}, on() { return () => {}; } }, sendMessage() {}, sendUserMessage() {}, registerCommand() {}, registerShortcut() {}, on() {} } as any);
+    registerPiMesh({ registerTool(value: any) { tools.push(value); if (value.name === "mesh") tool = value; }, getAllTools() { return tools; }, getCommands() { return []; }, events: { emit() {}, on() { return () => {}; } }, sendMessage() {}, sendUserMessage() {}, registerCommand() {}, registerShortcut() {}, on() {} } as any);
     const available = [{ provider: "openai", id: "gpt-test", name: "GPT Test" }, { provider: "cpa", id: "host-model", name: "Host Model" }, { provider: "anthropic", id: "pinned-model", name: "Pinned Model" }];
     const ctx = { cwd: root, mode: "print", isProjectTrusted: () => true, sessionManager: { getSessionId: () => "model-session" }, model: available[1], modelRegistry: { getAvailable: () => available } };
     const started = await tool.execute("test", { action: "run", async: true, tasks: [{ id: "a", agent: "worker", task: "x", model: "gpt-test" }] }, undefined, undefined, ctx);
@@ -61,7 +123,7 @@ test("ignores project agents until Pi trusts the project", async () => {
   let tool: any;
   try {
     const tools: any[] = [];
-    registerPiMesh({ registerTool(value: any) { tools.push(value); if (value.name === "mesh") tool = value; }, getAllTools() { return tools; }, events: { emit() {}, on() { return () => {}; } }, sendMessage() {}, sendUserMessage() {}, registerCommand() {}, registerShortcut() {}, on() {} } as any);
+    registerPiMesh({ registerTool(value: any) { tools.push(value); if (value.name === "mesh") tool = value; }, getAllTools() { return tools; }, getCommands() { return []; }, events: { emit() {}, on() { return () => {}; } }, sendMessage() {}, sendUserMessage() {}, registerCommand() {}, registerShortcut() {}, on() {} } as any);
     const execute = (trusted: boolean) => tool.execute("test", { action: "list_agents" }, undefined, undefined, { cwd: root, isProjectTrusted: () => trusted, sessionManager: { getSessionId: () => "test-session" } } as any);
     const untrusted = await execute(false);
     assert.equal(untrusted.details.agents.some((agent: any) => agent.name === "project-only"), false);

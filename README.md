@@ -184,6 +184,79 @@ Run checkpoints are stored under `.pi/mesh/runs/` and carry the originating Pi s
 
 Mailbox records live under `.pi/mesh/messages/`, and growth proposals under `.pi/mesh/growth/`. Children receive a restricted `mesh_control` tool for `status`, `send`, `broadcast`, `reply`, `inbox`, `ack`, and `grow`. `status` returns a bounded topology snapshot without task text or outputs. A `grow` call only writes a proposal; foreground scheduling pauses and returns control to the Host for `growth_list` / `growth_decide`, then resumes automatically after the pending decisions are resolved. Committed growth receipts include the added node IDs, per-node status, and success/failure counts.
 
+## Workflow commands
+
+Place YAML workflows in `~/.pi/agent/mesh/workflows/*.yaml` or, for trusted projects, `.pi/mesh/workflows/*.yaml`. Each filename (or explicit `name`) is registered as a slash command after session startup/reload. Project workflows override global workflows with the same name only while that project is current and trusted; handlers re-discover the workflow at invocation and fail closed after a project/trust switch or file removal. Invalid files are reported independently and do not suppress valid workflows.
+
+```yaml
+name: review-and-fix
+description: Review a target, fix it, then verify
+operator: graph
+maxConcurrency: 2
+inputs:
+  focus: regressions
+tasks:
+  - id: inspect
+    agent: scout
+    task: Review {{target}} for {{focus}}
+  - id: fix
+    agent: worker
+    dependsOn: [inspect]
+    task: Fix the reported issues in {{target}}
+  - id: verify
+    agent: qa
+    dependsOn: [fix]
+    task: Verify {{target}}
+```
+
+Run it with simple `key=value` arguments:
+
+```text
+/review-and-fix target=src focus=security
+```
+
+Missing placeholders fail before creating a Run. Workflows use the existing Mesh validation, Agent discovery, model resolution, retry, timeout, worktree, and recovery paths; they do not execute template expressions or arbitrary code.
+
+Use `stages` instead of `tasks` to compose multiple existing operators. Stage dependencies connect every entry node to the preceding stage's exit nodes, and the compiler emits one ordinary `graph` Run:
+
+```yaml
+name: composed-consensus
+worktree: true
+maxConcurrency: 3
+stages:
+  - id: candidates
+    operator: parallel
+    tasks:
+      - { id: a, agent: worker, model: provider/model-a, task: "Implement {{target}}" }
+      - { id: b, agent: worker, model: provider/model-b, task: "Implement {{target}}" }
+  - id: review
+    operator: debate
+    dependsOn: [candidates]
+    tasks:
+      - { id: critique, agent: reviewer, integration: true, task: "Compare both handoffs" }
+      - { id: rebuttal, agent: analyst, task: "Resolve the critique" }
+  - id: final
+    operator: supervisor
+    dependsOn: [review]
+    tasks:
+      - { id: vote-a, agent: reviewer, task: "Evaluate candidate A" }
+      - { id: vote-b, agent: reviewer, task: "Evaluate candidate B" }
+      - { id: integrate, agent: worker, integration: true, task: "Select and integrate the winner" }
+```
+
+Stages support `graph`, `sequence`, `parallel`, `supervisor`, `mixture`, `reflection`, and `debate`. `race` remains a whole-Run operator because its first-success cancellation semantics cannot be flattened safely inside a larger graph. Task IDs are namespaced as `<stage>.<task>`. Host built-ins, pi-mesh commands, and names already registered by another extension are rejected instead of being shadowed. YAML tasks use the same strict schema as the `mesh` tool; unknown fields and wrong types such as `integration: "false"` are rejected before command registration.
+
+The package includes `workflows/consensus.yaml`, an 18-node fixed three-model implementation of the same two-round consensus protocol. Copy it into a workflow directory, then provide exact model IDs:
+
+```bash
+cp node_modules/@gcoder1991/pi-mesh/workflows/consensus.yaml ~/.pi/agent/mesh/workflows/
+```
+
+```text
+/consensus-yaml Implement authentication with OAuth, tests, and migration notes
+```
+
+`promptInput: task` means the complete text after the slash command is assigned to `{{task}}`, including spaces and punctuation. The bundled workflow keeps model and Agent choices as editable YAML defaults; change `inputs.modelA`, `modelB`, `modelC`, and `finalizer` in the copied file. Workflows without `promptInput` continue to accept `key=value` arguments.
 Advanced scheduling is selected on `run` with `operator`: `graph`, `sequence`, `parallel`, `race`, `supervisor`, `mixture`, `reflection`, or `debate`. These are DAG topology presets over one shared runtime, not eight independent reasoning protocols: supervisor/mixture use the last task as synthesizer, reflection/debate are bounded sequential chains, and race cancels remaining nodes after the first success. Per-task `retries` and `timeoutMs` cover retry and timeout behavior without a second operator runtime.
 
 ## Agent format

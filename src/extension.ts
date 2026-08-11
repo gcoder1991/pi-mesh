@@ -2,7 +2,7 @@ import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { StringEnum } from "@earendil-works/pi-ai";
-import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, truncateHead, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, getAgentDir, truncateHead, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { discoverAgents, type AgentDefinition, type AgentScope } from "./agents.ts";
@@ -17,7 +17,7 @@ import { resolveAgentModel } from "./model-resolution.ts";
 import { CompletionNotifier } from "./notifications.ts";
 import { buildConsensusPrompt } from "./consensus-template.ts";
 import { MeshTaskSchema } from "./schemas.ts";
-
+import { discoverWorkflowFiles, instantiateWorkflow, parseWorkflowInputs, type MeshWorkflow } from "./workflows.ts";
 
 const MeshParams = Type.Object({
   action: StringEnum(["list_agents", "run", "status", "list", "cancel", "pause", "resume", "retry_failed", "recover", "steer", "handoff_list", "message_send", "message_broadcast", "message_inbox", "message_ack", "growth_list", "growth_decide"] as const),
@@ -104,6 +104,48 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
     return entry;
   };
   const fleet = new FleetView();
+  const workflowNames = new Set<string>();
+  const findWorkflow = (name: string, ctx: any): MeshWorkflow | undefined => {
+    const root = fs.realpathSync(path.resolve(ctx.cwd));
+    return discoverWorkflowFiles(root, process.env.PI_CODING_AGENT_DIR?.trim() || getAgentDir(), ctx.isProjectTrusted?.() ?? false).workflows.find((workflow) => workflow.name === name);
+  };
+  const runWorkflow = async (name: string, args: string, ctx: any): Promise<void> => {
+    if (!ctx.isIdle()) return void ctx.ui.notify(`Agent is busy; wait before starting /${name}.`, "warning");
+    try {
+      const workflow = findWorkflow(name, ctx);
+      if (!workflow) throw new Error(`Workflow is not available in the current project: ${name}`);
+      const loaded = instantiateWorkflow(workflow, parseWorkflowInputs(args, workflow.promptInput));
+      const root = fs.realpathSync(path.resolve(ctx.cwd));
+      const trusted = ctx.isProjectTrusted?.() ?? false;
+      const sessionId = ctx.sessionManager.getSessionId();
+      const { manager, notifier, resolveAgent } = currentManager(root, trusted, sessionId, ctx.modelRegistry);
+      const inheritedModel = ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : undefined;
+      const created = manager.create({ tasks: resolveTaskModels(loaded.tasks, ctx.modelRegistry, inheritedModel, resolveAgent), cwd: root, operator: loaded.operator, worktree: loaded.worktree, worktreeSetupHook: loaded.worktreeSetupHook, maxConcurrency: loaded.maxConcurrency, maxNodes: loaded.maxNodes, failFast: loaded.failFast });
+      const started = manager.startCreated(created.id);
+      if (loaded.async) {
+        void started.then(
+          (completed) => notifier.enqueueMessage(`mesh:${completed.id}`, `Mesh ${completed.id} finished: ${completed.status}.\n${summarize(completed)}`),
+          (error) => notifier.enqueueMessage(`mesh:${created.id}`, `Mesh ${created.id} failed outside the run state: ${error instanceof Error ? error.message : String(error)}`),
+        );
+        ctx.ui.notify(`Started mesh ${created.id}.`, "info");
+      } else {
+        const completed = await started;
+        ctx.ui.notify(`Mesh ${completed.id}: ${completed.status}.`, completed.status === "succeeded" ? "info" : "warning");
+      }
+    } catch (error) { ctx.ui.notify(error instanceof Error ? error.message : String(error), "warning"); }
+  };
+  const registerWorkflows = (cwd: string, trusted: boolean) => {
+    const root = fs.realpathSync(path.resolve(cwd));
+    const discovery = discoverWorkflowFiles(root, process.env.PI_CODING_AGENT_DIR?.trim() || getAgentDir(), trusted);
+    for (const error of discovery.errors) console.error(`[pi-mesh] ${error}`);
+    const occupied = new Set((pi.getCommands?.() ?? []).map((command) => command.name));
+    for (const workflow of discovery.workflows) {
+      if (!workflowNames.has(workflow.name) && occupied.has(workflow.name)) { console.error(`[pi-mesh] Workflow command conflicts with an existing command: ${workflow.name}`); continue; }
+      if (workflowNames.has(workflow.name)) continue;
+      workflowNames.add(workflow.name);
+      pi.registerCommand(workflow.name, { description: workflow.description ?? `Run mesh workflow ${workflow.name}`, handler: (args, ctx) => runWorkflow(workflow.name, args, ctx) });
+    }
+  };
   pi.registerTool({
     name: "mesh", label: "Mesh",
     description: "Host-owned persistent child-agent mesh for complex, parallel, or broad work, with dynamically discovered specialized agents, dependency graphs, optional Git worktree isolation, retries, recovery, mailbox, and host-approved growth.",
@@ -291,8 +333,9 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
   pi.registerShortcut("ctrl+shift+m", { description: "Open the native Mesh tree inspector", handler: showMeshTree });
   const shutdownSubagents = registerCompatibilityTools(pi, fleet);
   pi.on("session_start", (_event, ctx) => {
-    if (!ctx.hasUI) return;
     const trusted = ctx.isProjectTrusted?.() ?? false;
+    registerWorkflows(ctx.cwd, trusted);
+    if (!ctx.hasUI) return;
     const sessionId = ctx.sessionManager.getSessionId();
     const { manager } = currentManager(ctx.cwd, trusted, sessionId, ctx.modelRegistry);
     fleet.bindMesh(ctx, manager, `${fs.realpathSync(path.resolve(ctx.cwd))}\0${trusted}\0${sessionId}`);

@@ -1,0 +1,173 @@
+name: consensus-yaml
+description: Fixed three-model, two-round implementation consensus
+worktree: true
+maxConcurrency: 3
+maxNodes: 18
+failFast: true
+async: false
+promptInput: task
+
+inputs:
+  modelA: provider/model-a
+  modelB: provider/model-b
+  modelC: provider/model-c
+  finalizer: provider/final-model
+  writerAgent: worker
+  reviewAgent: reviewer
+  ledgerAgent: planner
+
+stages:
+  - id: implement
+    operator: parallel
+    tasks:
+      - id: a
+        agent: "{{writerAgent}}"
+        model: "{{modelA}}"
+        task: |
+          Independently implement the task below. Do not inspect sibling implementations.
+          Run focused verification, commit the complete candidate, and report summary, tests, risks, and final commit.
+          Original task: {{task}}
+      - id: b
+        agent: "{{writerAgent}}"
+        model: "{{modelB}}"
+        task: |
+          Independently implement the task below. Do not inspect sibling implementations.
+          Run focused verification, commit the complete candidate, and report summary, tests, risks, and final commit.
+          Original task: {{task}}
+      - id: c
+        agent: "{{writerAgent}}"
+        model: "{{modelC}}"
+        task: |
+          Independently implement the task below. Do not inspect sibling implementations.
+          Run focused verification, commit the complete candidate, and report summary, tests, risks, and final commit.
+          Original task: {{task}}
+
+  - id: critique1
+    operator: parallel
+    dependsOn: [implement]
+    tasks:
+      - id: a
+        agent: "{{reviewAgent}}"
+        model: "{{modelA}}"
+        integration: true
+        task: &critique |
+          Compare every candidate handoff without editing or merging code. Evaluate correctness, simplicity, tests, security, compatibility, and maintainability.
+          Return JSON with preferredCandidate, acceptedArguments, rejectedArguments, requiredChanges, risks, and currentVote.
+          Original task: {{task}}
+      - id: b
+        agent: "{{reviewAgent}}"
+        model: "{{modelB}}"
+        integration: true
+        task: *critique
+      - id: c
+        agent: "{{reviewAgent}}"
+        model: "{{modelC}}"
+        integration: true
+        task: *critique
+
+  - id: ledger1
+    operator: graph
+    dependsOn: [critique1]
+    tasks:
+      - id: normalize
+        agent: "{{ledgerAgent}}"
+        model: "{{finalizer}}"
+        integration: true
+        task: |
+          Normalize candidate IDs, deduplicate arguments, separate consensus from disputes, and return JSON with candidateRanking, consensusChanges, disputedChanges, blockingRisks, and voteTally.
+
+  - id: revise1
+    operator: parallel
+    dependsOn: [ledger1]
+    tasks:
+      - id: a
+        dependsOn: [implement.a]
+        agent: "{{writerAgent}}"
+        model: "{{modelA}}"
+        integration: true
+        task: &revise1 |
+          Continue the matching candidate using its implementation handoff and the normalized ledger. Apply accepted changes, explicitly resolve or reject disputed changes, run tests, commit, and report the updated candidate.
+          Original task: {{task}}
+      - id: b
+        dependsOn: [implement.b]
+        agent: "{{writerAgent}}"
+        model: "{{modelB}}"
+        integration: true
+        task: *revise1
+      - id: c
+        dependsOn: [implement.c]
+        agent: "{{writerAgent}}"
+        model: "{{modelC}}"
+        integration: true
+        task: *revise1
+
+  - id: critique2
+    operator: parallel
+    dependsOn: [revise1]
+    tasks:
+      - id: a
+        agent: "{{reviewAgent}}"
+        model: "{{modelA}}"
+        integration: true
+        task: &critique2 |
+          Re-evaluate every revised candidate without editing. Return JSON with preferredCandidate, acceptedArguments, rejectedArguments, requiredChanges, risks, and currentVote.
+          Original task: {{task}}
+      - id: b
+        agent: "{{reviewAgent}}"
+        model: "{{modelB}}"
+        integration: true
+        task: *critique2
+      - id: c
+        agent: "{{reviewAgent}}"
+        model: "{{modelC}}"
+        integration: true
+        task: *critique2
+
+  - id: ledger2
+    operator: graph
+    dependsOn: [critique2]
+    tasks:
+      - id: normalize
+        agent: "{{ledgerAgent}}"
+        model: "{{finalizer}}"
+        integration: true
+        task: |
+          Produce the final normalized option ledger as JSON with candidateRanking, settledFindings, remainingDisputes, blockingRisks, and voteTally.
+
+  - id: revise2
+    operator: parallel
+    dependsOn: [ledger2]
+    tasks:
+      - id: a
+        dependsOn: [revise1.a]
+        agent: "{{writerAgent}}"
+        model: "{{modelA}}"
+        integration: true
+        task: &revise2 |
+          Make the final revision of the matching candidate, run verification, commit, and return JSON with candidateId, summary, tests, remainingRisks, finalCommit, vote, and voteRationale. vote must name exactly one revise2 candidate.
+          Original task: {{task}}
+      - id: b
+        dependsOn: [revise1.b]
+        agent: "{{writerAgent}}"
+        model: "{{modelB}}"
+        integration: true
+        task: *revise2
+      - id: c
+        dependsOn: [revise1.c]
+        agent: "{{writerAgent}}"
+        model: "{{modelC}}"
+        integration: true
+        task: *revise2
+
+  - id: final
+    operator: graph
+    dependsOn: [ledger2, revise2]
+    tasks:
+      - id: integrate
+        agent: "{{writerAgent}}"
+        model: "{{finalizer}}"
+        integration: true
+        task: |
+          Count valid votes from the three final candidates. If one has at least two votes, use it as baseline and report CONSENSUS_UNANIMOUS or CONSENSUS_BY_MAJORITY. Otherwise use ledger evidence and Finalizer judgment and report FINALIZER_TIEBREAK.
+          Explicitly integrate the selected handoff, apply only evidence-backed remaining fixes, run the relevant test suite, commit the canonical implementation, and return one JSON object with status, selectedOption, votes, minorityOpinions, finalCommit, verification, and canonicalResult.
+          Original task: {{task}}
