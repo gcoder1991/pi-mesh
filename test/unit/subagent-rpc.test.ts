@@ -49,13 +49,14 @@ test("cross-extension RPC uses explicit model before Agent and Host defaults", a
     let response: any; harness.pi.events.on("subagents:rpc:spawn:reply:p", (value: any) => { response = value; });
     harness.pi.events.emit("subagents:rpc:spawn", { requestId: "p", type: "locked", prompt: "rpc", options: { model: "provider/override", thinking: "low", max_turns: 2 } });
     assert.equal(response.success, true);
-    let call: any;
-    for (let attempt = 0; attempt < 50 && !call; attempt++) {
+    let call: any, lastReadError: unknown;
+    const deadline = Date.now() + 5000;
+    while (Date.now() < deadline && !call) {
       const callFile = fs.readdirSync(queue).find((name) => name.startsWith("call-"));
-      if (callFile) try { call = JSON.parse(fs.readFileSync(path.join(queue, callFile), "utf8")); } catch {}
+      if (callFile) try { call = JSON.parse(fs.readFileSync(path.join(queue, callFile), "utf8")); } catch (error) { lastReadError = error; }
       if (!call) await new Promise((resolve) => setTimeout(resolve, 10));
     }
-    assert.ok(call);
+    assert.ok(call, `RPC call not ready within 5s: queue=${JSON.stringify(fs.readdirSync(queue))}; lastReadError=${String(lastReadError)}; events=${JSON.stringify(harness.emitted)}`);
     assert.ok(call.args.includes("provider/override")); assert.ok(call.args.includes("high"));
     harness.pi.events.emit("subagents:rpc:stop", { requestId: "stop", agentId: response.data.id });
   } finally { await harness.shutdown(); if (old.binary === undefined) delete process.env.PI_MESH_PI_BINARY; else process.env.PI_MESH_PI_BINARY = old.binary; if (old.queue === undefined) delete process.env.PI_MESH_TEST_QUEUE; else process.env.PI_MESH_TEST_QUEUE = old.queue; fs.rmSync(root, { recursive: true, force: true }); fs.rmSync(queue, { recursive: true, force: true }); }

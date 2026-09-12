@@ -33,7 +33,7 @@ test("/agents creates, edits, disables, deletes, ejects, and updates settings", 
     surface = ui(["Settings", "Max concurrency"], ["7"]);
     await command.handler("", context(root, { ui: surface.api })); assert.match(fs.readFileSync(path.join(root, ".pi", "mesh", "settings.yaml"), "utf8"), /maxConcurrentAgents: 7/);
     surface = ui(["Scheduled jobs"]);
-    await command.handler("", context(root, { ui: surface.api })); assert.ok(surface.notifications.includes("No scheduler is active in this session."));
+    await command.handler("", context(root, { ui: surface.api })); assert.ok(surface.notifications.includes("No scheduled jobs."));
 
     await harness.shutdown();
   } finally { fs.rmSync(root, { recursive: true, force: true }); }

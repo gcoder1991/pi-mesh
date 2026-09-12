@@ -71,7 +71,7 @@ test("recovers a terminal attempt result without rerunning the child", () => {
     const outputPath = putNodeOutput(cwd, persisted.id, "a", 1, "completed before crash");
     const resultPath = putAttemptResult(cwd, persisted.id, "a", 1, {
       schema: "pi-mesh.attempt-result/v1", runId: persisted.id, nodeId: "a", attempt: 1, status: "succeeded",
-      startedAt: 10, finishedAt: 20, exitCode: 0, signal: null, stderrTail: "", usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 1 },
+      committedRevision: persisted.revision, startedAt: 10, finishedAt: 20, exitCode: 0, signal: null, stderrTail: "", usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 1 },
       outputPath, outputBytes: 22, outputTruncated: false,
     });
     atomicWrite(runFile(cwd, persisted.id), persisted);
@@ -144,7 +144,7 @@ test("host-approved growth enforces the requester allowlist", () => {
     run.nodes[0].status = "paused";
     run.nodes[0].allowedSubagents = ["WORKER"];
     atomicWrite(runFile(cwd, run.id), run);
-    const manager = new MeshManager(() => agent);
+    const manager = new MeshManager(() => ({ ...agent, allowedSubagents: ["WORKER"] }));
     manager.recover(cwd);
     const added = manager.grow(run.id, "a", [{ id: "review", agent: "worker", task: "review", dependsOn: ["a"] }]);
     assert.equal(added[0].dynamic, true);

@@ -33,7 +33,7 @@ export interface AgentDefinition {
 
 export const BUNDLED_AGENTS_DIR = fileURLToPath(new URL("../agents", import.meta.url));
 
-function loadDirectory(dir: string, source: AgentSource): AgentDefinition[] {
+function loadDirectory(dir: string, source: AgentSource, onDiagnostic?: DiscoverAgentOptions["onDiagnostic"]): AgentDefinition[] {
   let entries: fs.Dirent[];
   try {
     if (fs.lstatSync(dir).isSymbolicLink()) return [];
@@ -49,16 +49,18 @@ function loadDirectory(dir: string, source: AgentSource): AgentDefinition[] {
     try {
       const { frontmatter, body } = parseFrontmatter<Record<string, string>>(fs.readFileSync(filePath, "utf8"));
       const name = frontmatter.name || path.basename(entry.name, ".md");
-      if (!frontmatter.description) continue;
+      if (!/^[A-Za-z0-9._-]{1,64}$/.test(name)) throw new Error("Invalid agent name");
+      if (!frontmatter.description) throw new Error("Missing description");
       const csv = (value?: string) => value?.split(",").map((item) => item.trim()).filter(Boolean);
       const boolean = (value?: string) => value === undefined ? undefined : /^(true|yes|1)$/i.test(value);
       const maxTurns = frontmatter.max_turns ? Number(frontmatter.max_turns) : undefined;
+      if (maxTurns !== undefined && (!Number.isInteger(maxTurns) || maxTurns < 1 || maxTurns > 1000)) throw new Error("Invalid max_turns (expected integer 1-1000)");
       const enabled = boolean(frontmatter.enabled);
       if (enabled === false) continue;
       const extensions = csv(frontmatter.extensions)?.filter((item) => !["false", "none"].includes(item.toLowerCase()));
       const skills = csv(frontmatter.skills)?.filter((item) => !["false", "none"].includes(item.toLowerCase()));
-      if (extensions?.some((item) => item === "*" || item.toLowerCase() === "true" || path.isAbsolute(item) || item.includes("/") || item.includes("\\"))) continue;
-      if (skills?.some((item) => item === "*" || item.toLowerCase() === "true" || path.isAbsolute(item) || item.includes("/") || item.includes("\\"))) continue;
+      if (extensions?.some((item) => item === "*" || item.toLowerCase() === "true" || path.isAbsolute(item) || item.includes("/") || item.includes("\\"))) throw new Error("Unsafe extension name");
+      if (skills?.some((item) => item === "*" || item.toLowerCase() === "true" || path.isAbsolute(item) || item.includes("/") || item.includes("\\"))) throw new Error("Unsafe skill name");
       const tools = csv(frontmatter.tools);
       agents.push({
         name,
@@ -84,8 +86,9 @@ function loadDirectory(dir: string, source: AgentSource): AgentDefinition[] {
         source,
         filePath,
       });
-    } catch {
-      // Ignore unreadable or malformed definitions; list() makes omissions visible.
+    } catch (error) {
+      const diagnostic = { filePath, message: error instanceof Error ? error.message : String(error) };
+      if (onDiagnostic) onDiagnostic(diagnostic); else console.warn(`Agent discovery: ${filePath}: ${diagnostic.message}`);
     }
   }
   return agents;
@@ -105,6 +108,7 @@ function nearestProjectAgentsDir(cwd: string): string | undefined {
 }
 
 export interface DiscoverAgentOptions {
+  onDiagnostic?: (diagnostic: { filePath: string; message: string }) => void;
   scope?: AgentScope;
   includeProject?: boolean;
   projectRoot?: string;
@@ -113,7 +117,7 @@ export interface DiscoverAgentOptions {
 export function bundledAgents(): AgentDefinition[] { return loadDirectory(BUNDLED_AGENTS_DIR, "bundled"); }
 
 export function discoverAgents(cwd: string, options: AgentScope | DiscoverAgentOptions = "all"): AgentDefinition[] {
-  const { scope = "all", includeProject = true, projectRoot } = typeof options === "string" ? { scope: options } : options;
+  const { scope = "all", includeProject = true, projectRoot, onDiagnostic } = typeof options === "string" ? { scope: options } : options;
   const sources: Array<[string, AgentSource]> = [];
   if (scope === "bundled" || scope === "all") sources.push([BUNDLED_AGENTS_DIR, "bundled"]);
   if (scope === "user" || scope === "all") sources.push([path.join(getAgentDir(), "agents"), "user"]);
@@ -124,7 +128,7 @@ export function discoverAgents(cwd: string, options: AgentScope | DiscoverAgentO
 
   const byName = new Map<string, AgentDefinition>();
   for (const [dir, source] of sources) {
-    for (const agent of loadDirectory(dir, source)) byName.set(agent.name, agent);
+    for (const agent of loadDirectory(dir, source, onDiagnostic)) byName.set(agent.name, agent);
   }
   return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
 }

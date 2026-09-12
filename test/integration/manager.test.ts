@@ -21,6 +21,8 @@ function queueResponse(queue: string, index: number, response: object): void {
 
 async function withMock<T>(fn: (queue: string) => Promise<T>): Promise<T> {
   const queue = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-test-"));
+  const oldCwd = process.cwd();
+  process.chdir(queue);
   const oldBinary = process.env[PI_MESH_PI_BINARY_ENV];
   const oldQueue = process.env.PI_MESH_TEST_QUEUE;
   process.env[PI_MESH_PI_BINARY_ENV] = mockPi;
@@ -30,6 +32,7 @@ async function withMock<T>(fn: (queue: string) => Promise<T>): Promise<T> {
   } finally {
     if (oldBinary === undefined) delete process.env[PI_MESH_PI_BINARY_ENV]; else process.env[PI_MESH_PI_BINARY_ENV] = oldBinary;
     if (oldQueue === undefined) delete process.env.PI_MESH_TEST_QUEUE; else process.env.PI_MESH_TEST_QUEUE = oldQueue;
+    process.chdir(oldCwd);
     fs.rmSync(queue, { recursive: true, force: true });
   }
 }
@@ -49,6 +52,14 @@ test("runs dependency ordered children and strips recursive extensions", async (
   assert.deepEqual(run.nodes.map((node) => node.output), ["first", "second"]);
   const calls = fs.readdirSync(queue).filter((name) => name.startsWith("call-")).map((name) => JSON.parse(fs.readFileSync(path.join(queue, name), "utf8")));
   assert.equal(calls.length, 2);
+  const privateRoot = fs.realpathSync(queue);
+  assert.equal(run.cwd, privateRoot);
+  assert.ok(fs.existsSync(path.join(privateRoot, ".pi", "mesh", "runs", `${run.id}.json`)));
+  for (const node of run.nodes) {
+    assert.equal(node.cwd, privateRoot);
+    for (const file of [node.outputPath, node.attemptResultPath, node.diagnosticPath, node.sessionFile]) assert.ok(file?.startsWith(`${privateRoot}${path.sep}`), `private artifact: ${file}`);
+  }
+  assert.ok(calls.every(call => fs.realpathSync(call.cwd) === privateRoot));
   const second = calls.find((call) => call.args.some((value: string) => value.includes("Task: two")));
   assert.ok(second?.args.some((value: string) => value.includes("Direct dependency evidence") && value.includes("first")));
   for (const call of calls) {
@@ -145,6 +156,9 @@ test("retryFailed reruns only unsuccessful nodes", async () => withMock(async (q
   assert.equal(first.status, "failed");
   assert.deepEqual(first.nodes.map((node) => [node.id, node.status, node.attempt]), [["EPIC-01", "succeeded", 1], ["EPIC-06", "failed", 1]]);
 
+  // The upgraded RPC fixture now persists simulated JSONL evidence. Remove the
+  // failed attempt file to keep exercising this test's original output-tail fallback.
+  assert.ok(first.nodes[1].sessionFile); fs.rmSync(first.nodes[1].sessionFile!);
   queueResponse(queue, 3, { output: "fixed" });
   const retried = await manager.retryFailed(first.id);
   assert.equal(retried.status, "succeeded");
@@ -166,8 +180,9 @@ test("retryFailed selectively resumes cancelled runs", async () => withMock(asyn
   const first = await completion;
   assert.equal(first.status, "cancelled");
   assert.deepEqual(first.nodes.map((node) => [node.id, node.status, node.attempt]), [["done", "succeeded", 1], ["cancelled", "cancelled", 1]]);
+  await assert.rejects(async () => manager.retryFailed(first.id), /authorization/i);
   queueResponse(queue, 3, { output: "recovered" });
-  const retried = await manager.retryFailed(first.id);
+  const retried = await manager.retryFailedFromUser(first.id);
   assert.equal(retried.status, "succeeded");
   assert.deepEqual(retried.nodes.map((node) => [node.id, node.status, node.attempt]), [["done", "succeeded", 1], ["cancelled", "succeeded", 2]]);
 }));
@@ -242,4 +257,8 @@ test("late node result cannot overwrite cancellation or start its sibling early"
   assert.equal(run.nodes[0].status, "cancelled");
   assert.equal(run.nodes[1].status, "succeeded");
   assert.equal(run.nodes[0].attempt, 1);
+}));
+
+test("second review withMock uses a private cwd before any Manager admission", async () => withMock(async (queue) => {
+  assert.equal(fs.realpathSync(process.cwd()), fs.realpathSync(queue));
 }));

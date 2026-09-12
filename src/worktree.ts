@@ -13,6 +13,7 @@ export interface WorktreeRunState {
 export interface WorktreeState {
   repoRoot: string;
   baseCommit: string;
+  handoffBaseCommit?: string;
   path: string;
   cwd: string;
   branch: string;
@@ -29,9 +30,29 @@ export interface WorktreeState {
 }
 
 function git(cwd: string, args: string[]): string {
-  const result = spawnSync("git", ["-C", cwd, ...args], { encoding: "utf8" });
-  if (result.status !== 0) throw new Error(result.stderr.trim() || result.stdout.trim() || `git ${args.join(" ")} failed`);
+  // Internal evidence capture is not authorization to run project hooks or
+  // fsmonitor commands. Command-local overrides do not modify Git config;
+  // os.devNull is a non-directory on Unix and Windows, so no hook can be found.
+  const result = spawnSync("git", ["-c", `core.hooksPath=${os.devNull}`, "-c", "core.fsmonitor=false", "-C", cwd, ...args], { encoding: "utf8" });
+  if (result.status !== 0) throw new Error(result.error?.message || result.stderr.trim().slice(0, 4096) || result.stdout.trim().slice(0, 4096) || `git ${args.join(" ")} failed`);
   return result.stdout;
+}
+
+/** Stream binary patches directly to disk; spawnSync's default stdout buffer
+ * must not turn a large, valid handoff into a truncated artifact. */
+function gitPatch(cwd: string, base: string, final: string, file: string): void {
+  const temp = `${file}.${process.pid}.tmp`;
+  const fd = fs.openSync(temp, "wx", 0o600);
+  try {
+    const result = spawnSync("git", ["-c", `core.hooksPath=${os.devNull}`, "-c", "core.fsmonitor=false", "-C", cwd, "diff", "--no-ext-diff", "--no-textconv", "--binary", base, final], { stdio: ["ignore", fd, "pipe"], encoding: "utf8" });
+    if (result.status !== 0) throw new Error(result.error?.message || result.stderr?.trim().slice(0, 4096) || "git patch capture failed");
+    fs.fsyncSync(fd);
+    fs.closeSync(fd);
+    fs.renameSync(temp, file);
+  } finally {
+    try { fs.closeSync(fd); } catch { /* already closed before rename */ }
+    fs.rmSync(temp, { force: true });
+  }
 }
 
 function repoRoot(cwd: string): string {
@@ -62,30 +83,31 @@ function safe(value: string): string {
   return value.replace(/[^A-Za-z0-9._-]/g, "-");
 }
 
-export function createNodeWorktree(run: WorktreeRunState, runId: string, nodeId: string, attempt: number, originalCwd: string, baseCommit = run.baseCommit): WorktreeState {
+export function createNodeWorktree(run: WorktreeRunState, runId: string, nodeId: string, attempt: number, originalCwd: string, baseCommit = run.baseCommit, handoffBaseCommit = baseCommit): WorktreeState {
   const relativeCwd = path.relative(run.repoRoot, fs.realpathSync(originalCwd));
   if (relativeCwd === ".." || relativeCwd.startsWith(`..${path.sep}`) || path.isAbsolute(relativeCwd)) throw new Error(`Task cwd escapes repository: ${originalCwd}`);
   const key = `${safe(runId)}-${safe(nodeId)}-${attempt}`;
   const worktreePath = path.join(os.tmpdir(), `pi-mesh-${key}`);
   const branch = `pi-mesh/${safe(runId)}/${safe(nodeId)}-${attempt}`;
   git(run.repoRoot, ["worktree", "add", "--detach", worktreePath, baseCommit]);
+  const state: WorktreeState = {
+    repoRoot: run.repoRoot, baseCommit, handoffBaseCommit, path: worktreePath,
+    cwd: relativeCwd ? path.join(worktreePath, relativeCwd) : worktreePath,
+    branch, attempt, cleanupStatus: "pending", phase: "ready",
+  };
   if (run.setupHook) {
     const setup = spawnSync(run.setupHook, { cwd: worktreePath, encoding: "utf8", timeout: 120_000, shell: false });
-    if (setup.status !== 0) {
-      try { git(run.repoRoot, ["worktree", "remove", "--force", worktreePath]); } catch {}
-      throw new Error(setup.stderr.trim() || setup.stdout.trim() || `worktree setup hook failed with ${setup.status}`);
-    }
+    if (setup.status !== 0) throw new WorktreeSetupError(state, setup.stderr?.trim() || setup.stdout?.trim() || `worktree setup hook failed with ${setup.status}`);
   }
-  return {
-    repoRoot: run.repoRoot,
-    baseCommit,
-    path: worktreePath,
-    cwd: relativeCwd ? path.join(worktreePath, relativeCwd) : worktreePath,
-    branch,
-    attempt,
-    cleanupStatus: "pending",
-    phase: "ready",
-  };
+  return state;
+}
+
+export class WorktreeSetupError extends Error {
+  readonly state: WorktreeState;
+  constructor(state: WorktreeState, message: string) {
+    super(`${message}. Setup worktree preserved at ${state.path}; inspect it before retrying.`);
+    this.state = state;
+  }
 }
 
 function counts(numstat: string): { filesChanged: number; insertions: number; deletions: number } {
@@ -100,7 +122,18 @@ function counts(numstat: string): { filesChanged: number; insertions: number; de
   return { filesChanged, insertions, deletions };
 }
 
-export function finalizeNodeWorktree(cwd: string, runId: string, nodeId: string, state: WorktreeState, status: string, summary?: string): WorktreeState {
+/** Validate saved evidence against this node's retained branch, not arbitrary commits. */
+export function retryWorktreeCommit(run: WorktreeRunState, runId: string, nodeId: string, state: WorktreeState): string {
+  if (state.repoRoot !== run.repoRoot || state.branch !== `pi-mesh/${safe(runId)}/${safe(nodeId)}-${state.attempt}` || !state.finalCommit || !state.handoffPath) throw new Error("Previous worktree has no valid owned handoff; preserve it and repair before retrying");
+  const commit = git(run.repoRoot, ["rev-parse", state.finalCommit === (state.handoffBaseCommit ?? state.baseCommit) ? `${state.finalCommit}^{commit}` : `refs/heads/${state.branch}^{commit}`]).trim();
+  if (commit !== state.finalCommit) throw new Error("Previous worktree branch no longer matches saved commit");
+  git(run.repoRoot, ["merge-base", "--is-ancestor", state.handoffBaseCommit ?? state.baseCommit, commit]);
+  return commit;
+}
+
+/** Capture first; callers may defer removal until their checkpoint is durable. */
+export function finalizeNodeWorktree(cwd: string, runId: string, nodeId: string, state: WorktreeState, status: string, summary?: string, remove = true): WorktreeState {
+  let captured = state;
   try {
     const dirty = git(state.path, ["status", "--porcelain=v1", "--untracked-files=all"]).trim();
     if (dirty) {
@@ -108,23 +141,29 @@ export function finalizeNodeWorktree(cwd: string, runId: string, nodeId: string,
       git(state.path, ["-c", "user.name=pi-mesh", "-c", "user.email=pi-mesh@local", "commit", "--no-verify", "-m", `pi-mesh: ${nodeId}`]);
     }
     const finalCommit = git(state.path, ["rev-parse", "HEAD"]).trim();
-    const changed = finalCommit !== state.baseCommit;
-    if (!changed) {
-      git(state.repoRoot, ["worktree", "remove", "--force", state.path]);
-      return { ...state, finalCommit, cleanupStatus: "complete", phase: "removed", filesChanged: 0, insertions: 0, deletions: 0 };
-    }
-
+    const baseCommit = state.handoffBaseCommit ?? state.baseCommit;
     const artifactDir = path.join(meshDir(cwd), "artifacts", runId, nodeId, `attempt-${state.attempt}`);
     fs.mkdirSync(artifactDir, { recursive: true });
     const patchPath = path.join(artifactDir, "changes.patch");
     const handoffPath = path.join(artifactDir, "handoff.json");
-    fs.writeFileSync(patchPath, git(state.path, ["diff", "--binary", state.baseCommit, finalCommit]), { mode: 0o600 });
-    const stats = counts(git(state.path, ["diff", "--numstat", state.baseCommit, finalCommit]));
-    git(state.repoRoot, ["branch", "-f", state.branch, finalCommit]);
-    atomicWrite(handoffPath, { schema: "pi-mesh.handoff/v1", runId, nodeId, attempt: state.attempt, status, repoRoot: state.repoRoot, baseCommit: state.baseCommit, finalCommit, branch: state.branch, patchPath, ...stats, summary: summary ?? "" });
-    git(state.repoRoot, ["worktree", "remove", "--force", state.path]);
-    return { ...state, finalCommit, patchPath, handoffPath, ...stats, cleanupStatus: "complete", phase: "removed" };
+    gitPatch(state.path, baseCommit, finalCommit, patchPath);
+    const stats = counts(git(state.path, ["diff", "--no-ext-diff", "--no-textconv", "--numstat", baseCommit, finalCommit]));
+    if (finalCommit !== baseCommit) git(state.repoRoot, ["branch", "-f", state.branch, finalCommit]);
+    atomicWrite(handoffPath, { schema: "pi-mesh.handoff/v1", runId, nodeId, attempt: state.attempt, status, repoRoot: state.repoRoot, baseCommit, checkoutBaseCommit: state.baseCommit, finalCommit, commitRange: `${baseCommit}..${finalCommit}`, branch: state.branch, patchPath, ...stats, summary: summary ?? "" });
+    captured = { ...state, finalCommit, patchPath, handoffPath, ...stats, cleanupStatus: "pending", phase: "captured", cleanupError: undefined };
   } catch (error) {
-    return { ...state, cleanupStatus: "partial", phase: "partial", cleanupError: error instanceof Error ? error.message : String(error) };
+    return { ...captured, cleanupStatus: "partial", phase: "partial", cleanupError: error instanceof Error ? error.message : String(error) };
+  }
+  return remove ? cleanupNodeWorktree(captured) : captured;
+}
+
+export function cleanupNodeWorktree(state: WorktreeState): WorktreeState {
+  if (state.phase !== "captured") return state;
+  try {
+    git(state.repoRoot, ["worktree", "remove", "--force", state.path]);
+    return { ...state, cleanupStatus: "complete", phase: "removed", cleanupError: undefined };
+  } catch (error) {
+    // A valid handoff remains delivery success; removal is only a warning.
+    return { ...state, cleanupStatus: "partial", cleanupError: `Cleanup warning: ${String(error)}` };
   }
 }

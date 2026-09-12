@@ -59,3 +59,21 @@ test("scheduler rejects malformed or oversized registries and jobs", () => {
     assert.throws(() => scheduler.add({ name: "x", schedule: "+1s", prompt: "", agent: "worker" }), /Invalid scheduled agent job/); scheduler.dispose();
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
+
+test("scheduler bounds long timers and arithmetic catchup; pending fire is cancellable/disposable", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-schedule-bounds-")); const errors: string[] = []; let fires = 0;
+  try {
+    const scheduler = new AgentScheduler(root, "bounded", () => { fires++; throw new Error("diagnostic"); }, (_job, error) => { errors.push(String(error)); });
+    assert.throws(() => scheduler.add({ name: "huge", schedule: `${"9".repeat(300)}d`, prompt: "x", agent: "worker" }), /too large/);
+    const long = scheduler.add({ name: "long", schedule: "+365d", prompt: "x", agent: "worker" });
+    assert.equal((scheduler as any).timers.get(long.id)._idleTimeout, 2_147_483_647);
+    (scheduler as any).emit(long); scheduler.cancel(long.id); await new Promise((resolve) => setImmediate(resolve)); assert.equal(fires, 0);
+    const pending = scheduler.add({ name: "pending", schedule: "+1h", prompt: "x", agent: "worker" });
+    (scheduler as any).emit(pending); await new Promise((resolve) => setImmediate(resolve)); assert.equal(fires, 1); assert.match(errors[0]!, /diagnostic/);
+    (scheduler as any).emit(pending); scheduler.dispose(); await new Promise((resolve) => setImmediate(resolve)); assert.equal(fires, 1);
+    const file = path.join(root, ".pi", "mesh", "schedules", "catchup.json");
+    fs.writeFileSync(file, JSON.stringify([{ ...pending, schedule: "1s", type: "interval", nextRun: 1 }]));
+    const start = Date.now(); const restored = new AgentScheduler(root, "catchup", () => {});
+    assert.ok(Date.now() - start < 1000); assert.ok(restored.list()[0]!.nextRun! > Date.now()); restored.dispose();
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});

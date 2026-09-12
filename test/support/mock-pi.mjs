@@ -7,6 +7,18 @@ if (!queue) process.exit(2);
 fs.mkdirSync(queue, { recursive: true });
 const rpc = process.argv.includes("rpc");
 let response;
+// Simulated RPC session evidence, not real SDK persistence. Fresh headers flush
+// only with an assistant message; get_state may advertise the early path.
+const arg = (name) => { const i = process.argv.lastIndexOf(name); return i < 0 ? undefined : process.argv[i + 1]; };
+const sessionDir = arg("--session-dir");
+const requestedSession = arg("--session");
+const sessionFile = requestedSession?.endsWith(".jsonl") ? requestedSession : sessionDir ? path.join(sessionDir, `${requestedSession ?? process.pid}.jsonl`) : undefined;
+function persistMessage() {
+  if (!sessionFile) return;
+  fs.mkdirSync(path.dirname(sessionFile), { recursive: true });
+  if (!fs.existsSync(sessionFile)) fs.writeFileSync(sessionFile, `${JSON.stringify({ type: "session", version: 3, id: requestedSession ?? String(process.pid), timestamp: new Date().toISOString(), cwd: process.cwd() })}\n`);
+  fs.appendFileSync(sessionFile, `${JSON.stringify({ type: "message", id: `m${Date.now()}`, parentId: null, timestamp: new Date().toISOString(), message: message().message })}\n`);
+}
 
 function claimResponse(task = "") {
   const names = fs.readdirSync(queue).filter((item) => item.startsWith("pending-")).sort();
@@ -53,6 +65,7 @@ if (rpc) {
   let buffer = "";
   const finishPrompt = () => setTimeout(() => {
     if (response.writeFile) fs.writeFileSync(path.resolve(response.writeFile), response.writeContent ?? process.cwd());
+    persistMessage();
     const emit = () => process.stdout.write(`${JSON.stringify(message(true))}\n${JSON.stringify({ type: "agent_settled" })}\n`);
     const stderr = response?.stderr ?? (response?.stderrBytes ? "e".repeat(response.stderrBytes) : "");
     if (stderr) process.stderr.write(stderr, emit); else emit();
@@ -65,7 +78,9 @@ if (rpc) {
       const line = buffer.slice(0, index); buffer = buffer.slice(index + 1);
       let command;
       try { command = JSON.parse(line); } catch { continue; }
-      if (command.type === "prompt") {
+      if (command.type === "get_state") {
+        process.stdout.write(`${JSON.stringify({ id: command.id, type: "response", command: "get_state", success: true, data: { sessionFile } })}\n`);
+      } else if (command.type === "prompt") {
         claimResponse(command.message);
         fs.writeFileSync(callFile, JSON.stringify({ args: [...process.argv.slice(2), command.message], cwd: process.cwd() }));
         process.stdout.write(`${JSON.stringify({ id: command.id, type: "response", command: "prompt", success: true })}\n`);

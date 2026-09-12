@@ -46,7 +46,7 @@ function response(queue: string, index: number, value: object): void {
 test("parallel writers use isolated worktrees and produce handoffs", async () => fixture(async (repo, queue) => {
   response(queue, 1, { output: "one", writeFile: "one.txt", writeContent: "one" });
   response(queue, 2, { output: "two", writeFile: "two.txt", writeContent: "two" });
-  const manager = new MeshManager(() => agent);
+  const manager = new MeshManager(() => agent, undefined, undefined, undefined, "default", true);
   const run = await manager.start({
     cwd: repo,
     worktree: true,
@@ -91,7 +91,7 @@ test("parallel writers use isolated worktrees and produce handoffs", async () =>
 test("single writer dependency starts from predecessor commit", async () => fixture(async (repo, queue) => {
   response(queue, 1, { output: "one", writeFile: "one.txt", writeContent: "one" });
   response(queue, 2, { output: "two", writeFile: "two.txt", writeContent: "two" });
-  const manager = new MeshManager(() => agent);
+  const manager = new MeshManager(() => agent, undefined, undefined, undefined, "default", true);
   const run = await manager.start({ cwd: repo, worktree: true, tasks: [
     { id: "one", agent: "worker", task: "one" },
     { id: "two", agent: "worker", task: "two", dependsOn: ["one"] },
@@ -105,7 +105,7 @@ test("single writer dependency starts from predecessor commit", async () => fixt
 
 test("worktree mode rejects dirty repositories before spawning", async () => fixture(async (repo, queue) => {
   fs.writeFileSync(path.join(repo, "dirty.txt"), "dirty");
-  const manager = new MeshManager(() => agent);
+  const manager = new MeshManager(() => agent, undefined, undefined, undefined, "default", true);
   await assert.rejects(() => manager.start({ cwd: repo, worktree: true, tasks: [{ agent: "worker", task: "write" }] }), /clean git working tree/);
   assert.equal(fs.readdirSync(queue).some((name) => name.startsWith("call-")), false);
 }));
@@ -115,7 +115,7 @@ test("worktree setup hook must stay inside the repository", async () => fixture(
   try {
     const hook = path.join(outside, "setup.sh");
     fs.writeFileSync(hook, "#!/bin/sh\nexit 0\n", { mode: 0o700 });
-    const manager = new MeshManager(() => agent);
+    const manager = new MeshManager(() => agent, undefined, undefined, undefined, "default", true);
     await assert.rejects(() => manager.start({ cwd: repo, worktree: true, worktreeSetupHook: hook, tasks: [{ agent: "worker", task: "write" }] }), /setup hook must be inside repository/);
     assert.equal(fs.readdirSync(queue).some((name) => name.startsWith("call-")), false);
   } finally { fs.rmSync(outside, { recursive: true, force: true }); }

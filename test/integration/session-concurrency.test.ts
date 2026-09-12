@@ -18,7 +18,8 @@ test("background Agent launches obey the configured concurrency queue", async ()
     fs.writeFileSync(path.join(queue, "pending-001.json"), JSON.stringify({ output: "one", delay: 100 })); fs.writeFileSync(path.join(queue, "pending-002.json"), JSON.stringify({ output: "two" }));
     const manager = new SessionAgentManager({ ...defaultMeshSettings, maxConcurrentAgents: 1 }, root);
     const first = manager.spawn(agent, "one", "one", root, {}); const second = manager.spawn(agent, "two", "two", root, {});
-    assert.equal(first.status, "running"); assert.equal(second.status, "queued");
+    assert.equal(first.status, "queued"); assert.ok(first.promise); assert.ok(second.promise);
+    await Promise.resolve(); assert.equal(first.status, "running"); assert.equal(second.status, "queued");
     await first.promise; while (manager.get(second.id)?.status !== "completed") await new Promise((resolve) => setTimeout(resolve, 10));
     assert.equal(second.result?.output, "two"); await manager.shutdown();
   } finally { if (oldBinary === undefined) delete process.env[PI_MESH_PI_BINARY_ENV]; else process.env[PI_MESH_PI_BINARY_ENV] = oldBinary; if (oldQueue === undefined) delete process.env.PI_MESH_TEST_QUEUE; else process.env.PI_MESH_TEST_QUEUE = oldQueue; fs.rmSync(root, { recursive: true, force: true }); fs.rmSync(queue, { recursive: true, force: true }); }

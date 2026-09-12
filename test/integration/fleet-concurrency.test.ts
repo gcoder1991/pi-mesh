@@ -41,3 +41,26 @@ test("direct agents and mesh nodes share one session fleet cap", async () => {
     fs.rmSync(root, { recursive: true, force: true }); fs.rmSync(queue, { recursive: true, force: true });
   }
 });
+
+test("a mesh-owned slot wakes queued Direct work when released (reverse direction)", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-reverse-fleet-")); const queue = fs.mkdtempSync(path.join(os.tmpdir(), "pi-mesh-reverse-fleet-q-"));
+  const old = { binary: process.env[PI_MESH_PI_BINARY_ENV], queue: process.env.PI_MESH_TEST_QUEUE };
+  process.env[PI_MESH_PI_BINARY_ENV] = mockPi; process.env.PI_MESH_TEST_QUEUE = queue;
+  const settings = { ...defaultMeshSettings, maxConcurrentAgents: 1 }; const limiter = new FleetLimiter(1);
+  const direct = new SessionAgentManager(settings, root, undefined, "reverse", limiter); const mesh = new MeshManager(() => agent, settings, limiter);
+  try {
+    fs.writeFileSync(path.join(queue, "pending-001.json"), JSON.stringify({ output: "mesh", delay: 150 }));
+    fs.writeFileSync(path.join(queue, "pending-002.json"), JSON.stringify({ output: "direct" }));
+    const pending = mesh.start({ cwd: root, tasks: [{ id: "node", agent: "worker", task: "mesh" }] });
+    while (!limiter.active) await new Promise((resolve) => setTimeout(resolve, 1));
+    const record = direct.spawn(agent, "direct", "direct", root, {}); const stable = record.promise;
+    assert.equal(record.status, "queued"); assert.equal(limiter.queued, 1);
+    await pending; await stable; assert.equal(record.status, "completed"); assert.equal(record.result?.output, "direct"); assert.equal(record.promise, stable);
+    assert.equal(limiter.active, 0); assert.equal(limiter.queued, 0);
+  } finally {
+    await direct.shutdown(); await mesh.shutdown();
+    if (old.binary === undefined) delete process.env[PI_MESH_PI_BINARY_ENV]; else process.env[PI_MESH_PI_BINARY_ENV] = old.binary;
+    if (old.queue === undefined) delete process.env.PI_MESH_TEST_QUEUE; else process.env.PI_MESH_TEST_QUEUE = old.queue;
+    fs.rmSync(root, { recursive: true, force: true }); fs.rmSync(queue, { recursive: true, force: true });
+  }
+});

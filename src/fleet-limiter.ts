@@ -43,16 +43,31 @@ export class FleetLimiter {
   }
 }
 
-const sessionLimiters = new Map<string, FleetLimiter>();
+const sessionLimiters = new Map<string, { limiter: FleetLimiter; owners: number }>();
 
 export function sessionFleetLimiter(sessionId: string, limit: number): FleetLimiter {
   const existing = sessionLimiters.get(sessionId);
-  if (existing) return existing;
+  if (existing) return existing.limiter;
   const limiter = new FleetLimiter(limit);
-  sessionLimiters.set(sessionId, limiter);
+  sessionLimiters.set(sessionId, { limiter, owners: 0 });
   return limiter;
 }
 
+/** Each Manager retains its pool even while idle. Release only after shutdown
+ * drains that Manager, not when another Host with the same sessionId closes. */
+export function retainSessionFleetLimiter(sessionId: string, limiter: FleetLimiter): () => void {
+  const entry = sessionLimiters.get(sessionId);
+  if (!entry || entry.limiter !== limiter) throw new Error("Fleet registry identity changed");
+  entry.owners++;
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true; entry.owners--;
+    if (!entry.owners && !limiter.active && !limiter.queued && sessionLimiters.get(sessionId) === entry) sessionLimiters.delete(sessionId);
+  };
+}
+
+/** Explicit cleanup of unowned idle lookups only; never detach live Managers. */
 export function clearSessionFleetLimiters(): void {
-  sessionLimiters.clear();
+  for (const [id, { limiter, owners }] of sessionLimiters) if (!owners && !limiter.active && !limiter.queued) sessionLimiters.delete(id);
 }

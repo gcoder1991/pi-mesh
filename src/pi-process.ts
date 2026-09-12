@@ -14,7 +14,7 @@ export const PI_MESH_PI_BINARY_ENV = "PI_MESH_PI_BINARY";
 
 export type { Usage } from "./runtime-utils.ts";
 
-export interface ChildResult { exitCode: number; signal: NodeJS.Signals | null; output: string; stderr: string; usage: Usage; model?: string; error?: string }
+export interface ChildResult { exitCode: number; signal: NodeJS.Signals | null; output: string; stderr: string; usage: Usage; model?: string; error?: string; stopReason?: "completed" | "maxTurns" | "cancelled" | "timeout" | "error"; partial?: boolean; outputTruncated?: boolean; outputPath?: string; promptTruncated?: boolean }
 
 export interface ChildExecution {
   process: ChildProcessByStdio<null, Readable, Readable>;

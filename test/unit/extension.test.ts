@@ -20,14 +20,14 @@ test("registers one mesh tool with strict actions", () => {
   };
   registerPiMesh(pi as any);
   assert.equal(tool.name, "mesh");
-  assert.deepEqual(tools.map((item) => item.name), ["mesh", "Agent", "get_subagent_result", "steer_subagent"]);
+  assert.deepEqual(tools.map((item) => item.name), ["mesh", "Agent", "get_subagent_result", "steer_subagent", "send_subagent"]);
   assert.match(tool.promptSnippet, /specialized sub-agents/);
   assert.ok(tool.promptGuidelines.some((guideline: string) => guideline.includes("action list_agents")));
   assert.ok(tool.promptGuidelines.some((guideline: string) => guideline.includes("routing contract")));
   assert.ok(tool.promptGuidelines.some((guideline: string) => guideline.includes("absolute definition path")));
   assert.ok(tool.promptGuidelines.some((guideline: string) => guideline.includes("Do not duplicate work")));
   assert.ok(tool.promptGuidelines.some((guideline: string) => guideline.includes("retry_failed")));
-  assert.deepEqual(tool.parameters.properties.action.enum, ["list_agents", "run", "status", "list", "cancel", "pause", "resume", "retry_failed", "recover", "steer", "handoff_list", "message_send", "message_broadcast", "message_inbox", "message_ack", "growth_list", "growth_decide"]);
+  assert.deepEqual(tool.parameters.properties.action.enum, ["list_agents", "run", "status", "list", "cancel", "pause", "resume", "retry_failed", "recover", "steer", "handoff_list", "message_send", "message_broadcast", "message_inbox", "message_ack", "growth_list", "growth_decide", "bridge_send", "bridge_inbox", "bridge_status", "bridge_ack"]);
   assert.ok(events.includes("session_shutdown"));
   assert.ok(commands.includes("mesh-tree"));
   assert.ok(commands.includes("consensus"));
@@ -134,12 +134,12 @@ test("ignores project agents until Pi trusts the project", async () => {
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
-test("does not register inside mesh children", () => {
+test("does not register inside frozen-identity managed mesh children", () => {
   const old = process.env.PI_MESH_CHILD;
   process.env.PI_MESH_CHILD = "1";
   let registered = false;
   try {
-    registerPiMesh({ registerTool() { registered = true; }, getAllTools() { return []; } } as any);
+    registerPiMesh({ events: { emit(topic: string, q: any) { assert.equal(topic, "pi-mesh:runtime:identity:query"); q.reply(Object.freeze({ version: 1, managed: true })); } }, registerTool() { registered = true; }, getAllTools() { return []; } } as any);
     assert.equal(registered, false);
   } finally {
     if (old === undefined) delete process.env.PI_MESH_CHILD; else process.env.PI_MESH_CHILD = old;

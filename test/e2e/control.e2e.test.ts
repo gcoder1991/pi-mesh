@@ -37,6 +37,7 @@ test("child control extension proposes fenced growth and uses graph membership",
   const fx = fixture();
   const prior = { run: process.env.PI_MESH_RUN_ID, node: process.env.PI_MESH_NODE_ID, attempt: process.env.PI_MESH_ATTEMPT, root: process.env.PI_MESH_ROOT };
   try {
+    fs.writeFileSync(path.join(fx.root, ".pi", "agents", "worker.md"), "---\nname: worker\ndescription: worker\nallowed_subagents: reviewer\n---\nWork\n");
     const run = activeRun(fx.root);
     atomicWrite(runFile(fx.root, run.id), run);
     run.status = "running"; run.nodes[0].status = "running"; run.nodes[0].allowedSubagents = ["reviewer"]; atomicWrite(runFile(fx.root, run.id), run);
@@ -62,8 +63,9 @@ test("child control extension proposes fenced growth and uses graph membership",
     const decided = await execute(meshTool, fx.root, { action: "growth_decide", runId: run.id, proposalId: proposal.id, decision: "approve" });
     assert.match(decided.content[0].text, /Growth committed/);
     assert.deepEqual(decided.details.proposal.committedNodeIds, ["review"]);
-    assert.ok(["queued", "running"].includes(Object.keys(decided.details.proposal.counts)[0]));
-    assert.ok(["queued", "running"].includes(decided.details.proposal.nodes[0].status));
+    // Resume is now drain-first; the decision receipt precedes the async restart.
+    assert.equal(Object.keys(decided.details.proposal.counts)[0], "paused");
+    assert.equal(decided.details.proposal.nodes[0].status, "paused");
     const listed = await execute(meshTool, fx.root, { action: "growth_list", runId: run.id });
     assert.deepEqual(listed.details.proposals[0].committedNodeIds, ["review"]);
     assert.equal(Object.values(listed.details.proposals[0].counts).reduce((sum: number, count: any) => sum + count, 0), 1);

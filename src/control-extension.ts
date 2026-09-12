@@ -2,7 +2,7 @@ import * as crypto from "node:crypto";
 import { StringEnum } from "@earendil-works/pi-ai";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, truncateHead, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type, type Static } from "typebox";
-import { ackMessage, growthProposals, messages, putGrowth, putMessage, readJson, runFile, type ControlMessage, type GrowthProposal } from "./store.ts";
+import { ackMessage, growthProposals, messages, putGrowth, storeMessages, messageReceiptDetails, readJson, runFile, type ControlMessage, type GrowthProposal } from "./store.ts";
 import type { MeshRun, MeshTask } from "./manager.ts";
 import { MeshTaskSchema } from "./schemas.ts";
 
@@ -22,7 +22,7 @@ const Params = Type.Object({
   reason: Type.Optional(Type.String({ maxLength: 16384 })), tasks: Type.Optional(Type.Array(MeshTaskSchema, { minItems: 1, maxItems: 16 })),
 }, { additionalProperties: false });
 type MeshControlParams = Static<typeof Params>;
-export function createMeshControlTool(root: string, runId: string, nodeId: string, attempt: number) {
+export function createMeshControlTool(root: string, runId: string, nodeId: string, attempt: number, onMessageStored?: (message: ControlMessage) => void | Promise<void>) {
   return {
     name: "mesh_control",
     label: "Mesh Control",
@@ -32,7 +32,7 @@ export function createMeshControlTool(root: string, runId: string, nodeId: strin
       const params = rawParams;
       const run = readJson<MeshRun>(runFile(root, runId));
       const caller = run?.nodes.find((node) => node.id === nodeId);
-      if (!run || !caller || caller.status !== "running" || caller.attempt !== attempt || run.status !== "running") throw new Error("Mesh child identity is no longer active");
+      if (!run || !caller || caller.status !== "running" || caller.attempt !== attempt || !["running", "paused"].includes(run.status)) throw new Error("Mesh child identity is no longer active");
       if (params.action === "status") {
         const snapshot = {
           run: { id: run.id, status: run.status, operator: run.operator, revision: run.revision, maxConcurrency: run.maxConcurrency, maxNodes: run.maxNodes },
@@ -47,7 +47,7 @@ export function createMeshControlTool(root: string, runId: string, nodeId: strin
         const proposals = growthProposals<MeshTask[]>(root, runId).filter((proposal) => proposal.requester === nodeId).map((proposal) => {
           const nodes = (proposal.committedNodeIds ?? []).map((id) => run.nodes.find((node) => node.id === id)).filter((node): node is MeshRun["nodes"][number] => Boolean(node));
           return { ...proposal, counts: nodes.reduce<Record<string, number>>((counts, node) => { counts[node.status] = (counts[node.status] ?? 0) + 1; return counts; }, {}),
-            nodes: nodes.map((node) => ({ id: node.id, status: node.status, attempt: node.attempt, error: node.error, outputPath: node.outputPath, attemptResultPath: node.attemptResultPath, diagnosticPath: node.diagnosticPath })) };
+            nodes: nodes.map((node) => ({ id: node.id, status: node.status, attempt: node.attempt, error: node.error, outputPath: node.outputPath, attemptResultPath: node.attemptResultPath, diagnosticPath: node.diagnosticPath, evidencePath: node.evidencePath })) };
         });
         return { content: [{ type: "text", text: boundedJson({ inbox, growth: proposals }) }], details: boundedDetails({ inboxCount: inbox.length, growthCount: proposals.length, inbox: inbox.slice(0, 256), growth: proposals.slice(0, 256) }) };
       }
@@ -55,6 +55,7 @@ export function createMeshControlTool(root: string, runId: string, nodeId: strin
         if (!params.messageId || !ackMessage(root, runId, params.messageId, nodeId)) throw new Error("messageId is not an unacked message for this node");
         return { content: [{ type: "text", text: `Acknowledged ${params.messageId}.` }], details: {} };
       }
+      if (run.status !== "running") throw new Error("Paused Mesh permits only status/inbox/ack during drain");
       if (params.action === "grow") {
         if (!params.reason?.trim() || !params.tasks?.length) throw new Error("reason and tasks are required for grow");
         if (caller.allowedSubagents !== "all") {
@@ -86,15 +87,16 @@ export function createMeshControlTool(root: string, runId: string, nodeId: strin
         if (!params.to) throw new Error("to is required for send");
         recipients = [params.to];
       }
+      if (recipients.length > 128 || recipients.some(id => !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(id))) throw new Error("Invalid bounded Mesh recipients");
       if (recipients.some((id) => id !== "host" && !run.nodes.some((node) => node.id === id))) throw new Error("Unknown recipient node");
       const payloadMaxBytes = run.messagePayloadMaxBytes ?? 32 * 1024;
       const recipientUnreadMaxBytes = run.recipientUnreadMaxBytes ?? 1024 * 1024;
       if (!params.content?.trim() || Buffer.byteLength(params.content, "utf8") > payloadMaxBytes) throw new Error(`content must be 1-${payloadMaxBytes} bytes`);
       const sent: ControlMessage[] = recipients.map((to) => ({
-        id: crypto.randomUUID(), runId, from: nodeId, to, content: params.content!.trim(), replyTo, senderAttempt: attempt, createdAt: Date.now(),
+        id: crypto.randomUUID(), runId, from: nodeId, to, content: params.content!.trim(), replyTo, source: "child", senderAttempt: attempt, createdAt: Date.now(),
       }));
-      for (const message of sent) putMessage(root, message, { payloadMaxBytes, recipientUnreadMaxBytes });
-      return { content: [{ type: "text", text: `Queued ${sent.length} mailbox message(s).` }], details: boundedDetails({ messages: sent }) };
+      const receipt = await storeMessages(root, sent, { payloadMaxBytes, recipientUnreadMaxBytes }, onMessageStored);
+      return { content: [{ type: "text", text: `Stored ${receipt.stored}/${sent.length} mailbox message(s). Inspect receipts for durability/notification warnings; storage is not business completion.${receipt.partial ? " Partial delivery." : ""} For retries, retry only not-stored recipients; inspect unknown IDs before resending.` }], details: messageReceiptDetails(receipt) };
     },
   };
 }

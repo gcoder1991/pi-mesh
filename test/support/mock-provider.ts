@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { createAssistantMessageEventStream, type AssistantMessage, type Context, type Model, type SimpleStreamOptions } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
@@ -21,6 +22,14 @@ export default function registerMockProvider(pi: ExtensionAPI): void {
     streamSimple(model: Model<any>, _context: Context, _options?: SimpleStreamOptions) {
       const stream = createAssistantMessageEventStream();
       const toolCall = calls++ === 0;
+      if (!toolCall) {
+        assert.equal(calls, 2, "exactly one tool call followed by completion");
+        const receipt = _context.messages.find(message => message.role === "toolResult" && message.toolCallId === "mesh-control-call");
+        assert.ok(receipt && receipt.role === "toolResult");
+        assert.equal(receipt.toolName, "mesh_control"); assert.equal(receipt.isError, false);
+        const text = receipt.content.find(part => part.type === "text"); assert.ok(text && text.type === "text");
+        assert.deepEqual(JSON.parse(text.text), { inbox: [], growth: [] });
+      }
       const message: AssistantMessage = {
         role: "assistant",
         content: toolCall
@@ -37,7 +46,7 @@ export default function registerMockProvider(pi: ExtensionAPI): void {
         stream.push({ type: "start", partial: { ...message, content: [] } });
         if (toolCall) {
           const call = message.content[0];
-          stream.push({ type: "toolcall_start", contentIndex: 0, partial: { ...message, content: [] } });
+          stream.push({ type: "toolcall_start", contentIndex: 0, partial: { ...message, content: call.type === "toolCall" ? [{ ...call, arguments: {} }] : [] } });
           stream.push({ type: "toolcall_delta", contentIndex: 0, delta: JSON.stringify(call.type === "toolCall" ? call.arguments : {}), partial: message });
           if (call.type === "toolCall") stream.push({ type: "toolcall_end", contentIndex: 0, toolCall: call, partial: message });
         } else {

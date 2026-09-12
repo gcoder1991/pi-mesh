@@ -104,7 +104,7 @@ stages:
     process.env[PI_MESH_PI_BINARY_ENV] = mockPi; process.env.PI_MESH_TEST_QUEUE = queue;
     const workflow = discoverWorkflows(repo, agentDir, true)[0]!;
     const loaded = instantiateWorkflow(workflow, { [workflow.promptInput!]: "add OAuth callback validation" });
-    const run = await new MeshManager((name) => agent(name)).start({ cwd: repo, operator: loaded.operator, worktree: loaded.worktree, maxConcurrency: loaded.maxConcurrency, tasks: loaded.tasks });
+    const run = await new MeshManager((name) => agent(name), undefined, undefined, undefined, "default", true).start({ cwd: repo, operator: loaded.operator, worktree: loaded.worktree, maxConcurrency: loaded.maxConcurrency, tasks: loaded.tasks });
     assert.equal(run.status, "succeeded");
     const implementA = run.nodes.find((node) => node.id === "implement.a")!, reviseA = run.nodes.find((node) => node.id === "revise.a")!;
     assert.equal(reviseA.worktree?.baseCommit, implementA.worktree?.finalCommit);
@@ -168,7 +168,7 @@ test("executes the shipped 18-node consensus topology end to end", async () => {
     process.env[PI_MESH_PI_BINARY_ENV] = mockPi; process.env.PI_MESH_TEST_QUEUE = queue;
     const workflow = discoverWorkflows(repo, agentDir, true)[0]!;
     const loaded = instantiateWorkflow(workflow, { [workflow.promptInput!]: "implement secure OAuth callback validation" });
-    const run = await new MeshManager((name) => agent(name)).start({ cwd: repo, operator: loaded.operator, worktree: loaded.worktree, maxConcurrency: loaded.maxConcurrency, maxNodes: loaded.maxNodes, failFast: loaded.failFast, tasks: loaded.tasks });
+    const run = await new MeshManager((name) => agent(name), undefined, undefined, undefined, "default", true).start({ cwd: repo, operator: loaded.operator, worktree: loaded.worktree, maxConcurrency: loaded.maxConcurrency, maxNodes: loaded.maxNodes, failFast: loaded.failFast, tasks: loaded.tasks });
     assert.equal(run.status, "succeeded");
     assert.equal(run.nodes.length, 18);
     assert.ok(run.nodes.every((node) => node.status === "succeeded"));

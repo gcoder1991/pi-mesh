@@ -90,7 +90,7 @@ export class FleetView {
         key: `agent:${record.id}`, id: record.id, agent: record.agent.name, description: record.description, status: record.status,
         createdAt: record.createdAt, completedAt: record.completedAt, maxTurns: record.launch?.maxTurns, activity: record.activity, usage: record.result?.usage,
         conversation: () => record.execution?.conversation() || record.result?.output || record.error || "Waiting…",
-        stop: () => this.directManager?.abort(record.id) ?? false,
+        stop: () => this.directManager?.abort(record.id, "user") ?? false,
         steer: (message) => this.directManager?.steer(record.id, message),
       });
     }
@@ -104,7 +104,7 @@ export class FleetView {
           key: `mesh:${run.id}:${node.id}`, id: `${run.id}/${node.id}`, agent: node.agent, description: node.task, status: node.status,
           createdAt: node.startedAt ?? run.createdAt, completedAt, activity: node.activity, usage: node.usage,
           conversation: () => this.meshManager?.conversation(run.id, node.id) || node.output || node.error || "Waiting…",
-          stop: () => this.meshManager?.cancel(run.id, node.id) ?? false,
+          stop: () => this.meshManager?.cancel(run.id, node.id, "user") ?? false,
           steer: (message) => { if (!this.meshManager?.steer(run.id, node.id, message)) throw new Error("Mesh node is not running"); },
         });
       }
@@ -186,7 +186,7 @@ export class FleetView {
       key: `agent:${record.id}`, id: record.id, agent: record.agent.name, description: record.description, status: record.status,
       createdAt: record.createdAt, completedAt: record.completedAt, maxTurns: record.launch?.maxTurns, activity: record.activity, usage: record.result?.usage,
       conversation: () => record.execution?.conversation() || record.result?.output || record.error || "Waiting…",
-      stop: () => manager.abort(record.id), steer: (message) => manager.steer(record.id, message),
+      stop: () => manager.abort(record.id, "user"), steer: (message) => manager.steer(record.id, message),
     });
   }
 

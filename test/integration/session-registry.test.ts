@@ -108,7 +108,9 @@ test("session agent registry fails closed on corruption and foreign project reco
     fs.writeFileSync(file, JSON.stringify([{ id: "x", cwd: root, status: "completed", agent, launch: { transcriptPath: path.join(transcriptRoot, "link", "escape.jsonl") }, prompt: "x", description: "x", createdAt: 1 }]));
     assert.throws(() => new SessionAgentManager(defaultMeshSettings, root, undefined, "invalid"), /unsafe transcript path/); fs.rmSync(outside, { recursive: true, force: true });
     fs.writeFileSync(file, JSON.stringify([{ id: "x", cwd: root, status: "completed", agent, launch: { sessionDir: os.tmpdir() }, prompt: "x", description: "x", createdAt: 1 }]));
-    assert.throws(() => new SessionAgentManager(defaultMeshSettings, root, undefined, "invalid"), /unsafe session directory/);
+    const quarantined = new SessionAgentManager(defaultMeshSettings, root, undefined, "invalid");
+    assert.match(quarantined.get("x")!.recoveryDiagnostic!, /legacy child session/);
+    assert.equal(quarantined.get("x")!.launch!.sessionDir, os.tmpdir());
     fs.writeFileSync(file, JSON.stringify([{ id: "x", cwd: os.tmpdir(), status: "completed", agent, prompt: "x", description: "x", createdAt: 1 }]));
     assert.throws(() => new SessionAgentManager(defaultMeshSettings, root, undefined, "invalid"), /escapes project root/);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }

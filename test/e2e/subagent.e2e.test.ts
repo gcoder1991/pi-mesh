@@ -38,6 +38,16 @@ test("Agent foreground, background, wait, steer, resume, notifications, and even
   } finally { await harness.shutdown(); fx.cleanup(); }
 });
 
+test("Agent resume error identifies conflicting options and recovery paths", async () => {
+  const fx = fixture(); const harness = extensionHarness(); const ctx = context(fx.root);
+  try {
+    await assert.rejects(
+      () => harness.tools.get("Agent").execute("r", { prompt: "resume", description: "resume", subagent_type: "custom", resume: "agent-1", model: "mock/model", run_in_background: true }, undefined, undefined, ctx),
+      /remove spawn-only option\(s\): model, run_in_background[\s\S]*omit resume and start a new Agent[\s\S]*use steer_subagent/,
+    );
+  } finally { await harness.shutdown(); fx.cleanup(); }
+});
+
 test("Agent enforces project trust and explicit extension/skill allowlists", async () => {
   const fx = fixture();
   try {

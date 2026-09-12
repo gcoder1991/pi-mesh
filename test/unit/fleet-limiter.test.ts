@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { clearSessionFleetLimiters, FleetLimiter, sessionFleetLimiter } from "../../src/fleet-limiter.ts";
+import { clearSessionFleetLimiters, FleetLimiter, retainSessionFleetLimiter, sessionFleetLimiter } from "../../src/fleet-limiter.ts";
 
 test("fleet limiter shares a bounded session slot pool", async () => {
   const limiter = new FleetLimiter(1);
@@ -37,4 +37,15 @@ test("session fleet limiter cache can be cleared on shutdown", () => {
   clearSessionFleetLimiters();
   assert.notEqual(sessionFleetLimiter("clear-test", 1), first);
   clearSessionFleetLimiters();
+});
+
+
+test("fleet third T3 owner disposers are idempotent and reject wrong limiter identity", () => {
+  const id = "third-owned-idle", limiter = sessionFleetLimiter(id, 1);
+  const first = retainSessionFleetLimiter(id, limiter), second = retainSessionFleetLimiter(id, limiter);
+  assert.throws(() => retainSessionFleetLimiter(id, new FleetLimiter(1)), /identity/);
+  clearSessionFleetLimiters(); assert.equal(sessionFleetLimiter(id, 1), limiter, "owned idle lookup survives explicit clear");
+  first(); first(); clearSessionFleetLimiters(); assert.equal(sessionFleetLimiter(id, 1), limiter, "duplicate release cannot consume the other owner");
+  second(); assert.notEqual(sessionFleetLimiter(id, 1), limiter, "last owner retires idle pool");
+  second(); clearSessionFleetLimiters();
 });

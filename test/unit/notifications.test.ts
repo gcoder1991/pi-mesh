@@ -22,3 +22,13 @@ test("completion notifier accepts mesh completion messages", () => {
   assert.deepEqual(messages[0].details.ids, ["mesh:r1"]);
   notifier.dispose();
 });
+
+test("deduplicates within/across batches by generation and suppresses only foreground", () => {
+  const messages: any[] = [];
+  const notifier = new CompletionNotifier({ sendMessage: (message: any) => messages.push(message) } as any, { ...defaultMeshSettings, joinMode: "group" });
+  for (let i = 0; i < 3; i++) notifier.enqueue({ ...record("same"), generation: 1 }, () => "GEN1");
+  notifier.flush(); notifier.enqueue({ ...record("same"), generation: 1 }, () => "REPLAY"); notifier.flush();
+  notifier.enqueue({ ...record("same"), generation: 2 }, () => "GEN2"); notifier.flush();
+  notifier.enqueue({ ...record("same"), generation: 3, foreground: true }, () => "FOREGROUND"); notifier.flush();
+  assert.deepEqual(messages.map((item) => item.content), ["GEN1", "GEN2"]); notifier.dispose();
+});

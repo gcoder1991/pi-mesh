@@ -111,18 +111,24 @@ test("real child process reports signal/cancellation", async () => {
   }
 });
 
-test("packaged tarball loads through Pi extension loader", async () => {
+test("packaged tarball loads offline through Pi extension loader with declared installed dependencies", async () => {
   const fx = fixture();
   const packageDir = fs.mkdtempSync(path.join(fx.root, "package-"));
   try {
     const { spawnSync } = await import("node:child_process");
-    const packed = spawnSync("npm", ["pack", "--json", "--pack-destination", packageDir], { cwd: path.resolve("."), encoding: "utf8" });
+    const packed = spawnSync("npm", ["pack", "--offline", "--ignore-scripts", "--json", "--pack-destination", packageDir], { cwd: path.resolve("."), encoding: "utf8" });
     assert.equal(packed.status, 0, packed.stderr);
     const tarball = path.join(packageDir, JSON.parse(packed.stdout)[0].filename);
     const unpack = spawnSync("tar", ["-xzf", tarball, "-C", packageDir], { encoding: "utf8" });
     assert.equal(unpack.status, 0, unpack.stderr);
-    const install = spawnSync("npm", ["install", "--omit=dev", "--ignore-scripts"], { cwd: path.join(packageDir, "package"), encoding: "utf8" });
-    assert.equal(install.status, 0, install.stderr);
+    // Validate the actual tarball, without installing packages or contacting a
+    // registry. Link only declared runtime/peer dependencies, not all dev tools.
+    const manifest = JSON.parse(fs.readFileSync(path.join(packageDir, "package", "package.json"), "utf8"));
+    for (const name of Object.keys({ ...manifest.dependencies, ...manifest.peerDependencies })) {
+      const destination = path.join(packageDir, "package", "node_modules", name);
+      fs.mkdirSync(path.dirname(destination), { recursive: true });
+      fs.symlinkSync(fs.realpathSync(path.resolve("node_modules", name)), destination, "junction");
+    }
     const extension = path.join(packageDir, "package", "index.ts");
     const tool = await loadMeshTool(fx.root, extension);
     assert.equal(tool.name, "mesh");

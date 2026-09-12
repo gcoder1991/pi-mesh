@@ -34,8 +34,8 @@ export function registerSubagentRpc(pi: ExtensionAPI, managerFor: (ctx: Extensio
       const { manager, trusted, root } = managerFor(currentCtx);
       if (typeof request?.type !== "string" || typeof request?.prompt !== "string" || !request.prompt.trim()) throw new Error("type and prompt are required");
       const options = spawnOptions(request.options);
-      const agent = discoverAgents(root, { scope: "all", includeProject: trusted, projectRoot: root }).find((item) => item.name.toLowerCase() === request.type.toLowerCase());
-      if (!agent) throw new Error(`Unknown agent type: ${request.type}`);
+      const agent = discoverAgents(root, { scope: "all", includeProject: trusted, projectRoot: root, onDiagnostic: (diagnostic) => pi.events.emit("subagents:diagnostic", diagnostic) }).find((item) => item.name.toLowerCase() === request.type.toLowerCase());
+      if (!agent) throw new Error(`Unknown agent type: ${request.type}; use mesh list_agents and discovery diagnostics.`);
       const persistent = agent.persistSession ?? false;
       const record = manager.spawn(agent, request.prompt, options.description ?? request.type, root, {
         model: resolveAgentModel([options.model, agent.model, currentCtx.model ? `${currentCtx.model.provider}/${currentCtx.model.id}` : undefined].find((value) => value?.trim()), currentCtx.modelRegistry),
@@ -44,7 +44,6 @@ export function registerSubagentRpc(pi: ExtensionAPI, managerFor: (ctx: Extensio
         persistent,
         transcript: agent.outputTranscript,
         worktree: options.isolation === "worktree" || agent.isolation === "worktree",
-        sessionDir: persistent ? currentCtx.sessionManager.getSessionDir() : undefined,
       });
       reply("subagents:rpc:spawn", request.requestId, { success: true, data: { id: record.id } });
     } catch (error) { reply("subagents:rpc:spawn", request.requestId, { success: false, error: error instanceof Error ? error.message : String(error) }); }

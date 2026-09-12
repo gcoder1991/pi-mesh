@@ -17,6 +17,7 @@ export interface RunLeaseOwner {
 
 export interface RunLease {
   owner: RunLeaseOwner;
+  isOwner(): boolean;
   release(): boolean;
 }
 
@@ -100,6 +101,7 @@ export function acquireRunLease(cwd: string, runId: string): RunLease {
   for (let attempt = 0; attempt < 4; attempt++) {
     if (createLease(dir, owner)) return {
       owner,
+      isOwner: () => readOwner(dir)?.token === owner.token,
       release() {
         if (readOwner(dir)?.token !== owner.token) return false;
         fs.rmSync(dir, { recursive: true, force: true });
