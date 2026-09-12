@@ -1,4 +1,6 @@
-# Release review
+# Historical release review
+
+> This pre-remediation review is retained as historical evidence, not the current release's acceptance result. See [README](../README.md) and the [optimization checklist](optimization-checklist.md) for current behavior and validation. In particular, item 14 below is superseded: recipient locks are not reclaimed merely by age, and release verifies ownership. The live-provider and audit results below belong to the earlier review only.
 
 Fresh post-implementation review focused on correctness, security, recovery, package boundaries, and target compatibility.
 
