@@ -12,14 +12,15 @@ test("completion notifier deduplicates and groups results", async () => {
   assert.equal(messages.length, 1); assert.match(messages[0].content, /1[\s\S]*2/); notifier.dispose();
 });
 
-test("completion notifier accepts mesh completion messages", () => {
+test("completion notifier accepts mesh completion messages and wakes an idle Host", () => {
   const messages: any[] = [];
-  const notifier = new CompletionNotifier({ sendMessage(message: any) { messages.push(message); } } as any, { ...defaultMeshSettings, joinMode: "async" });
+  const notifier = new CompletionNotifier({ sendMessage(message: any, options: any) { messages.push({ message, options }); } } as any, { ...defaultMeshSettings, joinMode: "async" });
   notifier.enqueueMessage("mesh:r1", "Mesh r1 finished: succeeded.");
   notifier.enqueueMessage("mesh:r1", "duplicate");
   assert.equal(messages.length, 1);
-  assert.match(messages[0].content, /Mesh r1 finished/);
-  assert.deepEqual(messages[0].details.ids, ["mesh:r1"]);
+  assert.match(messages[0].message.content, /Mesh r1 finished/);
+  assert.deepEqual(messages[0].message.details.ids, ["mesh:r1"]);
+  assert.deepEqual(messages[0].options, { deliverAs: "followUp", triggerTurn: true });
   notifier.dispose();
 });
 

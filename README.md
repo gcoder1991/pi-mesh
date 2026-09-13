@@ -76,7 +76,7 @@ See `docs/parity-matrix.md`, `docs/replacement-delta.md`, and `docs/release-revi
 
 Use `/consensus <task>` for independent implementations followed by two critique/revision rounds, normalized ledgers, majority voting, and one canonical integration result. The command reads `ctx.modelRegistry.getAvailable()`, so it sees the same authenticated/custom provider catalog as `/model`, then asks once for the participant count, exact model set, and Finalizer model through `ask_user_question`. If that tool is unavailable, it asks the same choices in a normal response and waits.
 
-The default recommendation is three distinct models (18 Mesh nodes); five models create 28 nodes and cost more. The generated run uses `operator: "graph"`, `worktree: true`, `failFast: true`, explicit task models, stable node IDs, and a foreground Mesh call. A strict majority selects the baseline when available; ties use the chosen Finalizer and are reported as `FINALIZER_TIEBREAK`. Minority opinions remain in the final audit object but only one canonical result is returned.
+The default recommendation is three distinct models (18 Mesh nodes); five models create 28 nodes and cost more. The generated run uses `operator: "graph"`, `worktree: true`, `failFast: true`, explicit task models, stable node IDs, and a background Mesh call. The Host ends its current turn after the run receipt and is awakened by the completion notification. A strict majority selects the baseline when available; ties use the chosen Finalizer and are reported as `FINALIZER_TIEBREAK`. Minority opinions remain in the final audit object but only one canonical result is returned.
 
 `/consensus` requires at least three available models and a clean Git checkout. It validates custom `provider/model` IDs against the Host catalog, calls `mesh list_agents` before routing, and never disables Worktree isolation. The current implementation is a Host prompt/Graph template rather than a second scheduler; existing Mesh recovery, retries, evidence, model precedence, and resource restrictions remain authoritative.
 
@@ -128,6 +128,8 @@ Bundled routing roles:
 
 ### Parallel run
 
+Mesh runs are background by default. Do not sleep or poll after the run receipt. If the Mesh result is all the Host is waiting for, it should end the current turn; otherwise it may continue independent work. Completion sends a deduplicated follow-up that triggers a new turn when the Host is idle. Set `"async": false` only when blocking is explicitly required.
+
 ```json
 {
   "action": "run",
@@ -164,8 +166,10 @@ Automatic retry, `retry_failed` and restart recovery first use the node's own sa
 
 ### Background run
 
+Background is the default; `"async": true` is optional:
+
 ```json
-{ "action": "run", "async": true, "tasks": [{ "agent": "worker", "task": "Run the long check" }] }
+{ "action": "run", "tasks": [{ "agent": "worker", "task": "Run the long check" }] }
 ```
 
 Then use:

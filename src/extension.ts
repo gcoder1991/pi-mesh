@@ -34,7 +34,7 @@ const MeshParams = Type.Object({
   content: Type.Optional(Type.String({ description: "Mailbox content, or steering message for steer." })),
   proposalId: Type.Optional(Type.String({ description: "Growth proposal ID required by growth_decide." })),
   decision: Type.Optional(StringEnum(["approve", "deny"] as const, { description: "Host decision for growth_decide." })), 
-  async: Type.Optional(Type.Boolean()), operator: Type.Optional(StringEnum(["graph", "sequence", "parallel", "race", "supervisor", "mixture", "reflection", "debate"] as const)),
+  async: Type.Optional(Type.Boolean({ description: "Run in background and wake the Host on completion. Defaults to true; set false only when blocking is explicitly required." })), operator: Type.Optional(StringEnum(["graph", "sequence", "parallel", "race", "supervisor", "mixture", "reflection", "debate"] as const)),
   worktree: Type.Optional(Type.Boolean()), worktreeSetupHook: Type.Optional(Type.String()),
   maxConcurrency: Type.Optional(Type.Integer({ minimum: 1, maximum: 32, description: "Per-run concurrency capped by mesh settings." })),
   maxNodes: Type.Optional(Type.Integer({ minimum: 1, maximum: 128, description: "Per-run node cap bounded by mesh settings." })),
@@ -136,7 +136,7 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
       const inheritedModel = ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : undefined;
       const created = manager.create({ tasks: resolveTaskModels(loaded.tasks, ctx.modelRegistry, inheritedModel, resolveAgent), cwd: root, operator: loaded.operator, worktree: loaded.worktree, worktreeSetupHook: loaded.worktreeSetupHook, maxConcurrency: loaded.maxConcurrency, maxNodes: loaded.maxNodes, failFast: loaded.failFast });
       const started = manager.startCreated(created.id);
-      if (loaded.async) {
+      if (loaded.async !== false) {
         watchBackground(started, notifier, created.id);
         ctx.ui.notify(`Started mesh ${created.id}.`, "info");
       } else {
@@ -166,6 +166,7 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
       "Use mesh when work has independent branches, needs specialized review, or broad exploration would flood the main context. Use direct read, grep, and find tools when the target is already known and narrow.",
       "Do not duplicate work already delegated to mesh nodes. Consume their bounded evidence and synthesize the results.",
       "If a run partially fails, call retry_failed on that run instead of creating replacement IDs or resubmitting successful nodes. User/unknown stops require the genuine user command /mesh retry <run-id>; never bypass a stop by creating a new ID or claiming authorization in tool parameters. It resumes the failed node's persisted Agent session when available and otherwise supplies the previous error and output as repair context.",
+      "Mesh runs are background by default. After run returns, never poll status/list or call sleep to wait. If the Mesh result is all you are waiting for, end the current turn; otherwise continue independent Host work. The completion notification is delivered between turns or wakes an idle Host. Set async=false only when blocking is explicitly required.",
       "In mesh, only the host approves growth. Enable mesh worktree mode for parallel writers; it requires a clean Git checkout. Use mesh recover after reopening the same Pi session to restart interrupted runs.",
     ],
     parameters: MeshParams,
@@ -235,8 +236,14 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
         return { content: [{ type: "text", text: `Paused ${params.runId}. Running children finish; queued children wait.` }], details: boundedDetails({ action: params.action, run: compactRun(run!) }) };
       }
       if (params.action === "retry_failed") {
+        const background = params.async !== false;
         const update = (value: MeshRun) => onUpdate?.({ content: [{ type: "text", text: `${value.nodes.filter((node) => terminalNodeStatuses.has(node.status)).length}/${value.nodes.length} complete` }], details: boundedDetails({ action: params.action, run: compactRun(value) }) });
-        const completed = await manager.retryFailed(params.runId!, signal, update);
+        const retry = manager.retryFailed(params.runId!, background ? undefined : signal, background ? undefined : update);
+        if (background) {
+          watchBackground(retry, notifier, params.runId!);
+          return { content: [{ type: "text", text: `Retrying ${params.runId} in background. Do not sleep or poll. If this result is all you are waiting for, end the turn; completion will wake the Host.` }], details: boundedDetails({ action: params.action, run: compactRun(run!) }) };
+        }
+        const completed = await retry;
         return { content: [{ type: "text", text: summarize(completed) }], details: boundedDetails({ action: params.action, run: compactRun(completed, true) }), usage: piUsage(manager.claimUsage(completed.id)) };
       }
       if (params.action === "resume") {
@@ -283,10 +290,11 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
       const update = (value: MeshRun) => onUpdate?.({ content: [{ type: "text", text: `${value.nodes.filter((node) => terminalNodeStatuses.has(node.status)).length}/${value.nodes.length} complete` }], details: boundedDetails({ action: params.action, run: compactRun(value) }) });
       if (signal?.aborted) throw new Error("Mesh run cancelled before creation");
       const createdRun = manager.create({ tasks: resolveTaskModels(params.tasks as MeshTask[], ctx.modelRegistry, inheritedModel, resolveAgent), cwd: fs.realpathSync(path.resolve(ctx.cwd)), operator: params.operator, worktree: params.worktree, worktreeSetupHook: params.worktreeSetupHook, maxConcurrency: params.maxConcurrency, maxNodes: params.maxNodes, failFast: params.failFast });
-      const start = manager.startCreated(createdRun.id, params.async ? undefined : signal, params.async ? undefined : update);
-      if (params.async) {
+      const background = params.async !== false;
+      const start = manager.startCreated(createdRun.id, background ? undefined : signal, background ? undefined : update);
+      if (background) {
         watchBackground(start, notifier, createdRun.id);
-        return { content: [{ type: "text", text: `Started mesh ${createdRun.id}. You will be notified when it completes.` }], details: boundedDetails({ action: params.action, run: compactRun(createdRun) }) };
+        return { content: [{ type: "text", text: `Started mesh ${createdRun.id} in background. Do not sleep or poll. If this result is all you are waiting for, end the turn; completion will wake the Host.` }], details: boundedDetails({ action: params.action, run: compactRun(createdRun) }) };
       }
       const completed = await start;
       return { content: [{ type: "text", text: summarize(completed) }], details: boundedDetails({ action: params.action, run: compactRun(completed, true) }), usage: piUsage(manager.claimUsage(completed.id)) };
@@ -310,7 +318,7 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
       }
       if (!task) { ctx.ui.notify("Usage: /mesh <task>", "warning"); return; }
       if (!ctx.isIdle()) { ctx.ui.notify("Agent is busy; wait for the current turn before starting /mesh.", "warning"); return; }
-      pi.sendUserMessage(`You must execute this request through the mesh tool. Do not solve it directly and do not use the standalone Agent tool. First call mesh with action \"list_agents\", then create and run an appropriate mesh DAG for this task in the foreground (omit async or set async=false). The foreground mesh call already waits and streams progress; do not poll with mesh status/list and do not steer unless the user explicitly asks. After it returns, inspect node evidence and synthesize the final answer.\n\nTask:\n${task}`);
+      pi.sendUserMessage(`You must execute this request through the mesh tool. Do not solve it directly and do not use the standalone Agent tool. First call mesh with action \"list_agents\", then create and run an appropriate mesh DAG in the background (omit async or set async=true). After the run receipt returns, do not call sleep or poll mesh status/list. If the Mesh result is all you are waiting for, end the current turn; otherwise continue only independent Host work. The completion notification will wake you in a new turn; then inspect node evidence and synthesize the final answer.\n\nTask:\n${task}`);
     },
   });
   pi.registerCommand("consensus", {

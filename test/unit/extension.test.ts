@@ -27,6 +27,8 @@ test("registers one mesh tool with strict actions", () => {
   assert.ok(tool.promptGuidelines.some((guideline: string) => guideline.includes("absolute definition path")));
   assert.ok(tool.promptGuidelines.some((guideline: string) => guideline.includes("Do not duplicate work")));
   assert.ok(tool.promptGuidelines.some((guideline: string) => guideline.includes("retry_failed")));
+  assert.ok(tool.promptGuidelines.some((guideline: string) => guideline.includes("never poll status/list or call sleep")));
+  assert.match(tool.parameters.properties.async.description, /Defaults to true/);
   assert.deepEqual(tool.parameters.properties.action.enum, ["list_agents", "run", "status", "list", "cancel", "pause", "resume", "retry_failed", "recover", "steer", "handoff_list", "message_send", "message_broadcast", "message_inbox", "message_ack", "growth_list", "growth_decide", "bridge_send", "bridge_inbox", "bridge_status", "bridge_ack"]);
   assert.ok(events.includes("session_shutdown"));
   assert.ok(commands.includes("mesh-tree"));

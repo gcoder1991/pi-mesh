@@ -63,13 +63,15 @@ test("background Mesh notifications deduplicate epochs, paused is not completed 
     registerPiMesh({ registerTool(value: any) { if (value.name === "mesh") tool = value; }, getAllTools: () => [], getCommands: () => [], events: { emit() {}, on: () => () => {} }, registerCommand() {}, registerShortcut() {}, sendMessage(message: any) { sent.push(message); }, sendUserMessage() {}, on(name: string, handler: any) { handlers.set(name, handler); } } as any);
     const ctx: any = { cwd: root, mode: "print", hasUI: false, isProjectTrusted: () => true, sessionManager: { getSessionId: () => "notifications" }, modelRegistry: { getAvailable: () => [] } };
     const execute = (params: any) => tool.execute("host", params, undefined, undefined, ctx);
-    const receipt = await execute({ action: "run", async: true, tasks: [{ id: "a", agent: "worker", task: "a" }, { id: "b", agent: "worker", task: "b", dependsOn: ["a"] }] }); const runId = receipt.details.run.id;
+    const receipt = await execute({ action: "run", tasks: [{ id: "a", agent: "worker", task: "a" }, { id: "b", agent: "worker", task: "b", dependsOn: ["a"] }] }); const runId = receipt.details.run.id;
+    assert.match(receipt.content[0].text, /Do not sleep or poll/);
+    assert.match(receipt.content[0].text, /all you are waiting for, end the turn/);
     await until(() => count === 1); await execute({ action: "pause", runId }); gates[0]!.resolve({ exitCode: 0, signal: null, output: "first", stderr: "", usage: emptyUsage() });
     await new Promise((r) => setTimeout(r, 80)); assert.equal(sent.length, 0);
     await Promise.all([execute({ action: "resume", runId }), execute({ action: "resume", runId })]); await until(() => count === 2);
     gates[1]!.resolve({ exitCode: 0, signal: null, output: "second", stderr: "", usage: emptyUsage() }); await until(() => sent.length === 1);
     assert.match(sent[0].details.ids[0], new RegExp(`mesh:${runId}:2:1\\.1`));
-    const foreground = execute({ action: "run", tasks: [{ agent: "worker", task: "foreground" }] }); await until(() => count === 3);
+    const foreground = execute({ action: "run", async: false, tasks: [{ agent: "worker", task: "foreground" }] }); await until(() => count === 3);
     gates[2]!.resolve({ exitCode: 0, signal: null, output: "foreground", stderr: "", usage: { ...emptyUsage(), input: 7, turns: 1 } }); const completed = await foreground;
     assert.equal(completed.usage.input, 7); assert.equal(sent.length, 1);
     const status = await execute({ action: "status", runId: completed.details.run.id }); assert.equal(status.usage, undefined);

@@ -4,7 +4,7 @@ worktree: true
 maxConcurrency: 3
 maxNodes: 18
 failFast: true
-async: false
+async: true
 promptInput: task
 
 inputs:

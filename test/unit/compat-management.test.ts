@@ -53,8 +53,9 @@ test("/mesh forces the task through mesh orchestration", async () => {
   assert.equal(harness.messages.length, 1);
   assert.match(harness.messages[0].userMessage, /must execute this request through the mesh tool/);
   assert.match(harness.messages[0].userMessage, /action \"list_agents\"/);
-  assert.match(harness.messages[0].userMessage, /in the foreground/);
-  assert.match(harness.messages[0].userMessage, /do not poll with mesh status\/list/);
+  assert.match(harness.messages[0].userMessage, /in the background/);
+  assert.match(harness.messages[0].userMessage, /all you are waiting for, end the current turn/);
+  assert.match(harness.messages[0].userMessage, /do not call sleep or poll mesh status\/list/);
   assert.match(harness.messages[0].userMessage, /review the release/);
   await harness.shutdown();
 });
