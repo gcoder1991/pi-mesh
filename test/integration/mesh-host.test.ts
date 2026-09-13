@@ -98,7 +98,7 @@ test("review Host single delivery reports post-rename warning and only genuine n
     const execute = (params: any) => tool.execute("host", params, undefined, undefined, ctx);
     await handlers.get("session_start")({}, ctx);
     assert.ok(diagnostics.some((d) => d.includes("bad-json.json"))); assert.equal(fs.readFileSync(path.join(root, ".pi", "mesh", "runs", "bad-json.json"), "utf8"), "{bad");
-    await assert.rejects(execute({ action: "retry_failed", runId: run.id, userAuthorized: true }), /authorization/i); assert.equal(starts, 0);
+    await assert.rejects(execute({ action: "retry_failed", runId: run.id, async: false, userAuthorized: true }), /authorization/i); assert.equal(starts, 0);
     const fault = failDirectorySync((file) => file.includes("/messages/"));
     try {
       const delivery = await execute({ action: "message_send", runId: run.id, to: "a", content: "mail only" });

@@ -53,7 +53,7 @@ for (const mode of ['close', 'newSession', 'switchSession', 'same-id-live', 'sam
     const oldA = sessionFleetLimiter(idA, 1);
     const limiter = sessionFleetLimiter(idB, 1); assert.equal(limiter.active, 0);
     if (mode !== 'same-id-idle') {
-      pending.push(b.tool('mesh', { action: 'run', tasks: [{ id: 'node', agent: 'local', task: 'Hold actual Mesh execution' }] }));
+      pending.push(b.tool('mesh', { action: 'run', async: false, tasks: [{ id: 'node', agent: 'local', task: 'Hold actual Mesh execution' }] }));
       await until(() => calls.length === 1);
       pending.push(b.tool('Agent', { prompt: 'Actual Direct waiter', description: 'waiter', subagent_type: 'local' }));
       await until(() => limiter.queued === 1); assert.equal(limiter.active, 1);
@@ -75,7 +75,7 @@ for (const mode of ['close', 'newSession', 'switchSession', 'same-id-live', 'sam
       // Public explicit cleanup is an ownership probe, not a synthetic execution.
       clearSessionFleetLimiters(); assert.equal(sessionFleetLimiter(newId, 1), newPool, 'new A idle Managers already retain their pool');
       gate = hold(); const beforeA = calls.length;
-      const newMesh = a.tool('mesh', { action: 'run', tasks: [{ id: 'new-a', agent: 'local', task: 'New A actual Mesh owner' }] }); pending.push(newMesh);
+      const newMesh = a.tool('mesh', { action: 'run', async: false, tasks: [{ id: 'new-a', agent: 'local', task: 'New A actual Mesh owner' }] }); pending.push(newMesh);
       await until(() => calls.length === beforeA + 1);
       const newDirect = a.tool('Agent', { prompt: 'New A actual Direct waiter', description: 'new A', subagent_type: 'local' }); pending.push(newDirect);
       await until(() => newPool.queued === 1); assert.equal(newPool.active, 1); assert.equal(sessionFleetLimiter(newId, 1), newPool);
@@ -89,7 +89,7 @@ for (const mode of ['close', 'newSession', 'switchSession', 'same-id-live', 'sam
     gate = hold(); const before = calls.length;
     pending.push(b.tool('Agent', { prompt: 'Existing Direct owner', description: 'second', subagent_type: 'local' }));
     await until(() => calls.length === before + 1);
-    pending.push(b.tool('mesh', { action: 'run', tasks: [{ id: 'later', agent: 'local', task: 'Existing Mesh owner waiter' }] }));
+    pending.push(b.tool('mesh', { action: 'run', async: false, tasks: [{ id: 'later', agent: 'local', task: 'Existing Mesh owner waiter' }] }));
     await until(() => limiter.queued === 1); assert.equal(limiter.active, 1); assert.equal(sessionFleetLimiter(idB, 1), limiter);
     gate.resolve(); await Promise.all(pending); assert.equal(calls.length, before + 2); assert.equal(limiter.active, 0); assert.equal(limiter.queued, 0);
     assert.equal(sessionFleetLimiter(idB, 1), limiter, 'idle Managers are still owners');

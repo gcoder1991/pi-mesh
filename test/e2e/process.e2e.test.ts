@@ -136,7 +136,7 @@ test("packaged tarball loads offline through Pi extension loader with declared i
     try {
       Object.assign(process.env, env(fx.queue));
       fs.writeFileSync(path.join(fx.queue, "pending-001.json"), JSON.stringify({ output: "packaged" }));
-      const result = await tool.execute("e2e", { action: "run", tasks: [{ id: "packaged", agent: "worker", task: "run" }] }, new AbortController().signal, undefined, { cwd: fx.root, mode: "print", hasUI: false, sessionManager: { getSessionId: () => "package-e2e" } });
+      const result = await tool.execute("e2e", { action: "run", async: false, tasks: [{ id: "packaged", agent: "worker", task: "run" }] }, new AbortController().signal, undefined, { cwd: fx.root, mode: "print", hasUI: false, sessionManager: { getSessionId: () => "package-e2e" } });
       assert.equal(fs.readFileSync(result.details.run.nodes[0].outputPath, "utf8"), "packaged");
     } finally {
       if (old.binary === undefined) delete process.env.PI_MESH_PI_BINARY; else process.env.PI_MESH_PI_BINARY = old.binary;

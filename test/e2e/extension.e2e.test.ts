@@ -18,7 +18,7 @@ test("Pi loader executes a dependency graph through real child processes", async
     response(fx.queue, 1, { output: "inspect evidence" });
     response(fx.queue, 2, { output: "fixed" });
     const tool = await loadMeshTool(fx.root);
-    const result = await execute(tool, fx.root, { action: "run", tasks: [
+    const result = await execute(tool, fx.root, { action: "run", async: false, tasks: [
       { id: "inspect", agent: "scout", task: "inspect" },
       { id: "fix", agent: "worker", task: "fix", dependsOn: ["inspect"] },
     ] });
@@ -56,7 +56,7 @@ test("Pi loader stores large output as a bounded checkpoint preview", async () =
     const large = "界".repeat(90_000);
     response(fx.queue, 1, { output: large });
     const tool = await loadMeshTool(fx.root);
-    const result = await execute(tool, fx.root, { action: "run", tasks: [{ id: "large", agent: "worker", task: "large" }] });
+    const result = await execute(tool, fx.root, { action: "run", async: false, tasks: [{ id: "large", agent: "worker", task: "large" }] });
     const node = result.details.run.nodes[0];
     assert.equal(node.outputTruncated, true);
     assert.equal(fs.readFileSync(node.outputPath, "utf8"), large);
@@ -73,7 +73,7 @@ test("Pi loader preserves writer handoffs and inherited commits", async () => {
     response(fx.queue, 1, { output: "first", writeFile: "first.txt", writeContent: "first" });
     response(fx.queue, 2, { output: "second", writeFile: "second.txt", writeContent: "second" });
     const tool = await loadMeshTool(fx.root);
-    const result = await execute(tool, fx.root, { action: "run", worktree: true, tasks: [
+    const result = await execute(tool, fx.root, { action: "run", async: false, worktree: true, tasks: [
       { id: "first", agent: "worker", task: "first" },
       { id: "second", agent: "worker", task: "second", dependsOn: ["first"] },
     ] });
@@ -97,7 +97,7 @@ test("parallel writers launch in separate worktrees", async () => {
     response(fx.queue, 1, { output: "one", delay: 100, writeFile: "one.txt", writeContent: "one" });
     response(fx.queue, 2, { output: "two", delay: 100, writeFile: "two.txt", writeContent: "two" });
     const tool = await loadMeshTool(fx.root);
-    const result = await execute(tool, fx.root, { action: "run", operator: "parallel", worktree: true, maxConcurrency: 2, tasks: [
+    const result = await execute(tool, fx.root, { action: "run", async: false, operator: "parallel", worktree: true, maxConcurrency: 2, tasks: [
       { id: "one", agent: "worker", task: "one" }, { id: "two", agent: "worker", task: "two" },
     ] });
     const [one, two] = result.details.run.nodes;
@@ -117,7 +117,7 @@ test("no-change worktree nodes succeed and leave no temporary branch", async () 
     Object.assign(process.env, env(fx.queue));
     response(fx.queue, 1, { output: "reviewed" });
     const tool = await loadMeshTool(fx.root);
-    const result = await execute(tool, fx.root, { action: "run", worktree: true, tasks: [{ id: "review", agent: "reviewer", task: "review" }] });
+    const result = await execute(tool, fx.root, { action: "run", async: false, worktree: true, tasks: [{ id: "review", agent: "reviewer", task: "review" }] });
     const state = result.details.run.nodes[0].worktree;
     assert.equal(result.details.run.status, "succeeded");
     assert.equal(state.filesChanged, 0);
