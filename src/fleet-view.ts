@@ -43,7 +43,7 @@ function formatTokens(record: FleetRecord): string {
 }
 function rightAlign(left: string, right: string, width: number): string {
   const maxLeft = Math.max(0, width - visibleWidth(right) - 1);
-  const clamped = truncateToWidth(left, maxLeft);
+  const clamped = truncateToWidth(left.replace(/[\r\n\t]+/g, " "), maxLeft);
   return truncateToWidth(`${clamped}${" ".repeat(Math.max(1, width - visibleWidth(clamped) - visibleWidth(right)))}${right}`, width);
 }
 

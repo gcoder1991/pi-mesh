@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { visibleWidth } from "@earendil-works/pi-tui";
 import { FleetView } from "../../src/fleet-view.ts";
 
 const record = { id: "12345678-rest", status: "running", createdAt: Date.now() - 11_000, agent: { name: "worker" }, description: "fix the bug", launch: { maxTurns: 30 }, activity: { turns: 3, toolUses: 2, responseText: "reviewing files", activeTools: ["read"], usage: { input: 12_000, output: 1_000, cacheRead: 0, cacheWrite: 100, cost: 0, turns: 3 } }, execution: { conversation: () => "line one\nline two", steer() {}, abort() {}, close: async () => {}, session: {} } } as any;
@@ -79,6 +80,35 @@ test("FleetView ignores stale stop and steer actions", async () => {
   ctx.ui.custom = async (factory: any) => { factory({ requestRender() {} }, theme, { matches: () => false }, (action: any) => { done(action); }); done("steer"); return "steer"; };
   ctx.ui.custom = async (factory: any) => { const component = factory({ terminal: { rows: 30 }, requestRender() {} }, theme, { matches: () => false }, () => {}); component.handleInput("\r"); for (const char of "late") component.handleInput(char); component.handleInput("\r"); component.dispose(); return undefined; };
   assert.equal(aborts, 0); assert.equal(steers, 0); fleet.dispose();
+});
+
+test("FleetView keeps multiline direct and mesh summaries on one physical row", () => {
+  let widgetFactory: any;
+  const description = "first\nsecond\r\nthird\rfourth\t中文";
+  const direct = { ...record, description };
+  const node = { id: "node", agent: "reviewer", task: description, status: "running" };
+  const run = { id: "run", status: "running", createdAt: Date.now(), nodes: [node] };
+  const ctx: any = { mode: "tui", ui: { setWidget: (_key: string, value: any) => { widgetFactory = value; }, onTerminalInput: () => () => {} } };
+  const fleet = new FleetView();
+  try {
+    fleet.bind(ctx, { list: () => [direct] } as any, "project");
+    fleet.bindMesh(ctx, { list: () => [run] } as any, "project");
+    const component = widgetFactory({ requestRender() {} }, theme);
+    for (const width of [40, 80, 160]) {
+      for (let frame = 0; frame < 3; frame++) {
+        direct.activity = { ...direct.activity, turns: frame + 1 };
+        const lines = component.render(width);
+        assert.equal(lines.length, 5);
+        for (const line of lines) {
+          assert.doesNotMatch(line, /[\r\n\t]/);
+          assert.ok(visibleWidth(line) <= width);
+        }
+        if (width === 160) assert.ok(lines.slice(3).every((line: string) => line.includes("first second third fourth 中文")));
+      }
+    }
+    assert.equal(direct.description, description);
+    assert.equal(node.task, description);
+  } finally { fleet.dispose(); }
 });
 
 test("FleetView includes active mesh nodes in the same main panel", () => {

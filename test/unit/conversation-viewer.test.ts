@@ -1,9 +1,28 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { visibleWidth } from "@earendil-works/pi-tui";
 import { ConversationViewer } from "../../src/conversation-viewer.ts";
 
 const theme = { fg: (_color: string, text: string) => text, bold: (text: string) => text } as any;
 const record = () => ({ id: "a", agent: "worker", description: "work", status: "running", createdAt: Date.now() - 1000, turns: 2, toolUses: 1, tokens: 1200, conversation: () => "one\ntwo\nthree", activeTools: ["read"] });
+
+test("conversation viewer flattens multiline titles without flattening conversation rows", () => {
+  const current = { ...record(), description: "first\nsecond\r\nthird\rfourth\t中文" };
+  const viewer = new ConversationViewer({ terminal: { rows: 30 }, requestRender() {} }, theme, undefined, () => current, () => {}, () => {}, () => {});
+  try {
+    for (const width of [40, 80, 160]) {
+      const lines = viewer.render(width);
+      for (const line of lines) {
+        assert.doesNotMatch(line, /[\r\n\t]/);
+        assert.ok(visibleWidth(line) <= width);
+      }
+      assert.match(lines[3]!, /one/);
+      assert.match(lines[4]!, /two/);
+      assert.match(lines[5]!, /three/);
+      if (width === 160) assert.match(lines[1]!, /first second third fourth 中文/);
+    }
+  } finally { viewer.dispose(); }
+});
 
 test("conversation viewer shows thinking beside active tools", () => {
   const current = { ...record(), thinkingText: "checking assumptions", responseText: "drafting answer" };

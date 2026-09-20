@@ -91,7 +91,7 @@ export class ConversationViewer {
     if (!record) return [];
     const inner = width - 4;
     const row = (content: string) => {
-      const truncated = truncateToWidth(content, inner, "…", true);
+      const truncated = truncateToWidth(content.replace(/[\r\n\t]+/g, " "), inner, "…", true);
       return this.theme.fg("border", "│") + " " + truncated + " ".repeat(Math.max(1, inner - visibleWidth(truncated) + 1)) + this.theme.fg("border", "│");
     };
     const top = this.theme.fg("border", `╭${"─".repeat(width - 2)}╮`);
