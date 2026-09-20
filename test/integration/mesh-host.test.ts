@@ -144,3 +144,18 @@ for (const route of ["Host", "child"] as const) for (const longWarning of [false
     assert.match(delivery.content[0].text, /retry only not-stored.*unknown IDs/);
   } finally { await handlers.get("session_shutdown")?.(); await manager.shutdown(); if (oldDir === undefined) delete process.env.PI_CODING_AGENT_DIR; else process.env.PI_CODING_AGENT_DIR = oldDir; fs.rmSync(root, { recursive: true, force: true }); }
 });
+
+test("predeclared continuation without current Cross authorization fails before original run creation", async () => {
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "mesh-no-continuation-authority-")));
+  const handlers = new Map<string, any>(); let tool: any;
+  try {
+    registerPiMesh({ registerTool(value: any) { if (value.name === "mesh") tool = value; }, getAllTools: () => [], getCommands: () => [], events: { emit() {}, on: () => () => {} }, registerCommand() {}, registerShortcut() {}, sendMessage() {}, sendUserMessage() {}, on(name: string, handler: any) { handlers.set(name, handler); } } as any);
+    const ctx: any = { cwd: root, mode: "print", hasUI: false, isProjectTrusted: () => false, sessionManager: { getSessionId: () => "no-authority" }, modelRegistry: { getAvailable: () => [] } };
+    const execute = (params: any) => tool.execute("host", params, undefined, undefined, ctx);
+    const input = { action: "run", tasks: [{ agent: "worker", task: "original" }], continuationTasks: [{ agent: "worker", task: "fixed" }] };
+    await assert.rejects(execute(input), /no run created/);
+    await assert.rejects(execute({ ...input, async: false }), /initial background/);
+    await assert.rejects(execute({ ...input, continuationTasks: [{ agent: "worker", task: "fixed", cwd: "/other" }] }), /only agent\/task/);
+    assert.equal((await execute({ action: "list" })).details.count, 0);
+  } finally { await handlers.get("session_shutdown")?.(); fs.rmSync(root, { recursive: true, force: true }); }
+});

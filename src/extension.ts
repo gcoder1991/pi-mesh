@@ -20,12 +20,15 @@ import { buildConsensusPrompt } from "./consensus-template.ts";
 import { MeshTaskSchema } from "./schemas.ts";
 import { discoverWorkflowFiles, instantiateWorkflow, parseWorkflowInputs, type MeshWorkflow } from "./workflows.ts";
 
+import { ContinuationTaskSchema, continuationTasks, requestContinuation, successfulEpoch, type ContinuationPermit } from "./continuation.ts";
+
 const MeshParams = Type.Object({
-  action: StringEnum(["list_agents", "run", "status", "list", "cancel", "pause", "resume", "retry_failed", "recover", "steer", "handoff_list", "message_send", "message_broadcast", "message_inbox", "message_ack", "growth_list", "growth_decide", "bridge_send", "bridge_inbox", "bridge_status", "bridge_ack"] as const),
+  action: StringEnum(["list_agents", "run", "continue", "status", "list", "cancel", "pause", "resume", "retry_failed", "recover", "steer", "handoff_list", "message_send", "message_broadcast", "message_inbox", "message_ack", "growth_list", "growth_decide", "bridge_send", "bridge_inbox", "bridge_status", "bridge_ack"] as const),
   routeId: Type.Optional(Type.String({ maxLength: 64 })),
   forwardInboxId: Type.Optional(Type.String({ maxLength: 128 })),
   scope: Type.Optional(StringEnum(["bundled", "user", "project", "all"] as const)),
   tasks: Type.Optional(Type.Array(MeshTaskSchema, { minItems: 1, maxItems: 32 })),
+  continuationTasks: Type.Optional(Type.Array(ContinuationTaskSchema, { minItems: 1, maxItems: 4, description: "Optional fixed next-stage tasks authorized with this initial background run. On successful first-epoch completion, mesh continue may create this exact plan once within one hour. Sequential, max 10min/task, no retries or recursive continuation. Do not use for unplanned remediation." })),
   runId: Type.Optional(Type.String({ description: "Existing run ID; required for run-scoped actions." })),
   nodeId: Type.Optional(Type.String({ description: "Node ID for node cancellation, inbox filtering, or message acknowledgement." })),
   messageId: Type.Optional(Type.String({ description: "Mailbox message ID required by message_ack." })),
@@ -90,6 +93,8 @@ function summarize(run: MeshRun): string {
 
 export default function registerPiMesh(pi: ExtensionAPI): void {
   if (managedBridgeChild(pi.events)) return;
+  const plans = new Map<string, { tasks: MeshTask[]; permit: ContinuationPermit; epoch: number; sessionId: string; cwd: string; expires: number }>();
+  pi.on("input", (event) => { if (event.source === "interactive" || event.source === "rpc") plans.clear(); });
   const managers = new Map<string, { manager: MeshManager; settings: MeshSettings; notifier: CompletionNotifier; releaseFleet: () => void; resolveAgent: (name: string) => AgentDefinition | undefined }>();
   const currentManager = (cwd: string, projectTrusted: boolean, sessionId: string, modelRegistry: Parameters<typeof resolveAgentModel>[1]) => {
     const root = fs.realpathSync(path.resolve(cwd));
@@ -112,9 +117,13 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
     return entry;
   };
   const watchBackground = (pending: Promise<MeshRun>, notifier: CompletionNotifier, runId: string) => {
+    const plan = plans.get(runId);
     void pending.then((run) => {
       if (!["succeeded", "failed", "cancelled"].includes(run.status)) return;
-      notifier.enqueueMessage(`mesh:${run.id}:${run.epoch ?? 0}:${run.nodes.map((node) => node.attempt).join(".")}`, `Mesh ${run.id} finished: ${run.status}.\n${summarize(run)}`);
+      const valid = () => plan && plans.get(run.id) === plan && Date.now() < plan.expires && successfulEpoch(run, plan.epoch);
+      notifier.enqueueMessage(`mesh:${run.id}:${run.epoch ?? 0}:${run.nodes.map((node) => node.attempt).join(".")}`, `Mesh ${run.id} finished: ${run.status}.\n${summarize(run)}`, false, (details) => {
+        if (valid() && plan!.permit.complete(details)) return `\nA fixed successor was predeclared by the original user turn. Use mesh action continue with runId ${run.id}; no extra parameters. This is not permission for arbitrary tasks.`;
+      });
     }, (error) => notifier.enqueueMessage(`mesh:${runId}:error`, `Mesh ${runId} failed outside run state: ${String(error)}. Drain and recover explicitly.`)).catch((error) => console.error(`[pi-mesh] Completion notification failed: ${String(error)}`));
   };
   const fleet = new FleetView();
@@ -167,6 +176,7 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
       "Do not duplicate work already delegated to mesh nodes. Consume their bounded evidence and synthesize the results.",
       "If a run partially fails, call retry_failed on that run instead of creating replacement IDs or resubmitting successful nodes. User/unknown stops require the genuine user command /mesh retry <run-id>; never bypass a stop by creating a new ID or claiming authorization in tool parameters. It resumes the failed node's persisted Agent session when available and otherwise supplies the previous error and output as repair context.",
       "Mesh runs are background by default. After run returns, never poll status/list or call sleep to wait. If the Mesh result is all you are waiting for, end the current turn; otherwise continue independent Host work. The completion notification is delivered between turns or wakes an idle Host. Set async=false only when blocking is explicitly required.",
+      "To continue after a successful background completion without new user input, predeclare continuationTasks on the initial user-authorized run. The notification allows only one mesh continue with that parent runId and no other parameters: the exact fixed plan, at most four sequential ten-minute tasks, no retries/recursive continuation. Unplanned tasks still require the user.",
       "In mesh, only the host approves growth. Enable mesh worktree mode for parallel writers; it requires a clean Git checkout. Use mesh recover after reopening the same Pi session to restart interrupted runs.",
     ],
     parameters: MeshParams,
@@ -186,6 +196,9 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
       return new Text(text, 0, 0);
     },
     async execute(_toolCallId, params, signal, onUpdate, ctx) {
+      for (const [id, plan] of plans) if (Date.now() >= plan.expires) plans.delete(id);
+      if (params.continuationTasks && (params.action !== "run" || params.async === false)) throw new Error("continuationTasks is only supported on an initial background run");
+      if (params.action === "continue" && Object.keys(params).some(k => k !== "action" && k !== "runId")) throw new Error("continue accepts only action/runId; the plan is immutable");
       if (params.action.startsWith("bridge_")) {
         const details = await bridge.execute(params.action, params, signal, ctx);
         return { content: [{ type: "text", text: boundedText(JSON.stringify(details)) }], details: boundedDetails({ action: params.action, ...details }) };
@@ -218,6 +231,14 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
       const run = params.runId ? manager.get(params.runId) : undefined;
       if (params.runId && !run) throw new Error(`Unknown mesh run: ${params.runId}`);
 
+      if (params.action === "continue") {
+        const plan = plans.get(params.runId!);
+        if (!plan || plan.sessionId !== sessionId || plan.cwd !== fs.realpathSync(path.resolve(ctx.cwd)) || !successfulEpoch(run!, plan.epoch) || signal?.aborted || !plan.permit.claim(_toolCallId)) throw new Error("Continuation expired, revoked, replayed or not authorized for this exact Host/run epoch; ask the local user");
+        plans.delete(params.runId!); // Consume before create; failures do not refund authority.
+        const next = manager.create({ tasks: plan.tasks, cwd: plan.cwd, operator: "sequence", maxConcurrency: 1, maxNodes: plan.tasks.length });
+        watchBackground(manager.startCreated(next.id), notifier, next.id);
+        return { content: [{ type: "text", text: `Started fixed continuation ${next.id} for ${run!.id}. End the turn if waiting; no polling.` }], details: boundedDetails({ action: params.action, parentRunId: run!.id, run: compactRun(next) }) };
+      }
       if (params.action === "status") return { content: [{ type: "text", text: summarize(run!) }], details: boundedDetails({ action: params.action, run: compactRun(run!, true), usage: run!.usage }), usage: piUsage(manager.claimUsage(run!.id)) };
       if (params.action === "handoff_list") {
         const handoffs = run!.nodes.flatMap((node) => (node.worktreeHistory ?? (node.worktree ? [node.worktree] : [])).filter((state) => state.finalCommit).map((state) => ({
@@ -289,9 +310,16 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
       if (!params.tasks?.length) throw new Error("tasks is required for run");
       const update = (value: MeshRun) => onUpdate?.({ content: [{ type: "text", text: `${value.nodes.filter((node) => terminalNodeStatuses.has(node.status)).length}/${value.nodes.length} complete` }], details: boundedDetails({ action: params.action, run: compactRun(value) }) });
       if (signal?.aborted) throw new Error("Mesh run cancelled before creation");
+      const planned = params.continuationTasks ? resolveTaskModels(continuationTasks(params.continuationTasks), ctx.modelRegistry, inheritedModel, resolveAgent) : undefined;
+      if (planned && plans.size >= 16) throw new Error("Continuation plan budget exhausted for this user turn");
+      const permit = planned ? requestContinuation(pi, ctx, _toolCallId, params) : undefined;
       const createdRun = manager.create({ tasks: resolveTaskModels(params.tasks as MeshTask[], ctx.modelRegistry, inheritedModel, resolveAgent), cwd: fs.realpathSync(path.resolve(ctx.cwd)), operator: params.operator, worktree: params.worktree, worktreeSetupHook: params.worktreeSetupHook, maxConcurrency: params.maxConcurrency, maxNodes: params.maxNodes, failFast: params.failFast });
       const background = params.async !== false;
       const start = manager.startCreated(createdRun.id, background ? undefined : signal, background ? undefined : update);
+      if (permit && planned) {
+        permit.bind(createdRun.id);
+        plans.set(createdRun.id, { tasks: planned, permit, epoch: createdRun.epoch!, sessionId, cwd: createdRun.cwd, expires: Date.now() + 60 * 60 * 1000 });
+      }
       if (background) {
         watchBackground(start, notifier, createdRun.id);
         return { content: [{ type: "text", text: `Started mesh ${createdRun.id} in background. Do not sleep or poll. If this result is all you are waiting for, end the turn; completion will wake the Host.` }], details: boundedDetails({ action: params.action, run: compactRun(createdRun) }) };
@@ -362,6 +390,7 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
     return entry?.manager;
   }, shutdownSubagents.getManager);
   pi.on("session_start", (_event, ctx) => {
+    plans.clear();
     const trusted = ctx.isProjectTrusted?.() ?? false;
     registerWorkflows(ctx.cwd, trusted);
     const sessionId = ctx.sessionManager.getSessionId();
@@ -369,6 +398,7 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
     if (ctx.hasUI) fleet.bindMesh(ctx, manager, `${fs.realpathSync(path.resolve(ctx.cwd))}\0${sessionId}`);
   });
   pi.on("session_shutdown", async () => {
+    plans.clear();
     await Promise.allSettled([...managers.values()].map(async ({ manager, releaseFleet }) => { await manager.shutdown(); releaseFleet(); }));
     for (const { notifier } of managers.values()) notifier.dispose();
     managers.clear();

@@ -291,6 +291,50 @@ npm test
 
 `PI_MESH_PI_BINARY` remains an internal test transport override. Pi extensions are trusted code with the user's full system permissions; in-process AgentSessions are not a security sandbox. Use only trusted Agent definitions, Child resources, extensions, and environments.
 
+### Trusted fixed continuation after a background completion
+
+When Cross is also loaded, a plain completion followUp is **not user input**.
+For a next stage already covered by the user's request, predeclare its exact
+`agent`/`task` pairs on the original background `mesh run`:
+
+```json
+{
+  "action": "run",
+  "tasks": [{ "agent": "worker", "task": "Implement the user-requested change" }],
+  "continuationTasks": [{ "agent": "reviewer", "task": "Review that exact change; do not expand scope" }]
+}
+```
+
+After successful completion, use only
+`{"action":"continue","runId":"<original-run-id>"}`. This creates the fixed
+successor; it does not let the completion body choose new tasks or options.
+The original run must finish in its original epoch with every node succeeding
+on attempt 1 and no run/node cancellation fence. A failed, retried, resumed,
+recovered or race-cancelled run does not mint this permission.
+
+The in-memory Cross/Mesh EventBus handshake binds the genuine user tool call,
+Host session/root, original run/epoch and generation to one live SDK delivery.
+No serialized token or `customType` conveys authority. Limits: 16 issued plans
+per user generation, one successor per plan, 1-hour expiry from issue, 1–4 fixed
+sequential tasks, concurrency 1, 10 minutes/task, zero retries, no recursive
+continuation, no worktree/setup/policy/cwd overrides. Models are resolved when
+the original plan is admitted. Existing Manager trust, node budgets and cancel
+locks still apply. Claims are spent before execution and never refunded.
+
+Abort/unsafe settlement, new interactive/RPC input, session replacement,
+reload or shutdown revoke the old authorization. The capability does not
+reopen Cross peer reception or unlock Direct/Mesh cancellations. Other sensitive
+entries (arbitrary `run`, `resume`, `retry_failed`, `recover`, growth, bridge,
+Direct and configuration tools) are **not** granted by this mechanism.
+
+This deliberately does not infer authorization for arbitrary remediation from
+child output. Existing runs without a predeclared plan, unknown next stages,
+workflows and Direct notifications still need fresh local user authorization.
+Both updated source extensions must be loaded; missing/old Cross fails closed
+before creating a run that requests `continuationTasks`. Reload does not restore
+old permits. The boundary remains trusted same-process extensions, not a sandbox
+against malicious code running as the same OS user.
+
 ### Direct Agent lifecycle and contact
 
 Direct children use a project- and Host-session-specific root:
