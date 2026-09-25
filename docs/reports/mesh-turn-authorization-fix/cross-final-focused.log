@@ -1,0 +1,106 @@
+TAP version 13
+# Subtest: Mesh completion: private details identity grants only the fixed run once; no broad action authority
+ok 1 - Mesh completion: private details identity grants only the fixed run once; no broad action authority
+  ---
+  duration_ms: 246.7515
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects clone
+ok 2 - Mesh continuation rejects clone
+  ---
+  duration_ms: 39.161917
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects fake-customType
+ok 3 - Mesh continuation rejects fake-customType
+  ---
+  duration_ms: 39.167875
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects cancel-before
+ok 4 - Mesh continuation rejects cancel-before
+  ---
+  duration_ms: 70.078292
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects cancel-after
+ok 5 - Mesh continuation rejects cancel-after
+  ---
+  duration_ms: 47.72175
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects new-user
+ok 6 - Mesh continuation rejects new-user
+  ---
+  duration_ms: 63.264125
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects extension-input
+ok 7 - Mesh continuation rejects extension-input
+  ---
+  duration_ms: 68.660292
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects expired
+ok 8 - Mesh continuation rejects expired
+  ---
+  duration_ms: 50.149375
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects session-start
+ok 9 - Mesh continuation rejects session-start
+  ---
+  duration_ms: 61.689291
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects session-shutdown
+ok 10 - Mesh continuation rejects session-shutdown
+  ---
+  duration_ms: 43.155458
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects different-session
+ok 11 - Mesh continuation rejects different-session
+  ---
+  duration_ms: 27.60725
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects different-cwd
+ok 12 - Mesh continuation rejects different-cwd
+  ---
+  duration_ms: 42.474167
+  type: 'test'
+  ...
+# Subtest: Peer text cannot issue or borrow a completion capability, even with identical notification metadata
+ok 13 - Peer text cannot issue or borrow a completion capability, even with identical notification metadata
+  ---
+  duration_ms: 75.581458
+  type: 'test'
+  ...
+# Subtest: Unknown source cannot bootstrap; late bus replay and per-user plan budget are bounded
+ok 14 - Unknown source cannot bootstrap; late bus replay and per-user plan budget are bounded
+  ---
+  duration_ms: 62.954541
+  type: 'test'
+  ...
+# Subtest: Grouped completions keep distinct run grants; unrelated custom message drops current grants
+ok 15 - Grouped completions keep distinct run grants; unrelated custom message drops current grants
+  ---
+  duration_ms: 106.255416
+  type: 'test'
+  ...
+# Subtest: Gate reservation is not executable after settled/cancelled/expired; failed tool cannot refund it
+ok 16 - Gate reservation is not executable after settled/cancelled/expired; failed tool cannot refund it
+  ---
+  duration_ms: 169.296583
+  type: 'test'
+  ...
+1..16
+# tests 16
+# suites 0
+# pass 16
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2564.932125

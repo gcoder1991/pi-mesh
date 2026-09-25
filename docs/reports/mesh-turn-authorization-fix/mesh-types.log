@@ -1,0 +1,4 @@
+
+> @gcoder1991/pi-mesh@0.5.1 test:types
+> tsc --noEmit
+

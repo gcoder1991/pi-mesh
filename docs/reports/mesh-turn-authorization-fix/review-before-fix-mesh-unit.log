@@ -1,0 +1,153 @@
+
+> @gcoder1991/pi-mesh@0.5.1 test:unit
+> node --import ./test/support/clean-env.mjs --experimental-strip-types --test test/unit/*.test.ts
+
+Agent discovery: /private/tmp/pm-test-QTvXnI/t/pi-mesh-agent-resource-CLUq5E/.pi/agents/bad.md: Unsafe extension name
+✔ discovers bundled agents (19.570041ms)
+✔ ignores symlinked agent definitions (6.802291ms)
+✔ ignores a symlinked agents directory (11.768208ms)
+✔ loads compatibility frontmatter and filename fallback (7.292208ms)
+✔ rejects wildcard and path child resources in agent files (1.922083ms)
+✔ nearest project agents override bundled agents (2.200625ms)
+✔ /agents creates, edits, disables, deletes, ejects, and updates settings (73.631583ms)
+✔ /agents explains when dialog UI is unavailable (2.297334ms)
+✔ /mesh forces the task through mesh orchestration (0.364083ms)
+✔ builds the bounded two-round consensus protocol (2.643958ms)
+✔ fails closed without three distinct available models (0.451667ms)
+✔ uses a plain-question fallback when ask_user_question is unavailable (0.197792ms)
+✔ registers /consensus and injects the Host catalog into the next turn (4.122625ms)
+✔ continuation fixes task budgets, excludes scope/policy/recursive overrides and snapshots text (1.8555ms)
+✔ continuation only admits original fully successful epoch with no run/node stop or retry (0.46975ms)
+✔ missing/old Cross fails closed; async bus response cannot authorize (0.288792ms)
+✔ grouped notifier authorizes only at flush using exact live SDK details, with no serialized token (0.717958ms)
+✔ conversation viewer shows thinking beside active tools (2.677ms)
+✔ conversation viewer uses two-key stop confirmation (0.895791ms)
+✔ conversation viewer disarms stop when the record becomes terminal (0.156792ms)
+✔ conversation viewer sends steer through inline composer (0.592625ms)
+✔ conversation viewer honors custom scroll bindings (0.384125ms)
+✔ inherit_context uses SDK compaction summary and never reintroduces compacted messages (9.796875ms)
+✔ inherit_context trims complete tool interaction groups, drops incomplete groups, and bounds huge arguments (0.463125ms)
+✔ agent discovery diagnostics retain the array API and expose each malformed definition (36.485584ms)
+[pi-mesh] Workflow command conflicts with an existing command: llama
+✖ registers one mesh tool with strict actions (4.270958ms)
+✔ registers trusted project workflow files as commands (116.073083ms)
+✔ workflow commands fail closed after switching away from their trusted project (5.463875ms)
+✔ does not register a workflow over another extension command (1.876125ms)
+✔ resolves mesh task model overrides through the host registry (309.309292ms)
+✔ ignores project agents until Pi trusts the project (2.920417ms)
+✔ does not register inside frozen-identity managed mesh children (0.109292ms)
+✔ fleet limiter shares a bounded session slot pool (11.354042ms)
+✔ fleet limiter removes aborted waiters (0.374708ms)
+✔ session fleet limiter cache can be cleared on shutdown (0.103625ms)
+✔ fleet third T3 owner disposers are idempotent and reject wrong limiter identity (0.122833ms)
+✔ FleetView renders a navigable main panel and conversation overlay (4.145042ms)
+✔ FleetView clamps a stale selection when records shrink before rendering (0.395459ms)
+✔ FleetView ignores stale stop and steer actions (0.226583ms)
+✔ FleetView includes active mesh nodes in the same main panel (0.278209ms)
+✔ memory is bounded and follows agent write authority (13.815959ms)
+✔ native Mesh tree renders the /subagents-fleet layout and navigation (30.519583ms)
+✔ /mesh-tree opens as a native Pi overlay (0.96925ms)
+✔ resolves exact, fuzzy, dated, and cross-provider model names (0.638708ms)
+✔ completion notifier deduplicates and groups results (303.473333ms)
+✔ completion notifier accepts mesh completion messages and wakes an idle Host (0.584208ms)
+✔ deduplicates within/across batches by generation and suppresses only foreground (0.154375ms)
+✔ run lease excludes another owner and releases by token (102.806709ms)
+✔ run lease reclaims a demonstrably dead local owner (11.324667ms)
+✔ UTF-8 byte limits never split a character (0.5305ms)
+✔ shared activity tracking accumulates tools, text, and usage (0.486792ms)
+✔ scheduler supports one-shot, interval, cron, persistence, list, and cancel (1215.620458ms)
+✔ scheduler restores absolute one-shot time and persisted launch options (11.098209ms)
+Scheduled Agent 75387315-7a6b-444c-b868-d8ce7f8ff97c failed: Error: boom
+✔ scheduler contains async fire failures (1118.627791ms)
+✔ scheduler rejects malformed or oversized registries and jobs (11.279625ms)
+✔ scheduler bounds long timers and arithmetic catchup; pending fire is cancellable/disposable (42.75525ms)
+✔ loads global mesh settings and project overrides (8.521417ms)
+✔ rejects unknown or invalid mesh settings (5.962583ms)
+✔ durably sends and acknowledges mailbox messages (23.256625ms)
+✔ enforces mailbox payload and unread byte limits (33.60825ms)
+✔ stale mailbox recipient locks fail closed until explicit quiescent repair (10.874ms)
+✔ does not steal an active mailbox recipient lock (1.192625ms)
+✔ reports corrupted JSON instead of treating it as missing (9.853459ms)
+✔ durably records growth decisions (17.656791ms)
+✔ prunes old terminal run state while preserving active runs (27.667084ms)
+✔ compact Mesh core receipts retain all 128 maximum-length IDs and warnings within 48KiB (34.13375ms)
+✔ bridge third T1 readJson preserves native identity and distinguishes parse cause from missing (1.372625ms)
+✔ cross-extension RPC exposes ping, spawn, and stop envelopes (53.65925ms)
+✔ cross-extension RPC rejects invalid spawn options (10.462708ms)
+✔ cross-extension RPC uses explicit model before Agent and Host defaults (111.107583ms)
+✔ cross-extension RPC rejects spawn without an active session (0.728708ms)
+✔ test preload strips credentials and fences network and peer namespaces (7.258417ms)
+✔ derived Node/Pi processes inherit network-only guard without losing fixture environment (106.093792ms)
+✔ runNode and legacy startChild propagate the private guard to executable fixtures (1686.327666ms)
+✔ Cross Unix allowance is derived only from this private agentDir, never another peer namespace (1.405208ms)
+✔ lifecycle transitions are validated and terminal states are monotonic (0.556625ms)
+✔ seeded lifecycle chaos preserves terminal monotonicity (6.873167ms)
+✔ discovers global workflows and lets trusted project commands override them (7.185625ms)
+✔ instantiates simple placeholders with defaults and key=value overrides (2.2775ms)
+✔ rejects malformed workflow arguments and unknown top-level keys (1.957084ms)
+✔ composes multiple operator stages into one dependency graph (3.707875ms)
+✔ ships an 18-node two-round consensus workflow (11.358791ms)
+✔ isolates bad files, validates task fields, and handles prototype-like inputs safely (2.257709ms)
+✔ rejects host command collisions (1.05925ms)
+ℹ tests 84
+ℹ suites 0
+ℹ pass 83
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3506.279167
+
+✖ failing tests:
+
+test at test/unit/extension.test.ts:8:1
+✖ registers one mesh tool with strict actions (4.270958ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      'list_agents',
+      'run',
+  +   'continue',
+      'status',
+      'list',
+      'cancel',
+      'pause',
+      'resume',
+  
+      at TestContext.<anonymous> (file:///Users/relvf/ai/pi-mesh/test/unit/extension.test.ts:32:10)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [
+      'list_agents',   'run',
+      'continue',      'status',
+      'list',          'cancel',
+      'pause',         'resume',
+      'retry_failed',  'recover',
+      'steer',         'handoff_list',
+      'message_send',  'message_broadcast',
+      'message_inbox', 'message_ack',
+      'growth_list',   'growth_decide',
+      'bridge_send',   'bridge_inbox',
+      'bridge_status', 'bridge_ack'
+    ],
+    expected: [
+      'list_agents',       'run',
+      'status',            'list',
+      'cancel',            'pause',
+      'resume',            'retry_failed',
+      'recover',           'steer',
+      'handoff_list',      'message_send',
+      'message_broadcast', 'message_inbox',
+      'message_ack',       'growth_list',
+      'growth_decide',     'bridge_send',
+      'bridge_inbox',      'bridge_status',
+      'bridge_ack'
+    ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

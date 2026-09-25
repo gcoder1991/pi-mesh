@@ -1,0 +1,569 @@
+
+> @gcoder1991/pi-mesh@0.5.1 test
+> npm run test:unit && npm run test:integration && npm run test:e2e && npm run test:types && npm run test:package
+
+
+> @gcoder1991/pi-mesh@0.5.1 test:unit
+> node --import ./test/support/clean-env.mjs --experimental-strip-types --test test/unit/*.test.ts
+
+Agent discovery: /private/tmp/pm-test-6itNwC/t/pi-mesh-agent-resource-EnNNgA/.pi/agents/bad.md: Unsafe extension name
+✔ discovers bundled agents (5.887167ms)
+✔ ignores symlinked agent definitions (4.744667ms)
+✔ ignores a symlinked agents directory (1.450583ms)
+✔ loads compatibility frontmatter and filename fallback (5.883167ms)
+✔ rejects wildcard and path child resources in agent files (3.884ms)
+✔ nearest project agents override bundled agents (3.144916ms)
+✔ /agents creates, edits, disables, deletes, ejects, and updates settings (35.391792ms)
+✔ /agents explains when dialog UI is unavailable (0.320459ms)
+✔ /mesh forces the task through mesh orchestration (0.348042ms)
+✔ builds the bounded two-round consensus protocol (1.506458ms)
+✔ fails closed without three distinct available models (0.213209ms)
+✔ uses a plain-question fallback when ask_user_question is unavailable (0.097583ms)
+✔ registers /consensus and injects the Host catalog into the next turn (5.240958ms)
+✔ continuation fixes task budgets, excludes scope/policy/recursive overrides and snapshots text (0.84275ms)
+✔ continuation only admits original fully successful epoch with no run/node stop or retry (0.133792ms)
+✔ missing/old Cross fails closed; async bus response cannot authorize (0.197792ms)
+✔ grouped notifier authorizes only at flush using exact live SDK details, with no serialized token (0.256708ms)
+✔ conversation viewer shows thinking beside active tools (6.8385ms)
+✔ conversation viewer uses two-key stop confirmation (2.997917ms)
+✔ conversation viewer disarms stop when the record becomes terminal (1.136375ms)
+✔ conversation viewer sends steer through inline composer (1.325125ms)
+✔ conversation viewer honors custom scroll bindings (0.461209ms)
+✔ inherit_context uses SDK compaction summary and never reintroduces compacted messages (2.548583ms)
+✔ inherit_context trims complete tool interaction groups, drops incomplete groups, and bounds huge arguments (0.542334ms)
+✔ agent discovery diagnostics retain the array API and expose each malformed definition (24.495458ms)
+[pi-mesh] Workflow command conflicts with an existing command: llama
+✔ registers one mesh tool with strict actions (1.556375ms)
+✔ registers trusted project workflow files as commands (99.78525ms)
+✔ workflow commands fail closed after switching away from their trusted project (2.598833ms)
+✔ does not register a workflow over another extension command (2.070833ms)
+✔ resolves mesh task model overrides through the host registry (439.829375ms)
+✔ ignores project agents until Pi trusts the project (6.356625ms)
+✔ does not register inside frozen-identity managed mesh children (0.155ms)
+✔ fleet limiter shares a bounded session slot pool (11.962708ms)
+✔ fleet limiter removes aborted waiters (0.48925ms)
+✔ session fleet limiter cache can be cleared on shutdown (0.479417ms)
+✔ fleet third T3 owner disposers are idempotent and reject wrong limiter identity (0.189958ms)
+✔ FleetView renders a navigable main panel and conversation overlay (8.536333ms)
+✔ FleetView clamps a stale selection when records shrink before rendering (0.424375ms)
+✔ FleetView ignores stale stop and steer actions (0.221ms)
+✔ FleetView includes active mesh nodes in the same main panel (0.287084ms)
+✔ memory is bounded and follows agent write authority (2.107458ms)
+✔ native Mesh tree renders the /subagents-fleet layout and navigation (63.015959ms)
+✔ /mesh-tree opens as a native Pi overlay (0.975166ms)
+✔ resolves exact, fuzzy, dated, and cross-provider model names (0.64325ms)
+✔ completion notifier deduplicates and groups results (306.81775ms)
+✔ completion notifier accepts mesh completion messages and wakes an idle Host (0.510167ms)
+✔ deduplicates within/across batches by generation and suppresses only foreground (0.146375ms)
+✔ run lease excludes another owner and releases by token (88.800125ms)
+✔ run lease reclaims a demonstrably dead local owner (23.20825ms)
+✔ UTF-8 byte limits never split a character (0.511042ms)
+✔ shared activity tracking accumulates tools, text, and usage (0.481792ms)
+✔ scheduler supports one-shot, interval, cron, persistence, list, and cancel (1185.716333ms)
+✔ scheduler restores absolute one-shot time and persisted launch options (17.181875ms)
+Scheduled Agent 147a1277-a45b-4852-84a6-2e1164b31abd failed: Error: boom
+✔ scheduler contains async fire failures (1125.511375ms)
+✔ scheduler rejects malformed or oversized registries and jobs (13.644084ms)
+✔ scheduler bounds long timers and arithmetic catchup; pending fire is cancellable/disposable (46.744083ms)
+✔ loads global mesh settings and project overrides (9.904333ms)
+✔ rejects unknown or invalid mesh settings (1.301958ms)
+✔ durably sends and acknowledges mailbox messages (40.69925ms)
+✔ enforces mailbox payload and unread byte limits (73.686708ms)
+✔ stale mailbox recipient locks fail closed until explicit quiescent repair (18.707083ms)
+✔ does not steal an active mailbox recipient lock (9.607458ms)
+✔ reports corrupted JSON instead of treating it as missing (18.376125ms)
+✔ durably records growth decisions (31.506583ms)
+✔ prunes old terminal run state while preserving active runs (33.772583ms)
+✔ compact Mesh core receipts retain all 128 maximum-length IDs and warnings within 48KiB (48.040917ms)
+✔ bridge third T1 readJson preserves native identity and distinguishes parse cause from missing (1.195625ms)
+✔ cross-extension RPC exposes ping, spawn, and stop envelopes (64.860083ms)
+✔ cross-extension RPC rejects invalid spawn options (10.907ms)
+✔ cross-extension RPC uses explicit model before Agent and Host defaults (142.938ms)
+✔ cross-extension RPC rejects spawn without an active session (0.667125ms)
+✔ test preload strips credentials and fences network and peer namespaces (5.3245ms)
+✔ derived Node/Pi processes inherit network-only guard without losing fixture environment (91.0895ms)
+✔ runNode and legacy startChild propagate the private guard to executable fixtures (1656.883541ms)
+✔ Cross Unix allowance is derived only from this private agentDir, never another peer namespace (1.223292ms)
+✔ lifecycle transitions are validated and terminal states are monotonic (0.562375ms)
+✔ seeded lifecycle chaos preserves terminal monotonicity (2.695625ms)
+✔ discovers global workflows and lets trusted project commands override them (21.594208ms)
+✔ instantiates simple placeholders with defaults and key=value overrides (11.18925ms)
+✔ rejects malformed workflow arguments and unknown top-level keys (14.473083ms)
+✔ composes multiple operator stages into one dependency graph (11.804042ms)
+✔ ships an 18-node two-round consensus workflow (14.764583ms)
+✔ isolates bad files, validates task fields, and handles prototype-like inputs safely (10.900666ms)
+✔ rejects host command collisions (1.805667ms)
+ℹ tests 84
+ℹ suites 0
+ℹ pass 84
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3792.376375
+
+> @gcoder1991/pi-mesh@0.5.1 test:integration
+> node --import ./test/support/clean-env.mjs --experimental-strip-types --test --test-concurrency=1 test/integration/*.test.ts
+
+✔ recovers the same project through a canonical path after creation via symlink (27.870958ms)
+✔ only the originating session recovers its runs (22.710875ms)
+✔ skips checkpoints whose recorded cwd no longer exists (9.335209ms)
+✔ recovers interrupted nodes as queued and checkpoints recovery (21.98125ms)
+✔ recovers a terminal attempt result without rerunning the child (41.27675ms)
+✔ isolates an invalid attempt result and continues recovering other runs (53.235125ms)
+✔ recovery accepts queued retry evidence and requeues the interrupted node (31.8145ms)
+✔ recovers a cancelling run as cancelled (22.532458ms)
+✔ recovers paused runs without leaving ghost running nodes (22.2145ms)
+✔ host-approved growth enforces the requester allowlist (33.76825ms)
+✔ supervisor and mixture make the final task depend on all workers (43.975833ms)
+✔ sequence, reflection, and debate are stable bounded chains (61.741375ms)
+✔ review atomic post-rename directory open error is not swallowed and restores checkpoint (30.923917ms)
+✔ review atomic post-rename directory close error is not swallowed and restores checkpoint (28.849709ms)
+✔ review atomic post-rename directory cleanup error is not swallowed and restores checkpoint (25.998625ms)
+✔ review unknown mailbox visibility is explicit and is never safe-to-retry advice (6.42475ms)
+✔ review scheduler admission post-rename error cannot restore an unacknowledged schedule (40.547417ms)
+BRIDGE_PROCESS_ACTUAL {"name":"B","mode":"lock","pid":19384,"hits":0,"releaseHits":0,"unreadable":0,"outcome":"not-stored"}
+BRIDGE_PROCESS_ACTUAL {"name":"A","mode":"lock","barrier":"ifAbsent","pid":19363,"hits":1,"releaseHits":0,"unreadable":0,"outcome":"stored"}
+✔ bridge review B1 two OS processes: aged lock + actual SIGSTOP/CONT never steals ifAbsent reservation (1301.444291ms)
+BRIDGE_PROCESS_ACTUAL {"name":"B","mode":"lock","pid":19411,"hits":0,"releaseHits":0,"unreadable":0,"outcome":"not-stored"}
+BRIDGE_PROCESS_ACTUAL {"name":"A","mode":"lock","barrier":"ifAbsent","pid":19410,"hits":1,"releaseHits":0,"unreadable":0,"outcome":"stored-visible"}
+✔ bridge review B1 release checks actual lock identity, retaining a replacement inode (1352.655584ms)
+BRIDGE_PROCESS_ACTUAL {"name":"A","mode":"bridge","barrier":"before-lock","pid":19623,"hits":1,"releaseHits":0,"unreadable":0,"totalUsed":1,"canonicalCount":64,"failureCount":0,"inboxCount":64,"selectedCount":2,"mailboxCount":1,"sends":0}
+BRIDGE_PROCESS_ACTUAL {"name":"B","mode":"bridge","barrier":"before-lock","pid":19624,"hits":1,"releaseHits":0,"unreadable":0,"outcome":{"id":"failure-076a2e11-89ef-42e8-965d-cb206d356b34","outcome":"stored"},"admission":{"id":"out-609fbd81-aefd-44fb-b4d8-7833c2fd574f","outcome":"not-stored","error":"Error: Bridge lifetime total/target budget exhausted (256/64); no automatic replenishment"},"totalUsed":1,"canonicalCount":64,"failureCount":1,"inboxCount":65,"selectedCount":0,"mailboxCount":1,"sends":0}
+BRIDGE_PROCESS_ACTUAL {"name":"restart","mode":"bridge","pid":19669,"hits":0,"releaseHits":0,"unreadable":0,"totalUsed":0,"canonicalCount":64,"failureCount":1,"inboxCount":65,"selectedCount":0,"mailboxCount":1,"sends":0}
+✔ bridge review B2 two OS processes mixed in/out real check-write window 64 target (2804.822083ms)
+BRIDGE_PROCESS_ACTUAL {"name":"A","mode":"bridge","barrier":"before-lock","pid":19766,"hits":1,"releaseHits":0,"unreadable":0,"totalUsed":1,"canonicalCount":256,"failureCount":0,"inboxCount":256,"selectedCount":2,"mailboxCount":1,"sends":0}
+BRIDGE_PROCESS_ACTUAL {"name":"B","mode":"bridge","barrier":"before-lock","pid":19767,"hits":1,"releaseHits":0,"unreadable":0,"outcome":{"id":"failure-bc0845d1-2592-4904-be54-b22e18a56fae","outcome":"stored"},"admission":{"id":"out-00398309-b840-4701-8ed4-87c67fe3eba3","outcome":"not-stored","error":"Error: Bridge lifetime total/target budget exhausted (256/64); no automatic replenishment"},"totalUsed":1,"canonicalCount":256,"failureCount":1,"inboxCount":257,"selectedCount":0,"mailboxCount":1,"sends":0}
+BRIDGE_PROCESS_ACTUAL {"name":"restart","mode":"bridge","pid":20204,"hits":0,"releaseHits":0,"unreadable":0,"totalUsed":0,"canonicalCount":256,"failureCount":1,"inboxCount":257,"selectedCount":0,"mailboxCount":1,"sends":0}
+✔ bridge review B2 two OS processes mixed in/out real check-write window 256 total (6949.565333ms)
+BRIDGE_PROCESS_ACTUAL {"name":"failed","mode":"bridge","fault":"pre-rename","pid":20231,"hits":1,"releaseHits":0,"unreadable":0,"totalUsed":1,"canonicalCount":0,"failureCount":1,"inboxCount":1,"selectedCount":1,"mailboxCount":0,"sends":0}
+BRIDGE_PROCESS_ACTUAL {"name":"success","mode":"bridge","pid":20271,"hits":0,"releaseHits":0,"unreadable":0,"totalUsed":1,"canonicalCount":1,"failureCount":1,"inboxCount":2,"selectedCount":3,"mailboxCount":1,"sends":0}
+✔ bridge review B3 native canonical pre-rename failure is formally discoverable and separate from later success (1365.845667ms)
+BRIDGE_PROCESS_ACTUAL {"name":"loser","mode":"bridge","pid":20445,"hits":0,"releaseHits":0,"unreadable":0,"totalUsed":1,"canonicalCount":0,"failureCount":1,"inboxCount":1,"selectedCount":1,"mailboxCount":0,"sends":0}
+BRIDGE_PROCESS_ACTUAL {"name":"winner","mode":"bridge","barrier":"ifAbsent","pid":20374,"hits":1,"releaseHits":0,"unreadable":0,"totalUsed":1,"canonicalCount":1,"failureCount":1,"inboxCount":2,"selectedCount":3,"mailboxCount":1,"sends":0}
+✔ bridge review B3 two OS processes: lock loser records independent failure before canonical winner outcome (1378.824458ms)
+BRIDGE_PROCESS_ACTUAL {"name":"fault","mode":"bridge","fault":"post-visible","pid":20466,"hits":1,"releaseHits":0,"unreadable":0,"totalUsed":1,"canonicalCount":1,"failureCount":0,"inboxCount":1,"selectedCount":2,"mailboxCount":0,"sends":0}
+BRIDGE_PROCESS_ACTUAL {"name":"restart","mode":"bridge","pid":20493,"hits":0,"releaseHits":0,"unreadable":0,"totalUsed":0,"canonicalCount":1,"failureCount":0,"inboxCount":1,"selectedCount":2,"mailboxCount":0,"sends":0}
+✔ bridge review B3 native post-rename visible retained across OS restart, disabled and no RPC (1352.196042ms)
+BRIDGE_PROCESS_ACTUAL {"name":"fault","mode":"bridge","fault":"post-unknown","pid":20520,"hits":1,"releaseHits":0,"unreadable":0,"totalUsed":1,"canonicalCount":1,"failureCount":1,"inboxCount":2,"selectedCount":2,"mailboxCount":0,"sends":0}
+BRIDGE_PROCESS_ACTUAL {"name":"restart","mode":"bridge","pid":20536,"hits":0,"releaseHits":0,"unreadable":0,"totalUsed":0,"canonicalCount":1,"failureCount":1,"inboxCount":2,"selectedCount":2,"mailboxCount":0,"sends":0}
+✔ bridge review B3 native post-rename unknown retained across OS restart, disabled and no RPC (1323.108917ms)
+BRIDGE_PROCESS_ACTUAL {"name":"first","mode":"bridge","barrier":"before-lock","pid":20563,"hits":1,"releaseHits":0,"unreadable":0,"totalUsed":1,"canonicalCount":1,"failureCount":0,"inboxCount":1,"selectedCount":2,"mailboxCount":1,"sends":0}
+BRIDGE_PROCESS_ACTUAL {"name":"duplicate","mode":"bridge","barrier":"before-lock","pid":20564,"hits":1,"releaseHits":0,"unreadable":0,"totalUsed":0,"canonicalCount":1,"failureCount":0,"inboxCount":1,"selectedCount":2,"mailboxCount":1,"sends":0}
+✔ bridge review B2 two OS processes: duplicate discovered under lock consumes neither persistent nor adapter quota (768.686167ms)
+BRIDGE_PROCESS_ACTUAL {"name":"acker","mode":"ack","pid":20689,"hits":0,"releaseHits":0,"unreadable":0}
+BRIDGE_PROCESS_ACTUAL {"name":"writer","mode":"host","barrier":"release","pid":20567,"hits":1,"releaseHits":1,"unreadable":0,"mailboxCount":1}
+BRIDGE_SECOND_RELEASE {"mode":"host","releaseFault":"fstat","writerPid":20567,"ackPid":20689,"primaryHits":1,"barrierHits":1,"ack":{"id":"3a9cc47b-3854-40cc-abd5-903134efca5c","runId":"e62ae683-1827-4809-80bf-9fbb14a8491f","from":"host","source":"host","to":"a","content":"host release body","createdAt":1789868873829,"ackedAt":1789868874455},"receipts":[{"to":"a","id":"3a9cc47b-3854-40cc-abd5-903134efca5c","stored":false,"outcome":"unknown","error":"Error: Atomic write /private/tmp/pm-test-oiAcac/t/bridge-process-FQIbrD/.pi/mesh/messages/e62ae683-1827-4809-80bf-9fbb14a8491f/3a9cc47b-3854-40cc-abd5-903134efca5c.json (unknown; durability unconfirmed): Error: native release fstat EIO"}]}
+✔ bridge second S1 two OS processes host ACK before native release fstat (1359.825875ms)
+BRIDGE_PROCESS_ACTUAL {"name":"acker","mode":"ack","pid":20991,"hits":0,"releaseHits":0,"unreadable":0}
+BRIDGE_PROCESS_ACTUAL {"name":"writer","mode":"host","barrier":"release","pid":20798,"hits":1,"releaseHits":1,"unreadable":0,"mailboxCount":1}
+BRIDGE_SECOND_RELEASE {"mode":"host","releaseFault":"lstat","writerPid":20798,"ackPid":20991,"primaryHits":1,"barrierHits":1,"ack":{"id":"8e8f1a78-b955-4420-abf1-f23f889233d1","runId":"bb945d97-63ad-4490-bae9-6cb00dd807e8","from":"host","source":"host","to":"a","content":"host release body","createdAt":1789868875226,"ackedAt":1789868875897},"receipts":[{"to":"a","id":"8e8f1a78-b955-4420-abf1-f23f889233d1","stored":false,"outcome":"unknown","error":"Error: Atomic write /private/tmp/pm-test-oiAcac/t/bridge-process-gAUr7z/.pi/mesh/messages/bb945d97-63ad-4490-bae9-6cb00dd807e8/8e8f1a78-b955-4420-abf1-f23f889233d1.json (unknown; durability unconfirmed): Error: native release lstat EIO"}]}
+✔ bridge second S1 two OS processes host ACK before native release lstat (1452.346042ms)
+BRIDGE_PROCESS_ACTUAL {"name":"acker","mode":"ack","pid":21038,"hits":0,"releaseHits":0,"unreadable":0}
+BRIDGE_PROCESS_ACTUAL {"name":"writer","mode":"host","barrier":"release","pid":21037,"hits":1,"releaseHits":1,"unreadable":0,"mailboxCount":1}
+BRIDGE_SECOND_RELEASE {"mode":"host","releaseFault":"unlink","writerPid":21037,"ackPid":21038,"primaryHits":1,"barrierHits":1,"ack":{"id":"0bf21711-4d90-4739-86d3-4d1fd7412037","runId":"84a78f75-b55d-4f4c-b876-38277c2df637","from":"host","source":"host","to":"a","content":"host release body","createdAt":1789868876663,"ackedAt":1789868877327},"receipts":[{"to":"a","id":"0bf21711-4d90-4739-86d3-4d1fd7412037","stored":false,"outcome":"unknown","error":"Error: Atomic write /private/tmp/pm-test-oiAcac/t/bridge-process-boJnUl/.pi/mesh/messages/84a78f75-b55d-4f4c-b876-38277c2df637/0bf21711-4d90-4739-86d3-4d1fd7412037.json (unknown; durability unconfirmed): Error: native release unlink EIO"}]}
+✔ bridge second S1 two OS processes host ACK before native release unlink (1420.478292ms)
+BRIDGE_PROCESS_ACTUAL {"name":"acker","mode":"ack","pid":21080,"hits":0,"releaseHits":0,"unreadable":0}
+BRIDGE_PROCESS_ACTUAL {"name":"writer","mode":"host","barrier":"release","pid":21079,"hits":1,"releaseHits":1,"unreadable":0,"mailboxCount":1}
+BRIDGE_SECOND_RELEASE {"mode":"host","releaseFault":"close","writerPid":21079,"ackPid":21080,"primaryHits":1,"barrierHits":1,"ack":{"id":"e438fa4d-56a8-43a1-9af4-ee50e3c91972","runId":"969a5c47-2ec4-41f7-8214-1d55373a12ba","from":"host","source":"host","to":"a","content":"host release body","createdAt":1789868878059,"ackedAt":1789868878685},"receipts":[{"to":"a","id":"e438fa4d-56a8-43a1-9af4-ee50e3c91972","stored":false,"outcome":"unknown","error":"Error: Atomic write /private/tmp/pm-test-oiAcac/t/bridge-process-LfiY8s/.pi/mesh/messages/969a5c47-2ec4-41f7-8214-1d55373a12ba/e438fa4d-56a8-43a1-9af4-ee50e3c91972.json (unknown; durability unconfirmed): Error: native release close EIO"}]}
+✔ bridge second S1 two OS processes host ACK before native release close (1359.760458ms)
+BRIDGE_PROCESS_ACTUAL {"name":"acker","mode":"ack","pid":21206,"hits":0,"releaseHits":0,"unreadable":0}
+BRIDGE_PROCESS_ACTUAL {"name":"writer","mode":"child","barrier":"release","pid":21107,"hits":1,"releaseHits":1,"unreadable":0,"mailboxCount":1}
+BRIDGE_SECOND_RELEASE {"mode":"child","releaseFault":"fstat","writerPid":21107,"ackPid":21206,"primaryHits":1,"barrierHits":1,"ack":{"id":"9d2f4c40-077f-4c52-8ad7-2878b280f66e","runId":"a6fe0a81-e3dd-4275-9f3e-ddf6c48fbf4c","from":"a","to":"b","content":"child release body","source":"child","senderAttempt":0,"createdAt":1789868879425,"ackedAt":1789868880078},"receipts":[{"to":"b","id":"9d2f4c40-077f-4c52-8ad7-2878b280f66e","stored":false,"outcome":"unknown","error":"Error: Atomic write /private/tmp/pm-test-oiAcac/t/bridge-process-GpKgrC/.pi/mesh/messages/a6fe0a81-e3dd-4275-9f3e-ddf6c48fbf4c/9d2f4c40-077f-4c52-8ad7-2878b280f66e.json (unknown; durability unconfirmed): Error: native release fstat EIO"}]}
+✔ bridge second S1 two OS processes child ACK before native release fstat (1391.29125ms)
+BRIDGE_PROCESS_ACTUAL {"name":"acker","mode":"ack","pid":21327,"hits":0,"releaseHits":0,"unreadable":0}
+BRIDGE_PROCESS_ACTUAL {"name":"writer","mode":"child","barrier":"release","pid":21301,"hits":1,"releaseHits":1,"unreadable":0,"mailboxCount":1}
+BRIDGE_SECOND_RELEASE {"mode":"child","releaseFault":"lstat","writerPid":21301,"ackPid":21327,"primaryHits":1,"barrierHits":1,"ack":{"id":"e287906f-efdf-4b96-a206-e93926974a3d","runId":"5429083c-91a0-4736-a0b9-89e4fff81c87","from":"a","to":"b","content":"child release body","source":"child","senderAttempt":0,"createdAt":1789868880811,"ackedAt":1789868881459},"receipts":[{"to":"b","id":"e287906f-efdf-4b96-a206-e93926974a3d","stored":false,"outcome":"unknown","error":"Error: Atomic write /private/tmp/pm-test-oiAcac/t/bridge-process-N3Czua/.pi/mesh/messages/5429083c-91a0-4736-a0b9-89e4fff81c87/e287906f-efdf-4b96-a206-e93926974a3d.json (unknown; durability unconfirmed): Error: native release lstat EIO"}]}
+✔ bridge second S1 two OS processes child ACK before native release lstat (1383.802041ms)
+BRIDGE_PROCESS_ACTUAL {"name":"acker","mode":"ack","pid":21370,"hits":0,"releaseHits":0,"unreadable":0}
+BRIDGE_PROCESS_ACTUAL {"name":"writer","mode":"child","barrier":"release","pid":21344,"hits":1,"releaseHits":1,"unreadable":0,"mailboxCount":1}
+BRIDGE_SECOND_RELEASE {"mode":"child","releaseFault":"unlink","writerPid":21344,"ackPid":21370,"primaryHits":1,"barrierHits":1,"ack":{"id":"11f7bd22-86d5-4141-b4fa-13aba4ad184d","runId":"60915070-2ee5-4954-871f-a94d31d8721f","from":"a","to":"b","content":"child release body","source":"child","senderAttempt":0,"createdAt":1789868882190,"ackedAt":1789868882845},"receipts":[{"to":"b","id":"11f7bd22-86d5-4141-b4fa-13aba4ad184d","stored":false,"outcome":"unknown","error":"Error: Atomic write /private/tmp/pm-test-oiAcac/t/bridge-process-bt5MFi/.pi/mesh/messages/60915070-2ee5-4954-871f-a94d31d8721f/11f7bd22-86d5-4141-b4fa-13aba4ad184d.json (unknown; durability unconfirmed): Error: native release unlink EIO"}]}
+✔ bridge second S1 two OS processes child ACK before native release unlink (1383.987708ms)
+BRIDGE_PROCESS_ACTUAL {"name":"acker","mode":"ack","pid":21412,"hits":0,"releaseHits":0,"unreadable":0}
+BRIDGE_PROCESS_ACTUAL {"name":"writer","mode":"child","barrier":"release","pid":21372,"hits":1,"releaseHits":1,"unreadable":0,"mailboxCount":1}
+BRIDGE_SECOND_RELEASE {"mode":"child","releaseFault":"close","writerPid":21372,"ackPid":21412,"primaryHits":1,"barrierHits":1,"ack":{"id":"6c63e279-8581-4492-a584-d4337e0d2c1d","runId":"1679bace-015b-44db-a8bf-7677c715868f","from":"a","to":"b","content":"child release body","source":"child","senderAttempt":0,"createdAt":1789868883570,"ackedAt":1789868884202},"receipts":[{"to":"b","id":"6c63e279-8581-4492-a584-d4337e0d2c1d","stored":false,"outcome":"unknown","error":"Error: Atomic write /private/tmp/pm-test-oiAcac/t/bridge-process-2HZiGr/.pi/mesh/messages/1679bace-015b-44db-a8bf-7677c715868f/6c63e279-8581-4492-a584-d4337e0d2c1d.json (unknown; durability unconfirmed): Error: native release close EIO"}]}
+✔ bridge second S1 two OS processes child ACK before native release close (1355.215291ms)
+BRIDGE_PROCESS_ACTUAL {"name":"acker","mode":"ack","pid":21549,"hits":0,"releaseHits":0,"unreadable":0}
+BRIDGE_PROCESS_ACTUAL {"name":"writer","mode":"bridge","barrier":"release","pid":21414,"hits":1,"releaseHits":1,"unreadable":0,"totalUsed":1,"canonicalCount":1,"failureCount":1,"inboxCount":2,"selectedCount":2,"mailboxCount":0,"sends":0}
+BRIDGE_SECOND_RELEASE {"mode":"canonical","releaseFault":"fstat","writerPid":21414,"ackPid":21549,"primaryHits":1,"barrierHits":1,"ack":{"id":"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64","runId":"host-bridge","from":"host","source":"host","displayFrom":"Authenticated relay Host; NOT user authority","to":"host","createdAt":1789868884964,"content":"{\"schema\":\"pi-mesh.host-bridge/v1\",\"direction\":\"incoming\",\"local\":{\"sessionId\":\"host\",\"instanceId\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},\"source\":{\"sessionId\":\"peer\",\"instanceId\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"},\"messageId\":\"same\",\"target\":{\"root\":\"/private/tmp/pm-test-oiAcac/t/bridge-process-96y3cZ\",\"sessionId\":\"host\",\"kind\":\"mesh\",\"runId\":\"f22fca21-a1f1-4595-9c68-b03b73ca9c88\",\"nodeId\":\"a\",\"attempt\":0},\"routeId\":\"route\",\"mode\":\"store\",\"envelope\":{\"version\":1,\"origin\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"correlationId\":\"writer\",\"expiresAt\":1789868914960,\"hops\":0,\"budget\":4,\"payload\":{\"version\":1,\"route\":\"route\",\"target\":{\"root\":\"/private/tmp/pm-test-oiAcac/t/bridge-process-96y3cZ\",\"sessionId\":\"host\",\"kind\":\"mesh\",\"runId\":\"f22fca21-a1f1-4595-9c68-b03b73ca9c88\",\"nodeId\":\"a\",\"attempt\":0},\"content\":\"body-writer\",\"claim\":\"host-transcribed-not-user\"}},\"claim\":\"host-transcribed-not-user\"}","ackedAt":1789868885649},"selected":{"namespace":"host-bridge","count":2,"entries":[{"id":"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64","runId":"host-bridge","from":"host","source":"host","displayFrom":"Authenticated relay Host; NOT user authority","to":"host","createdAt":1789868884964,"content":"{\"schema\":\"pi-mesh.host-bridge/v1\",\"direction\":\"incoming\",\"local\":{\"sessionId\":\"host\",\"instanceId\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},\"source\":{\"sessionId\":\"peer\",\"instanceId\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"},\"messageId\":\"same\",\"target\":{\"root\":\"/private/tmp/pm-test-oiAcac/t/bridge-process-96y3cZ\",\"sessionId\":\"host\",\"kind\":\"mesh\",\"runId\":\"f22fca21-a1f1-4595-9c68-b03b73ca9c88\",\"nodeId\":\"a\",\"attempt\":0},\"routeId\":\"route\",\"mode\":\"store\",\"envelope\":{\"version\":1,\"origin\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"correlationId\":\"writer\",\"expiresAt\":1789868914960,\"hops\":0,\"budget\":4,\"payload\":{\"version\":1,\"route\":\"route\",\"target\":{\"root\":\"/private/tmp/pm-test-oiAcac/t/bridge-process-96y3cZ\",\"sessionId\":\"host\",\"kind\":\"mesh\",\"runId\":\"f22fca21-a1f1-4595-9c68-b03b73ca9c88\",\"nodeId\":\"a\",\"attempt\":0},\"content\":\"body-writer\",\"claim\":\"host-transcribed-not-user\"}},\"claim\":\"host-transcribed-not-user\"}","ackedAt":1789868885649},{"id":"failure-43993789-8c39-4664-9fb7-51f14ff1d49b","runId":"host-bridge","from":"host","source":"host","displayFrom":"Authenticated relay Host; NOT user authority","to":"failures","createdAt":1789868885684,"content":"{\"schema\":\"pi-mesh.host-bridge-failure/v1\",\"direction\":\"incoming\",\"local\":{\"sessionId\":\"host\",\"instanceId\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},\"source\":{\"sessionId\":\"peer\",\"instanceId\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"},\"messageId\":\"same\",\"target\":{\"root\":\"/private/tmp/pm-test-oiAcac/t/bridge-process-96y3cZ\",\"sessionId\":\"host\",\"kind\":\"mesh\",\"runId\":\"f22fca21-a1f1-4595-9c68-b03b73ca9c88\",\"nodeId\":\"a\",\"attempt\":0},\"routeId\":\"route\",\"mode\":\"store\",\"envelope\":{\"version\":1,\"origin\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"correlationId\":\"writer\",\"expiresAt\":1789868914960,\"hops\":0,\"budget\":4,\"payload\":{\"version\":1,\"route\":\"route\",\"target\":{\"root\":\"/private/tmp/pm-test-oiAcac/t/bridge-process-96y3cZ\",\"sessionId\":\"host\",\"kind\":\"mesh\",\"runId\":\"f22fca21-a1f1-4595-9c68-b03b73ca9c88\",\"nodeId\":\"a\",\"attempt\":0},\"content\":\"body-writer\",\"claim\":\"host-transcribed-not-user\"}},\"claim\":\"host-transcribed-not-user\",\"inboxId\":\"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64\",\"admission\":{\"id\":\"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64\",\"outcome\":\"unknown\",\"error\":\"Error: native release fstat EIO\"},\"completed\":false}"}],"meaning":"Use messageId for local evidence (large bodies remain at evidencePath); ack retains dedup tombstones."}}
+✔ bridge second S1 two OS processes canonical ACK before native release fstat (1464.88225ms)
+BRIDGE_PROCESS_ACTUAL {"name":"acker","mode":"ack","pid":21844,"hits":0,"releaseHits":0,"unreadable":0}
+BRIDGE_PROCESS_ACTUAL {"name":"writer","mode":"bridge","barrier":"release","pid":21838,"hits":1,"releaseHits":1,"unreadable":0,"totalUsed":1,"canonicalCount":1,"failureCount":1,"inboxCount":2,"selectedCount":2,"mailboxCount":0,"sends":0}
+BRIDGE_SECOND_RELEASE {"mode":"canonical","releaseFault":"lstat","writerPid":21838,"ackPid":21844,"primaryHits":1,"barrierHits":1,"ack":{"id":"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64","runId":"host-bridge","from":"host","source":"host","displayFrom":"Authenticated relay Host; NOT user authority","to":"host","createdAt":1789868886392,"content":"{\"schema\":\"pi-mesh.host-bridge/v1\",\"direction\":\"incoming\",\"local\":{\"sessionId\":\"host\",\"instanceId\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},\"source\":{\"sessionId\":\"peer\",\"instanceId\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"},\"messageId\":\"same\",\"target\":{\"root\":\"/private/tmp/pm-test-oiAcac/t/bridge-process-zmrqsQ\",\"sessionId\":\"host\",\"kind\":\"mesh\",\"runId\":\"071bedf5-bb54-4511-bf57-b7f8e66634b0\",\"nodeId\":\"a\",\"attempt\":0},\"routeId\":\"route\",\"mode\":\"store\",\"envelope\":{\"version\":1,\"origin\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"correlationId\":\"writer\",\"expiresAt\":1789868916388,\"hops\":0,\"budget\":4,\"payload\":{\"version\":1,\"route\":\"route\",\"target\":{\"root\":\"/private/tmp/pm-test-oiAcac/t/bridge-process-zmrqsQ\",\"sessionId\":\"host\",\"kind\":\"mesh\",\"runId\":\"071bedf5-bb54-4511-bf57-b7f8e66634b0\",\"nodeId\":\"a\",\"attempt\":0},\"content\":\"body-writer\",\"claim\":\"host-transcribed-not-user\"}},\"claim\":\"host-transcribed-not-user\"}","ackedAt":1789868887020},"selected":{"namespace":"host-bridge","count":2,"entries":[{"id":"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64","runId":"host-bridge","from":"host","source":"host","displayFrom":"Authenticated relay Host; NOT user authority","to":"host","createdAt":1789868886392,"content":"{\"schema\":\"pi-mesh.host-bridge/v1\",\"direction\":\"incoming\",\"local\":{\"sessionId\":\"host\",\"instanceId\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},\"source\":{\"sessionId\":\"peer\",\"instanceId\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"},\"messageId\":\"same\",\"target\":{\"root\":\"/private/tmp/pm-test-oiAcac/t/bridge-process-zmrqsQ\",\"sessionId\":\"host\",\"kind\":\"mesh\",\"runId\":\"071bedf5-bb54-4511-bf57-b7f8e66634b0\",\"nodeId\":\"a\",\"attempt\":0},\"routeId\":\"route\",\"mode\":\"store\",\"envelope\":{\"version\":1,\"origin\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"correlationId\":\"writer\",\"expiresAt\":1789868916388,\"hops\":0,\"budget\":4,\"payload\":{\"version\":1,\"route\":\"route\",\"target\":{\"root\":\"/private/tmp/pm-test-oiAcac/t/bridge-process-zmrqsQ\",\"sessionId\":\"host\",\"kind\":\"mesh\",\"runId\":\"071bedf5-bb54-4511-bf57-b7f8e66634b0\",\"nodeId\":\"a\",\"attempt\":0},\"content\":\"body-writer\",\"claim\":\"host-transcribed-not-user\"}},\"claim\":\"host-transcribed-not-user\"}","ackedAt":1789868887020},{"id":"failure-adf948af-88e5-4373-b91a-2d55745efa2d","runId":"host-bridge","from":"host","source":"host","displayFrom":"Authenticated relay Host; NOT user authority","to":"failures","createdAt":1789868887051,"content":"{\"schema\":\"pi-mesh.host-bridge-failure/v1\",\"direction\":\"incoming\",\"local\":{\"sessionId\":\"host\",\"instanceId\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},\"source\":{\"sessionId\":\"peer\",\"instanceId\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"},\"messageId\":\"same\",\"target\":{\"root\":\"/private/tmp/pm-test-oiAcac/t/bridge-process-zmrqsQ\",\"sessionId\":\"host\",\"kind\":\"mesh\",\"runId\":\"071bedf5-bb54-4511-bf57-b7f8e66634b0\",\"nodeId\":\"a\",\"attempt\":0},\"routeId\":\"route\",\"mode\":\"store\",\"envelope\":{\"version\":1,\"origin\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"correlationId\":\"writer\",\"expiresAt\":1789868916388,\"hops\":0,\"budget\":4,\"payload\":{\"version\":1,\"route\":\"route\",\"target\":{\"root\":\"/private/tmp/pm-test-oiAcac/t/bridge-process-zmrqsQ\",\"sessionId\":\"host\",\"kind\":\"mesh\",\"runId\":\"071bedf5-bb54-4511-bf57-b7f8e66634b0\",\"nodeId\":\"a\",\"attempt\":0},\"content\":\"body-writer\",\"claim\":\"host-transcribed-not-user\"}},\"claim\":\"host-transcribed-not-user\",\"inboxId\":\"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64\",\"admission\":{\"id\":\"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64\",\"outcome\":\"unknown\",\"error\":\"Error: native release lstat EIO\"},\"completed\":false}"}],"meaning":"Use messageId for local evidence (large bodies remain at evidencePath); ack retains dedup tombstones."}}
+✔ bridge second S1 two OS processes canonical ACK before native release lstat (1363.802958ms)
+BRIDGE_PROCESS_ACTUAL {"name":"acker","mode":"ack","pid":21886,"hits":0,"releaseHits":0,"unreadable":0}
+BRIDGE_PROCESS_ACTUAL {"name":"writer","mode":"bridge","barrier":"release","pid":21871,"hits":1,"releaseHits":1,"unreadable":0,"totalUsed":1,"canonicalCount":1,"failureCount":1,"inboxCount":2,"selectedCount":2,"mailboxCount":0,"sends":0}
+BRIDGE_SECOND_RELEASE {"mode":"canonical","releaseFault":"unlink","writerPid":21871,"ackPid":21886,"primaryHits":1,"barrierHits":1,"ack":{"id":"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64","runId":"host-bridge","from":"host","source":"host","displayFrom":"Authenticated relay Host; NOT user authority","to":"host","createdAt":1789868887742,"content":"{\"schema\":\"pi-mesh.host-bridge/v1\",\"direction\":\"incoming\",\"local\":{\"sessionId\":\"host\",\"instanceId\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},\"source\":{\"sessionId\":\"peer\",\"instanceId\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"},\"messageId\":\"same\",\"target\":{\"root\":\"/private/tmp/pm-test-oiAcac/t/bridge-process-lEiCQo\",\"sessionId\":\"host\",\"kind\":\"mesh\",\"runId\":\"e566199d-4bbf-49d9-a997-68c74587f724\",\"nodeId\":\"a\",\"attempt\":0},\"routeId\":\"route\",\"mode\":\"store\",\"envelope\":{\"version\":1,\"origin\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"correlationId\":\"writer\",\"expiresAt\":1789868917738,\"hops\":0,\"budget\":4,\"payload\":{\"version\":1,\"route\":\"route\",\"target\":{\"root\":\"/private/tmp/pm-test-oiAcac/t/bridge-process-lEiCQo\",\"sessionId\":\"host\",\"kind\":\"mesh\",\"runId\":\"e566199d-4bbf-49d9-a997-68c74587f724\",\"nodeId\":\"a\",\"attempt\":0},\"content\":\"body-writer\",\"claim\":\"host-transcribed-not-user\"}},\"claim\":\"host-transcribed-not-user\"}","ackedAt":1789868888368},"selected":{"namespace":"host-bridge","count":2,"entries":[{"id":"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64","runId":"host-bridge","from":"host","source":"host","displayFrom":"Authenticated relay Host; NOT user authority","to":"host","createdAt":1789868887742,"content":"{\"schema\":\"pi-mesh.host-bridge/v1\",\"direction\":\"incoming\",\"local\":{\"sessionId\":\"host\",\"instanceId\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},\"source\":{\"sessionId\":\"peer\",\"instanceId\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"},\"messageId\":\"same\",\"target\":{\"root\":\"/private/tmp/pm-test-oiAcac/t/bridge-process-lEiCQo\",\"sessionId\":\"host\",\"kind\":\"mesh\",\"runId\":\"e566199d-4bbf-49d9-a997-68c74587f724\",\"nodeId\":\"a\",\"attempt\":0},\"routeId\":\"route\",\"mode\":\"store\",\"envelope\":{\"version\":1,\"origin\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"correlationId\":\"writer\",\"expiresAt\":1789868917738,\"hops\":0,\"budget\":4,\"payload\":{\"version\":1,\"route\":\"route\",\"target\":{\"root\":\"/private/tmp/pm-test-oiAcac/t/bridge-process-lEiCQo\",\"sessionId\":\"host\",\"kind\":\"mesh\",\"runId\":\"e566199d-4bbf-49d9-a997-68c74587f724\",\"nodeId\":\"a\",\"attempt\":0},\"content\":\"body-writer\",\"claim\":\"host-transcribed-not-user\"}},\"claim\":\"host-transcribed-not-user\"}","ackedAt":1789868888368},{"id":"failure-b55537d0-86e0-47e1-b990-8b7af82ad84e","runId":"host-bridge","from":"host","source":"host","displayFrom":"Authenticated relay Host; NOT user authority","to":"failures","createdAt":1789868888399,"content":"{\"schema\":\"pi-mesh.host-bridge-failure/v1\",\"direction\":\"incoming\",\"local\":{\"sessionId\":\"host\",\"instanceId\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},\"source\":{\"sessionId\":\"peer\",\"instanceId\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"},\"messageId\":\"same\",\"target\":{\"root\":\"/private/tmp/pm-test-oiAcac/t/bridge-process-lEiCQo\",\"sessionId\":\"host\",\"kind\":\"mesh\",\"runId\":\"e566199d-4bbf-49d9-a997-68c74587f724\",\"nodeId\":\"a\",\"attempt\":0},\"routeId\":\"route\",\"mode\":\"store\",\"envelope\":{\"version\":1,\"origin\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"correlationId\":\"writer\",\"expiresAt\":1789868917738,\"hops\":0,\"budget\":4,\"payload\":{\"version\":1,\"route\":\"route\",\"target\":{\"root\":\"/private/tmp/pm-test-oiAcac/t/bridge-process-lEiCQo\",\"sessionId\":\"host\",\"kind\":\"mesh\",\"runId\":\"e566199d-4bbf-49d9-a997-68c74587f724\",\"nodeId\":\"a\",\"attempt\":0},\"content\":\"body-writer\",\"claim\":\"host-transcribed-not-user\"}},\"claim\":\"host-transcribed-not-user\",\"inboxId\":\"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64\",\"admission\":{\"id\":\"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64\",\"outcome\":\"unknown\",\"error\":\"Error: native release unlink EIO\"},\"completed\":false}"}],"meaning":"Use messageId for local evidence (large bodies remain at evidencePath); ack retains dedup tombstones."}}
+✔ bridge second S1 two OS processes canonical ACK before native release unlink (1349.128708ms)
+BRIDGE_PROCESS_ACTUAL {"name":"acker","mode":"ack","pid":21948,"hits":0,"releaseHits":0,"unreadable":0}
+BRIDGE_PROCESS_ACTUAL {"name":"writer","mode":"bridge","barrier":"release","pid":21917,"hits":1,"releaseHits":1,"unreadable":0,"totalUsed":1,"canonicalCount":1,"failureCount":1,"inboxCount":2,"selectedCount":2,"mailboxCount":0,"sends":0}
+BRIDGE_SECOND_RELEASE {"mode":"canonical","releaseFault":"close","writerPid":21917,"ackPid":21948,"primaryHits":1,"barrierHits":1,"ack":{"id":"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64","runId":"host-bridge","from":"host","source":"host","displayFrom":"Authenticated relay Host; NOT user authority","to":"host","createdAt":1789868889192,"content":"{\"schema\":\"pi-mesh.host-bridge/v1\",\"direction\":\"incoming\",\"local\":{\"sessionId\":\"host\",\"instanceId\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},\"source\":{\"sessionId\":\"peer\",\"instanceId\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"},\"messageId\":\"same\",\"target\":{\"root\":\"/private/tmp/pm-test-oiAcac/t/bridge-process-faNgvJ\",\"sessionId\":\"host\",\"kind\":\"mesh\",\"runId\":\"b0aacc81-05ad-4787-9a85-c3e8627b1443\",\"nodeId\":\"a\",\"attempt\":0},\"routeId\":\"route\",\"mode\":\"store\",\"envelope\":{\"version\":1,\"origin\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"correlationId\":\"writer\",\"expiresAt\":1789868919182,\"hops\":0,\"budget\":4,\"payload\":{\"version\":1,\"route\":\"route\",\"target\":{\"root\":\"/private/tmp/pm-test-oiAcac/t/bridge-process-faNgvJ\",\"sessionId\":\"host\",\"kind\":\"mesh\",\"runId\":\"b0aacc81-05ad-4787-9a85-c3e8627b1443\",\"nodeId\":\"a\",\"attempt\":0},\"content\":\"body-writer\",\"claim\":\"host-transcribed-not-user\"}},\"claim\":\"host-transcribed-not-user\"}","ackedAt":1789868889913},"selected":{"namespace":"host-bridge","count":2,"entries":[{"id":"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64","runId":"host-bridge","from":"host","source":"host","displayFrom":"Authenticated relay Host; NOT user authority","to":"host","createdAt":1789868889192,"content":"{\"schema\":\"pi-mesh.host-bridge/v1\",\"direction\":\"incoming\",\"local\":{\"sessionId\":\"host\",\"instanceId\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},\"source\":{\"sessionId\":\"peer\",\"instanceId\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"},\"messageId\":\"same\",\"target\":{\"root\":\"/private/tmp/pm-test-oiAcac/t/bridge-process-faNgvJ\",\"sessionId\":\"host\",\"kind\":\"mesh\",\"runId\":\"b0aacc81-05ad-4787-9a85-c3e8627b1443\",\"nodeId\":\"a\",\"attempt\":0},\"routeId\":\"route\",\"mode\":\"store\",\"envelope\":{\"version\":1,\"origin\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"correlationId\":\"writer\",\"expiresAt\":1789868919182,\"hops\":0,\"budget\":4,\"payload\":{\"version\":1,\"route\":\"route\",\"target\":{\"root\":\"/private/tmp/pm-test-oiAcac/t/bridge-process-faNgvJ\",\"sessionId\":\"host\",\"kind\":\"mesh\",\"runId\":\"b0aacc81-05ad-4787-9a85-c3e8627b1443\",\"nodeId\":\"a\",\"attempt\":0},\"content\":\"body-writer\",\"claim\":\"host-transcribed-not-user\"}},\"claim\":\"host-transcribed-not-user\"}","ackedAt":1789868889913},{"id":"failure-d0a7f233-bd3b-4d8d-8d23-190a6e107fa9","runId":"host-bridge","from":"host","source":"host","displayFrom":"Authenticated relay Host; NOT user authority","to":"failures","createdAt":1789868889949,"content":"{\"schema\":\"pi-mesh.host-bridge-failure/v1\",\"direction\":\"incoming\",\"local\":{\"sessionId\":\"host\",\"instanceId\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},\"source\":{\"sessionId\":\"peer\",\"instanceId\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"},\"messageId\":\"same\",\"target\":{\"root\":\"/private/tmp/pm-test-oiAcac/t/bridge-process-faNgvJ\",\"sessionId\":\"host\",\"kind\":\"mesh\",\"runId\":\"b0aacc81-05ad-4787-9a85-c3e8627b1443\",\"nodeId\":\"a\",\"attempt\":0},\"routeId\":\"route\",\"mode\":\"store\",\"envelope\":{\"version\":1,\"origin\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"correlationId\":\"writer\",\"expiresAt\":1789868919182,\"hops\":0,\"budget\":4,\"payload\":{\"version\":1,\"route\":\"route\",\"target\":{\"root\":\"/private/tmp/pm-test-oiAcac/t/bridge-process-faNgvJ\",\"sessionId\":\"host\",\"kind\":\"mesh\",\"runId\":\"b0aacc81-05ad-4787-9a85-c3e8627b1443\",\"nodeId\":\"a\",\"attempt\":0},\"content\":\"body-writer\",\"claim\":\"host-transcribed-not-user\"}},\"claim\":\"host-transcribed-not-user\",\"inboxId\":\"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64\",\"admission\":{\"id\":\"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64\",\"outcome\":\"unknown\",\"error\":\"Error: native release close EIO\"},\"completed\":false}"}],"meaning":"Use messageId for local evidence (large bodies remain at evidencePath); ack retains dedup tombstones."}}
+✔ bridge second S1 two OS processes canonical ACK before native release close (1561.778875ms)
+BRIDGE_PROCESS_ACTUAL {"name":"acker","mode":"ack","pid":22101,"hits":0,"releaseHits":0,"unreadable":0}
+BRIDGE_PROCESS_ACTUAL {"name":"writer","mode":"bridge","barrier":"release","pid":21965,"hits":1,"releaseHits":1,"unreadable":0,"totalUsed":1,"canonicalCount":1,"failureCount":0,"inboxCount":1,"selectedCount":2,"mailboxCount":1,"sends":0}
+BRIDGE_SECOND_RELEASE {"mode":"mailbox","releaseFault":"fstat","writerPid":21965,"ackPid":22101,"primaryHits":1,"barrierHits":1,"ack":{"id":"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64","runId":"92867918-a8ed-4ad1-b031-5c7d24ff2b77","from":"host","source":"host","displayFrom":"Authenticated relay bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb; NOT user authority","to":"a","content":"body-writer","createdAt":1789868890685,"bridge":{"inboxId":"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64","sourceSessionId":"peer","sourceInstanceId":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","origin":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","correlationId":"writer","expiresAt":1789868920669,"hops":0,"budget":4,"routeId":"route","claim":"host-transcribed-not-user"},"ackedAt":1789868891314},"selected":{"namespace":"host-bridge","count":2,"entries":[{"id":"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64","runId":"host-bridge","from":"host","source":"host","displayFrom":"Authenticated relay Host; NOT user authority","to":"host","createdAt":1789868890673,"content":"{\"schema\":\"pi-mesh.host-bridge/v1\",\"direction\":\"incoming\",\"local\":{\"sessionId\":\"host\",\"instanceId\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},\"source\":{\"sessionId\":\"peer\",\"instanceId\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"},\"messageId\":\"same\",\"target\":{\"root\":\"/private/tmp/pm-test-oiAcac/t/bridge-process-ekqKlP\",\"sessionId\":\"host\",\"kind\":\"mesh\",\"runId\":\"92867918-a8ed-4ad1-b031-5c7d24ff2b77\",\"nodeId\":\"a\",\"attempt\":0},\"routeId\":\"route\",\"mode\":\"store\",\"envelope\":{\"version\":1,\"origin\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"correlationId\":\"writer\",\"expiresAt\":1789868920669,\"hops\":0,\"budget\":4,\"payload\":{\"version\":1,\"route\":\"route\",\"target\":{\"root\":\"/private/tmp/pm-test-oiAcac/t/bridge-process-ekqKlP\",\"sessionId\":\"host\",\"kind\":\"mesh\",\"runId\":\"92867918-a8ed-4ad1-b031-5c7d24ff2b77\",\"nodeId\":\"a\",\"attempt\":0},\"content\":\"body-writer\",\"claim\":\"host-transcribed-not-user\"}},\"claim\":\"host-transcribed-not-user\"}"},{"id":"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64-outcome","runId":"host-bridge","from":"host","source":"host","displayFrom":"Authenticated relay Host; NOT user authority","to":"host","createdAt":1789868891345,"content":"{\"inboxId\":\"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64\",\"admission\":{\"id\":\"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64\",\"outcome\":\"stored\"},\"mailbox\":{\"id\":\"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64\",\"outcome\":\"unknown\",\"error\":\"Error: native release fstat EIO\"},\"notification\":\"not-requested\",\"completed\":false}"}],"meaning":"Use messageId for local evidence (large bodies remain at evidencePath); ack retains dedup tombstones."}}
+✔ bridge second S1 two OS processes mailbox ACK before native release fstat (1388.969583ms)
+BRIDGE_PROCESS_ACTUAL {"name":"acker","mode":"ack","pid":22192,"hits":0,"releaseHits":0,"unreadable":0}
+BRIDGE_PROCESS_ACTUAL {"name":"writer","mode":"bridge","barrier":"release","pid":22149,"hits":1,"releaseHits":1,"unreadable":0,"totalUsed":1,"canonicalCount":1,"failureCount":0,"inboxCount":1,"selectedCount":2,"mailboxCount":1,"sends":0}
+BRIDGE_SECOND_RELEASE {"mode":"mailbox","releaseFault":"lstat","writerPid":22149,"ackPid":22192,"primaryHits":1,"barrierHits":1,"ack":{"id":"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64","runId":"0f868c57-c68b-4230-93aa-f4f4db722874","from":"host","source":"host","displayFrom":"Authenticated relay bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb; NOT user authority","to":"a","content":"body-writer","createdAt":1789868892070,"bridge":{"inboxId":"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64","sourceSessionId":"peer","sourceInstanceId":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","origin":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","correlationId":"writer","expiresAt":1789868922054,"hops":0,"budget":4,"routeId":"route","claim":"host-transcribed-not-user"},"ackedAt":1789868892701},"selected":{"namespace":"host-bridge","count":2,"entries":[{"id":"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64","runId":"host-bridge","from":"host","source":"host","displayFrom":"Authenticated relay Host; NOT user authority","to":"host","createdAt":1789868892058,"content":"{\"schema\":\"pi-mesh.host-bridge/v1\",\"direction\":\"incoming\",\"local\":{\"sessionId\":\"host\",\"instanceId\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},\"source\":{\"sessionId\":\"peer\",\"instanceId\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"},\"messageId\":\"same\",\"target\":{\"root\":\"/private/tmp/pm-test-oiAcac/t/bridge-process-E6rSLX\",\"sessionId\":\"host\",\"kind\":\"mesh\",\"runId\":\"0f868c57-c68b-4230-93aa-f4f4db722874\",\"nodeId\":\"a\",\"attempt\":0},\"routeId\":\"route\",\"mode\":\"store\",\"envelope\":{\"version\":1,\"origin\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"correlationId\":\"writer\",\"expiresAt\":1789868922054,\"hops\":0,\"budget\":4,\"payload\":{\"version\":1,\"route\":\"route\",\"target\":{\"root\":\"/private/tmp/pm-test-oiAcac/t/bridge-process-E6rSLX\",\"sessionId\":\"host\",\"kind\":\"mesh\",\"runId\":\"0f868c57-c68b-4230-93aa-f4f4db722874\",\"nodeId\":\"a\",\"attempt\":0},\"content\":\"body-writer\",\"claim\":\"host-transcribed-not-user\"}},\"claim\":\"host-transcribed-not-user\"}"},{"id":"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64-outcome","runId":"host-bridge","from":"host","source":"host","displayFrom":"Authenticated relay Host; NOT user authority","to":"host","createdAt":1789868892733,"content":"{\"inboxId\":\"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64\",\"admission\":{\"id\":\"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64\",\"outcome\":\"stored\"},\"mailbox\":{\"id\":\"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64\",\"outcome\":\"unknown\",\"error\":\"Error: native release lstat EIO\"},\"notification\":\"not-requested\",\"completed\":false}"}],"meaning":"Use messageId for local evidence (large bodies remain at evidencePath); ack retains dedup tombstones."}}
+✔ bridge second S1 two OS processes mailbox ACK before native release lstat (1389.266708ms)
+BRIDGE_PROCESS_ACTUAL {"name":"acker","mode":"ack","pid":22221,"hits":0,"releaseHits":0,"unreadable":0}
+BRIDGE_PROCESS_ACTUAL {"name":"writer","mode":"bridge","barrier":"release","pid":22220,"hits":1,"releaseHits":1,"unreadable":0,"totalUsed":1,"canonicalCount":1,"failureCount":0,"inboxCount":1,"selectedCount":2,"mailboxCount":1,"sends":0}
+BRIDGE_SECOND_RELEASE {"mode":"mailbox","releaseFault":"unlink","writerPid":22220,"ackPid":22221,"primaryHits":1,"barrierHits":1,"ack":{"id":"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64","runId":"c46dcbff-8ad8-4157-86d9-30ea662cb5eb","from":"host","source":"host","displayFrom":"Authenticated relay bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb; NOT user authority","to":"a","content":"body-writer","createdAt":1789868893455,"bridge":{"inboxId":"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64","sourceSessionId":"peer","sourceInstanceId":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","origin":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","correlationId":"writer","expiresAt":1789868923438,"hops":0,"budget":4,"routeId":"route","claim":"host-transcribed-not-user"},"ackedAt":1789868894112},"selected":{"namespace":"host-bridge","count":2,"entries":[{"id":"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64","runId":"host-bridge","from":"host","source":"host","displayFrom":"Authenticated relay Host; NOT user authority","to":"host","createdAt":1789868893442,"content":"{\"schema\":\"pi-mesh.host-bridge/v1\",\"direction\":\"incoming\",\"local\":{\"sessionId\":\"host\",\"instanceId\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},\"source\":{\"sessionId\":\"peer\",\"instanceId\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"},\"messageId\":\"same\",\"target\":{\"root\":\"/private/tmp/pm-test-oiAcac/t/bridge-process-ESiTgB\",\"sessionId\":\"host\",\"kind\":\"mesh\",\"runId\":\"c46dcbff-8ad8-4157-86d9-30ea662cb5eb\",\"nodeId\":\"a\",\"attempt\":0},\"routeId\":\"route\",\"mode\":\"store\",\"envelope\":{\"version\":1,\"origin\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"correlationId\":\"writer\",\"expiresAt\":1789868923438,\"hops\":0,\"budget\":4,\"payload\":{\"version\":1,\"route\":\"route\",\"target\":{\"root\":\"/private/tmp/pm-test-oiAcac/t/bridge-process-ESiTgB\",\"sessionId\":\"host\",\"kind\":\"mesh\",\"runId\":\"c46dcbff-8ad8-4157-86d9-30ea662cb5eb\",\"nodeId\":\"a\",\"attempt\":0},\"content\":\"body-writer\",\"claim\":\"host-transcribed-not-user\"}},\"claim\":\"host-transcribed-not-user\"}"},{"id":"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64-outcome","runId":"host-bridge","from":"host","source":"host","displayFrom":"Authenticated relay Host; NOT user authority","to":"host","createdAt":1789868894147,"content":"{\"inboxId\":\"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64\",\"admission\":{\"id\":\"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64\",\"outcome\":\"stored\"},\"mailbox\":{\"id\":\"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64\",\"outcome\":\"unknown\",\"error\":\"Error: native release unlink EIO\"},\"notification\":\"not-requested\",\"completed\":false}"}],"meaning":"Use messageId for local evidence (large bodies remain at evidencePath); ack retains dedup tombstones."}}
+✔ bridge second S1 two OS processes mailbox ACK before native release unlink (1411.34725ms)
+BRIDGE_PROCESS_ACTUAL {"name":"acker","mode":"ack","pid":22263,"hits":0,"releaseHits":0,"unreadable":0}
+BRIDGE_PROCESS_ACTUAL {"name":"writer","mode":"bridge","barrier":"release","pid":22262,"hits":1,"releaseHits":1,"unreadable":0,"totalUsed":1,"canonicalCount":1,"failureCount":0,"inboxCount":1,"selectedCount":2,"mailboxCount":1,"sends":0}
+BRIDGE_SECOND_RELEASE {"mode":"mailbox","releaseFault":"close","writerPid":22262,"ackPid":22263,"primaryHits":1,"barrierHits":1,"ack":{"id":"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64","runId":"99b1c9e2-77cc-494c-a403-f6eda0d1f9c0","from":"host","source":"host","displayFrom":"Authenticated relay bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb; NOT user authority","to":"a","content":"body-writer","createdAt":1789868894891,"bridge":{"inboxId":"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64","sourceSessionId":"peer","sourceInstanceId":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","origin":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","correlationId":"writer","expiresAt":1789868924873,"hops":0,"budget":4,"routeId":"route","claim":"host-transcribed-not-user"},"ackedAt":1789868895524},"selected":{"namespace":"host-bridge","count":2,"entries":[{"id":"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64","runId":"host-bridge","from":"host","source":"host","displayFrom":"Authenticated relay Host; NOT user authority","to":"host","createdAt":1789868894878,"content":"{\"schema\":\"pi-mesh.host-bridge/v1\",\"direction\":\"incoming\",\"local\":{\"sessionId\":\"host\",\"instanceId\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},\"source\":{\"sessionId\":\"peer\",\"instanceId\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"},\"messageId\":\"same\",\"target\":{\"root\":\"/private/tmp/pm-test-oiAcac/t/bridge-process-zyA8h5\",\"sessionId\":\"host\",\"kind\":\"mesh\",\"runId\":\"99b1c9e2-77cc-494c-a403-f6eda0d1f9c0\",\"nodeId\":\"a\",\"attempt\":0},\"routeId\":\"route\",\"mode\":\"store\",\"envelope\":{\"version\":1,\"origin\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"correlationId\":\"writer\",\"expiresAt\":1789868924873,\"hops\":0,\"budget\":4,\"payload\":{\"version\":1,\"route\":\"route\",\"target\":{\"root\":\"/private/tmp/pm-test-oiAcac/t/bridge-process-zyA8h5\",\"sessionId\":\"host\",\"kind\":\"mesh\",\"runId\":\"99b1c9e2-77cc-494c-a403-f6eda0d1f9c0\",\"nodeId\":\"a\",\"attempt\":0},\"content\":\"body-writer\",\"claim\":\"host-transcribed-not-user\"}},\"claim\":\"host-transcribed-not-user\"}"},{"id":"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64-outcome","runId":"host-bridge","from":"host","source":"host","displayFrom":"Authenticated relay Host; NOT user authority","to":"host","createdAt":1789868895556,"content":"{\"inboxId\":\"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64\",\"admission\":{\"id\":\"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64\",\"outcome\":\"stored\"},\"mailbox\":{\"id\":\"in-64cfbce8ae0b012c34430d033395867c78603d65bee2cf08a0102048e8c61f64\",\"outcome\":\"unknown\",\"error\":\"Error: native release close EIO\"},\"notification\":\"not-requested\",\"completed\":false}"}],"meaning":"Use messageId for local evidence (large bodies remain at evidencePath); ack retains dedup tombstones."}}
+✔ bridge second S1 two OS processes mailbox ACK before native release close (1411.672583ms)
+BRIDGE_PROCESS_ACTUAL {"name":"first","mode":"bridge","barrier":"before-lock","pid":22414,"hits":1,"releaseHits":0,"unreadable":0,"totalUsed":1,"canonicalCount":1,"failureCount":0,"inboxCount":1,"selectedCount":2,"mailboxCount":1,"sends":0}
+BRIDGE_PROCESS_ACTUAL {"name":"duplicate","mode":"bridge","barrier":"before-lock","pid":22415,"hits":1,"releaseHits":1,"unreadable":0,"totalUsed":0,"canonicalCount":1,"failureCount":0,"inboxCount":1,"selectedCount":2,"mailboxCount":1,"sends":0}
+✔ bridge second S1 under-lock duplicate survives native release fault without quota or outcome (864.9315ms)
+✔ direct Agent worktree preserves changes and leaves the main checkout untouched (525.388792ms)
+✔ Direct rejects worktree without Host trust and never reports completed after Git handoff failure (171.787542ms)
+✔ real SDK: early dedicated session path, actual flush, restore and missing-file refusal (265.7445ms)
+✔ stable queued completion and cancellable Fleet waiters launch no cancelled child (71.510375ms)
+✔ cancel/resume single flight drains close, retains partial usage and fences old callbacks (116.054542ms)
+✔ nonpersistent execution closes once before Fleet release; shutdown awaits stable close (49.685167ms)
+✔ soft maxTurns is explicitly partial and runtime full artifact is never overwritten (50.396916ms)
+✔ restoration quarantines legacy external references without reading or losing valid records; trust is current (94.538625ms)
+✔ send_subagent disabled, queued/early-ready delivery, replay, stale generation, terminal continuation and cancel lock (162.35025ms)
+✔ send waits for settling close, caps pending directions, then rechecks cancellation without launching (55.827125ms)
+✔ failed continuation clears prior successful body; nonpersistent/worktree contact has actionable refusal (89.94675ms)
+✔ record cap rejects new spawn without silently deleting recovery evidence (5.1535ms)
+✔ Direct admission storage failure cannot start an unacknowledged child (5.898625ms)
+✔ final checkpoint/callback failures settle and failed usage claims remain reclaimable (60.171833ms)
+✔ 32KiB contact payload works while running and continuation receipts stay within 128 (256.762666ms)
+✔ a rejected continuation does not poison its message deduplication receipt (127.475459ms)
+✔ a new cancellation while user-authorized resume is draining requires fresh authorization (88.823458ms)
+✔ review Direct real SDK admission post-rename failure is compensated on disk (37.979833ms)
+✔ review Direct real SDK final post-rename failure is compensated on disk (65.713208ms)
+✔ review Direct real SDK claim post-rename failure is compensated on disk (84.954416ms)
+BRIDGE_THIRD_SHUTDOWN {"mode":"last-owner","hits":1,"recordId":"2896a645-158a-4ebd-9469-b57935354593","waiterId":"43cee5fb-abff-4e30-a933-3761c7cca75c","diagnostics":[{"host":"A","id":"2896a645-158a-4ebd-9469-b57935354593","message":"Shutdown cancellation failed; still waiting for execution close: Error: Atomic write /private/tmp/pm-test-QLByeJ/t/direct-close-LmLUZt/A/.pi/mesh/subagents/d235799669812139.json (not-stored; durability unconfirmed): Error: first Direct abort checkpoint native EIO","cause":"Error: Atomic write /private/tmp/pm-test-QLByeJ/t/direct-close-LmLUZt/A/.pi/mesh/subagents/d235799669812139.json (not-stored; durability unconfirmed): Error: first Direct abort checkpoint native EIO","nativeCode":"EIO"}],"providerCalls":2,"calls":[{"messages":[{"role":"user","content":[{"type":"text","text":"Task: A-live"}],"timestamp":1789868900876}],"aborted":true,"response":{"role":"assistant","content":[{"type":"text","text":"ACTUAL_DIRECT_CLOSE"}],"api":"openai-completions","provider":"close-local","model":"test","usage":{"input":3,"output":2,"cacheRead":0,"cacheWrite":0,"totalTokens":5,"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0,"total":0}},"stopReason":"aborted","timestamp":1789868900878}},{"messages":[{"role":"user","content":[{"type":"text","text":"Task: C-live"}],"timestamp":1789868900957}],"aborted":false,"response":{"role":"assistant","content":[{"type":"text","text":"ACTUAL_DIRECT_CLOSE"}],"api":"openai-completions","provider":"close-local","model":"test","usage":{"input":3,"output":2,"cacheRead":0,"cacheWrite":0,"totalTokens":5,"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0,"total":0}},"stopReason":"stop","timestamp":1789868900957}}],"usage":{"input":3,"output":2,"cacheRead":0,"cacheWrite":0,"cost":0,"turns":1,"costInput":0,"costOutput":0,"costCacheRead":0,"costCacheWrite":0},"drained":true,"lastOwnerRetired":true}
+✔ bridge third T2 real SDK Direct shutdown checkpoint EIO drains before last-owner release (301.491084ms)
+BRIDGE_THIRD_SHUTDOWN {"mode":"same-id-owner","hits":1,"recordId":"ea2526bb-9631-4c60-9229-1ec299bf9c80","waiterId":"5470102b-6252-48e0-9ce0-0e67921fcc9c","diagnostics":[{"host":"A","id":"ea2526bb-9631-4c60-9229-1ec299bf9c80","message":"Shutdown cancellation failed; still waiting for execution close: Error: Atomic write /private/tmp/pm-test-QLByeJ/t/direct-close-FkTTUf/A/.pi/mesh/subagents/9d6aae546fcee663.json (not-stored; durability unconfirmed): Error: first Direct abort checkpoint native EIO","cause":"Error: Atomic write /private/tmp/pm-test-QLByeJ/t/direct-close-FkTTUf/A/.pi/mesh/subagents/9d6aae546fcee663.json (not-stored; durability unconfirmed): Error: first Direct abort checkpoint native EIO","nativeCode":"EIO"}],"providerCalls":3,"calls":[{"messages":[{"role":"user","content":[{"type":"text","text":"Task: A-live"}],"timestamp":1789868901199}],"aborted":true,"response":{"role":"assistant","content":[{"type":"text","text":"ACTUAL_DIRECT_CLOSE"}],"api":"openai-completions","provider":"close-local","model":"test","usage":{"input":3,"output":2,"cacheRead":0,"cacheWrite":0,"totalTokens":5,"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0,"total":0}},"stopReason":"aborted","timestamp":1789868901200}},{"messages":[{"role":"user","content":[{"type":"text","text":"Task: C-live"}],"timestamp":1789868901274}],"aborted":false,"response":{"role":"assistant","content":[{"type":"text","text":"ACTUAL_DIRECT_CLOSE"}],"api":"openai-completions","provider":"close-local","model":"test","usage":{"input":3,"output":2,"cacheRead":0,"cacheWrite":0,"totalTokens":5,"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0,"total":0}},"stopReason":"stop","timestamp":1789868901274}},{"messages":[{"role":"user","content":[{"type":"text","text":"Task: B-after-A-close"}],"timestamp":1789868901389}],"aborted":false,"response":{"role":"assistant","content":[{"type":"text","text":"ACTUAL_DIRECT_CLOSE"}],"api":"openai-completions","provider":"close-local","model":"test","usage":{"input":3,"output":2,"cacheRead":0,"cacheWrite":0,"totalTokens":5,"cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0,"total":0}},"stopReason":"stop","timestamp":1789868901398}}],"usage":{"input":3,"output":2,"cacheRead":0,"cacheWrite":0,"cost":0,"turns":1,"costInput":0,"costOutput":0,"costCacheRead":0,"costCacheWrite":0},"drained":true,"lastOwnerRetired":true}
+✔ bridge third T2 real SDK Direct shutdown checkpoint EIO drains before same-id-owner release (363.113083ms)
+✔ direct agents and mesh nodes share one session fleet cap (423.723959ms)
+✔ a mesh-owned slot wakes queued Direct work when released (reverse direction) (404.12325ms)
+FLEET_HOST_ACTUAL {"mode":"close","providerCalls":4,"calls":[{"messages":[{"role":"user","content":[{"type":"text","text":"Task: Hold actual Mesh execution"}],"timestamp":1789868903648}],"aborted":false},{"messages":[{"role":"user","content":[{"type":"text","text":"Task: Actual Direct waiter"}],"timestamp":1789868903707}],"aborted":false},{"messages":[{"role":"user","content":[{"type":"text","text":"Task: Existing Direct owner"}],"timestamp":1789868903775}],"aborted":false},{"messages":[{"role":"user","content":[{"type":"text","text":"Task: Existing Mesh owner waiter"}],"timestamp":1789868903863}],"aborted":false}],"actualWaiter":true,"preservedIdentity":true}
+✔ bridge second S5 real SDK Host close preserves other Manager owners and actual Fleet waiter (406.323ms)
+FLEET_HOST_ACTUAL {"mode":"newSession","providerCalls":6,"calls":[{"messages":[{"role":"user","content":[{"type":"text","text":"Task: Hold actual Mesh execution"}],"timestamp":1789868904018}],"aborted":false},{"messages":[{"role":"user","content":[{"type":"text","text":"Task: Actual Direct waiter"}],"timestamp":1789868904113}],"aborted":false},{"messages":[{"role":"user","content":[{"type":"text","text":"Task: New A actual Mesh owner"}],"timestamp":1789868904262}],"aborted":false},{"messages":[{"role":"user","content":[{"type":"text","text":"Task: New A actual Direct waiter"}],"timestamp":1789868904330}],"aborted":false},{"messages":[{"role":"user","content":[{"type":"text","text":"Task: Existing Direct owner"}],"timestamp":1789868904425}],"aborted":false},{"messages":[{"role":"user","content":[{"type":"text","text":"Task: Existing Mesh owner waiter"}],"timestamp":1789868904526}],"aborted":false}],"actualWaiter":true,"preservedIdentity":true}
+✔ bridge second S5 real SDK Host newSession preserves other Manager owners and actual Fleet waiter (686.922458ms)
+FLEET_HOST_ACTUAL {"mode":"switchSession","providerCalls":6,"calls":[{"messages":[{"role":"user","content":[{"type":"text","text":"Task: Hold actual Mesh execution"}],"timestamp":1789868904724}],"aborted":false},{"messages":[{"role":"user","content":[{"type":"text","text":"Task: Actual Direct waiter"}],"timestamp":1789868904804}],"aborted":false},{"messages":[{"role":"user","content":[{"type":"text","text":"Task: New A actual Mesh owner"}],"timestamp":1789868904919}],"aborted":false},{"messages":[{"role":"user","content":[{"type":"text","text":"Task: New A actual Direct waiter"}],"timestamp":1789868904987}],"aborted":false},{"messages":[{"role":"user","content":[{"type":"text","text":"Task: Existing Direct owner"}],"timestamp":1789868905079}],"aborted":false},{"messages":[{"role":"user","content":[{"type":"text","text":"Task: Existing Mesh owner waiter"}],"timestamp":1789868905174}],"aborted":false}],"actualWaiter":true,"preservedIdentity":true}
+✔ bridge second S5 real SDK Host switchSession preserves other Manager owners and actual Fleet waiter (630.9945ms)
+FLEET_HOST_ACTUAL {"mode":"same-id-live","providerCalls":4,"calls":[{"messages":[{"role":"user","content":[{"type":"text","text":"Task: Hold actual Mesh execution"}],"timestamp":1789868905338}],"aborted":false},{"messages":[{"role":"user","content":[{"type":"text","text":"Task: Actual Direct waiter"}],"timestamp":1789868905406}],"aborted":false},{"messages":[{"role":"user","content":[{"type":"text","text":"Task: Existing Direct owner"}],"timestamp":1789868905464}],"aborted":false},{"messages":[{"role":"user","content":[{"type":"text","text":"Task: Existing Mesh owner waiter"}],"timestamp":1789868905551}],"aborted":false}],"actualWaiter":true,"preservedIdentity":true}
+✔ bridge second S5 real SDK Host same-id-live preserves other Manager owners and actual Fleet waiter (378.287334ms)
+FLEET_HOST_ACTUAL {"mode":"same-id-idle","providerCalls":2,"calls":[{"messages":[{"role":"user","content":[{"type":"text","text":"Task: Existing Direct owner"}],"timestamp":1789868905669}],"aborted":false},{"messages":[{"role":"user","content":[{"type":"text","text":"Task: Existing Mesh owner waiter"}],"timestamp":1789868905749}],"aborted":false}],"actualWaiter":true,"preservedIdentity":true}
+✔ bridge second S5 real SDK Host same-id-idle preserves other Manager owners and actual Fleet waiter (186.635083ms)
+✔ bridge user-only configuration defaults off; trusted/untrusted project cannot enable or remap (79.274375ms)
+✔ bridge sync claim, missing Core RPC, wrong local, late/duplicate reply have no unauthorized side effects (68.917667ms)
+✔ bridge exact authenticated peer and target generation; no names, short refs, origin or fields grant authority (29.162125ms)
+✔ bridge passive mode with general notifications true gives zero hints; active hints cap at eight and cancellation fences (480.760167ms)
+✔ bridge active queued/paused/terminal/cancelled targets stay data-only, never create a topology (169.047292ms)
+✔ bridge qualified dedup survives ack, adapter restart and changed target; authenticated source qualifies IDs (64.542083ms)
+✔ bridge real directory fsync warning preserves incoming ID, honest outcome and no live submission (39.894542ms)
+✔ bridge actual unknown storage retains ID/outcome and never suggests safe retry or executes (39.044375ms)
+✔ bridge TTL/hops/budget reject before claim and per-target budget survives enable toggles and restart (2480.335083ms)
+✔ bridge forward derives immutable origin/correlation/TTL/body and decrements hops/budget from existing inbox (73.888458ms)
+BRIDGE_SECOND_NATIVE {"kind":"pre-rename","primaryHits":1,"verificationHits":0,"totalNativeHits":1,"row":{"id":"in-693b25bfc879c87cc9390ce0cf42177dd01f9070c603e396bf8d486c4bd15e8f","failureId":"failure-0c366493-1c97-40eb-9c76-d766296e059d","admission":{"outcome":"not-stored","error":"Error: Recipient host mailbox is busy (/private/tmp/pm-test-UDEVnc/t/bridge-component-1b6EiO/agent/.pi/mesh/messages/host-bridge/.recipient-686f7374.lock). Do not remove by age: stop all spool writers, inspect retained evidence, then explicitly repair the orphan lock before restarting."},"evidence":{"outcome":"not-stored","error":"Error: failure evidence native pre-rename EIO 😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀……😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀…"}}}
+BRIDGE_SECOND_NATIVE {"kind":"post-visible","primaryHits":1,"verificationHits":0,"totalNativeHits":1,"row":{"id":"in-4147969e399476017cc6fb355ac505808a6d22920dce06854d26fbba817cb19b","failureId":"failure-c7ccfd64-f85d-4f7c-9e6a-85a25e5e499a","admission":{"outcome":"not-stored","error":"Error: Recipient host mailbox is busy (/private/tmp/pm-test-UDEVnc/t/bridge-component-BGOuyR/agent/.pi/mesh/messages/host-bridge/.recipient-686f7374.lock). Do not remove by age: stop all spool writers, inspect retained evidence, then explicitly repair the orphan lock before restarting."},"evidence":{"outcome":"stored-visible","durabilityWarning":"Error: Atomic write /private/tmp/pm-test-UDEVnc/t/bridge-component-BGOuyR/agent/.pi/mesh/messages/host-bridge/failure-c7ccfd64-f85d-4f7c-9e6a-85a25e5e499a.json (stored-visible; durability unconfirmed): Error: injected directory fsync after real rename"}}}
+BRIDGE_SECOND_NATIVE {"kind":"post-unknown","primaryHits":1,"verificationHits":2,"totalNativeHits":3,"row":{"id":"in-34f9e4339bddca8abc561eb610dc9042efa63b5a36d3b2a452720b6efa98be40","failureId":"failure-b1997b20-36b4-4377-ae4c-1c9064780870","admission":{"outcome":"not-stored","error":"Error: Recipient host mailbox is busy (/private/tmp/pm-test-UDEVnc/t/bridge-component-DCImFw/agent/.pi/mesh/messages/host-bridge/.recipient-686f7374.lock). Do not remove by age: stop all spool writers, inspect retained evidence, then explicitly repair the orphan lock before restarting."},"evidence":{"outcome":"unknown","error":"Error: injected directory fsync after real rename"}}}
+BRIDGE_THIRD_READ {"mode":"new","id":"in-5f6d18ee49751743b7a8226a752626b841afb5d0dc818a209582943a5998a48c","hits":1,"postReads":4,"claimed":true,"oldFilesUnchanged":true,"newFailures":1}
+BRIDGE_THIRD_READ {"mode":"duplicate","id":"in-a90aeccfe0ab7073ec17ea2e775eac9602cb445ac1bfd9c06603b3f90e9468aa","hits":1,"postReads":2,"claimed":true,"oldFilesUnchanged":true,"newFailures":0}
+BRIDGE_THIRD_READ {"mode":"bad-json","id":"in-df506d631a3c01309f93535579f4ec62961068e3ab65f1ba6abd97d1c1375b13","hits":1,"postReads":1,"claimed":true,"oldFilesUnchanged":true,"newFailures":0}
+BRIDGE_THIRD_READ {"mode":"repeated-read","id":"in-705ef729fa5a4497f2520b67ac9231b7d0564493a57be99aa2a57815b78acfe3","hits":2,"postReads":2,"claimed":true,"oldFilesUnchanged":true,"newFailures":0}
+BRIDGE_THIRD_READ {"mode":"trust","id":"in-ddd3d7d2b77c2fa8d3e0b3160301254a79bc6dafda4199686927e2d5137f985c","hits":1,"postReads":1,"claimed":true,"oldFilesUnchanged":true,"newFailures":0}
+BRIDGE_THIRD_READ {"mode":"abort","id":"in-7e490a0aa8b7b79c68e428717ed0021affe212a7e35b3ea65eeea1de29ed8ad4","hits":1,"postReads":1,"claimed":true,"oldFilesUnchanged":true,"newFailures":0}
+BRIDGE_THIRD_READ {"mode":"session","id":"in-91126e504e80b1b54c88c9d857b27bddff43eecfb59e9ef1b6dee5ea2572f964","hits":1,"postReads":1,"claimed":true,"oldFilesUnchanged":true,"newFailures":0}
+BRIDGE_THIRD_READ {"mode":"stop","id":"in-09a8494f6abfe89e83ed06bed34532fc9050db38906bfc56545c42c6e7120269","hits":1,"postReads":1,"claimed":true,"oldFilesUnchanged":true,"newFailures":0}
+BRIDGE_THIRD_READ {"mode":"disabled","id":"in-5c03949e49aff0a0fc84725287067666f1915a9fabc61fef0d5e215621b068bd","hits":1,"postReads":1,"claimed":true,"oldFilesUnchanged":true,"newFailures":0}
+✔ bridge RPC bounded missing listener, shutdown abort, unsubscribe and session replacement fence (53.458542ms)
+✔ bridge managed frozen identity is child-local; same-PID independent Host is not suppressed (53.816334ms)
+✔ bridge Direct exact live generation fences readiness, settling, stop and stale generation without send/resume (178.462416ms)
+✔ bridge real mailbox quota failure is separate from canonical stored evidence; no notify and disabled inbox remains inspectable (49.749583ms)
+✔ bridge stale attempts and actual Mesh ownership loss cannot hint a new or foreign execution (48.065916ms)
+✔ bridge forwarding truly terminates at hop/remaining-budget limits without emitting RPC (82.977417ms)
+✔ bridge total 256 admissions really terminates across distinct targets and ack/restart (15617.946583ms)
+✔ bridge canonical dedup is independent of current project root or mapping target (82.711958ms)
+✔ bridge review B3 full UTF-8 failed attempt retained, durable failure cap and all bounded inbox IDs remain discoverable (7221.960417ms)
+✔ bridge second S2 post-successful-claim native readdir failure has owned bounded passive evidence (66.609083ms)
+✔ bridge second S2 post-successful-claim native realpath failure has owned bounded passive evidence (62.103542ms)
+✔ bridge second S2 post-successful-claim native settings failure has owned bounded passive evidence (67.510958ms)
+✔ bridge second S2 post-claim native fault plus trust revocation never mutates files (31.159709ms)
+✔ bridge second S2 post-claim native fault plus abort revocation never mutates files (28.551ms)
+✔ bridge second S2 post-claim native fault plus session revocation never mutates files (28.244792ms)
+✔ bridge second S2 post-claim native fault plus stop revocation never mutates files (25.504542ms)
+✔ bridge second S2 post-claim native fault plus disabled revocation never mutates files (24.859875ms)
+✔ bridge second S3 real long-path double lockbusy diagnostic retains both receipts (42.442084ms)
+✔ bridge second S3 failure file own native pre-rename retains diagnostic outcomes (48.437334ms)
+✔ bridge second S3 failure file own native post-visible retains diagnostic outcomes (49.961333ms)
+✔ bridge second S3 failure file own native post-unknown retains diagnostic outcomes (45.40875ms)
+✔ bridge second S3 failure capacity 65 retains attempted ID/outcome/error without deleting old files (1450.863834ms)
+✔ bridge second S4 registered mesh status legal 16 long remote roots retains core with real orphan disabled/noRPC/restart (83.180167ms)
+✔ bridge second S2 recovered native post-claim failures consume bounded live attempts without canonical writes (931.477ms)
+✔ bridge third T1 existing readFile EIO new after successful claim (101.511417ms)
+✔ bridge third T1 existing readFile EIO duplicate after successful claim (75.897208ms)
+✔ bridge third T1 existing readFile EIO bad-json after successful claim (77.882208ms)
+✔ bridge third T1 existing readFile EIO repeated-read after successful claim (78.380666ms)
+✔ bridge third T1 existing readFile EIO trust after successful claim (93.030208ms)
+✔ bridge third T1 existing readFile EIO abort after successful claim (98.878083ms)
+✔ bridge third T1 existing readFile EIO session after successful claim (100.43275ms)
+✔ bridge third T1 existing readFile EIO stop after successful claim (101.998833ms)
+✔ bridge third T1 existing readFile EIO disabled after successful claim (93.963834ms)
+✔ runs dependency ordered children and strips recursive extensions (338.523833ms)
+✔ pending growth pauses scheduling and returns control to the Host (261.20325ms)
+✔ rejects dependency cycles before spawning (1.105917ms)
+✔ failFast cancels queued dependents after failure (196.938792ms)
+✔ does not retry deterministic failures implicitly (178.830542ms)
+✔ reports node timeouts instead of generic cancellation (192.305042ms)
+✔ default timeout warns before hard cancellation (249.390583ms)
+✔ retryFailed reruns only unsuccessful nodes (403.8565ms)
+✔ retryFailed selectively resumes cancelled runs (415.682917ms)
+✔ retryFailed reruns skipped dependents but preserves successful prerequisites (617.609875ms)
+✔ session shutdown aborts active children and leaves the run recoverably paused (104.79ms)
+✔ cancels an active run (97.712875ms)
+✔ race succeeds on the first successful node and cancels the rest (231.273ms)
+✔ late node result cannot overwrite cancellation or start its sibling early (258.189167ms)
+✔ second review withMock uses a private cwd before any Manager admission (0.402625ms)
+✔ Host send/broadcast share stored callbacks, display labels cannot impersonate child identity, trust refresh keeps one live Manager (168.115458ms)
+✔ background Mesh notifications deduplicate epochs, paused is not completed and foreground does not notify twice (410.862167ms)
+✔ review Host single delivery reports post-rename warning and only genuine no-UI command unlocks recovered user stop (197.161375ms)
+✔ second review Host 32KiB broadcast preserves every mixed receipt (92.525416ms)
+✔ second review Host 32KiB broadcast preserves every mixed receipt with over-budget warnings (88.782375ms)
+✔ second review child 32KiB broadcast preserves every mixed receipt (62.513458ms)
+✔ second review child 32KiB broadcast preserves every mixed receipt with over-budget warnings (60.261416ms)
+✔ predeclared continuation without current Cross authorization fails before original run creation (2.085417ms)
+✔ pause-drain-resume waits for finally/close and concurrent resumes coalesce (225.369792ms)
+✔ drained pause cancel is immediately terminal; recover converges cancelling with zero interrupted nodes (56.707292ms)
+✔ node cancel immediately removes a Fleet waiter and launches no child (108.10775ms)
+✔ cancel retains shared quota and lease through a gated close (116.310375ms)
+✔ paused shutdown drains and captures the unique worktree before marking node paused (300.175833ms)
+✔ real Git index.lock prevents succeeded attempt and launches zero downstream children (234.1805ms)
+✔ auto inherits own commit and delivers full multi-attempt patch/range (no new retry changes) (488.442292ms)
+✔ retry_failed inherits own commit and delivers full multi-attempt patch/range (no new retry changes) (518.069208ms)
+✔ recover inherits own commit and delivers full multi-attempt patch/range (no new retry changes) (532.840291ms)
+✔ two Managers fence stale cancel/grow/reacquire; recover never replaces a local live object (127.218416ms)
+✔ lease loss aborts/drains the old execution without writing new owner checkpoint or artifacts (61.876959ms)
+✔ output write failure cannot publish success or delete the only worktree (275.865333ms)
+✔ attempt write failure cannot publish success or delete the only worktree (283.480625ms)
+✔ checkpoint write failure cannot publish success or delete the only worktree (325.332833ms)
+✔ admission checkpoint failure releases lease and never starts runtime (4.64925ms)
+✔ pure worktree removal failure is only a warning after valid handoff (292.974583ms)
+✔ stale pending growth may be denied; final decision never clears a manual pause (54.8525ms)
+✔ paused draining attempt may status/inbox/ack old mail, but not send/grow; stale attempts always fenced (133.064209ms)
+✔ mixed-quota broadcast returns honest per-recipient stored/error receipts; notification failure cannot undo storage (64.362375ms)
+✔ mailbox notifications default-off: coalesced bounded active hints never resurrect cancelled nodes (142.423833ms)
+✔ mailbox notifications opt-in: coalesced bounded active hints never resurrect cancelled nodes (142.312917ms)
+✔ retry usage is accumulated and claimed exactly once with rollback after claim persistence failure (205.984083ms)
+✔ untrusted Host rejects automatic worktree/setupHook before Git or child side effects (1.591041ms)
+✔ trusted automatic Git helpers disable implicit fsmonitor/post-commit/external diff/textconv hooks (449.185292ms)
+✔ pause drains Fleet waiters without starting a child or waiting for unrelated quota (124.013334ms)
+✔ notification callbacks fence a stale execution attempt even before its delayed completion (96.860375ms)
+✔ persistent final checkpoint fault rejects completion, drains maps and retains worktree evidence (315.264583ms)
+✔ execution close rejection is failed evidence, not an unhandled cleanup promise or leaked quota (109.554666ms)
+✔ retry commit range includes both failed-attempt and final-attempt files (570.748708ms)
+✔ writer fanin remains explicit and tampered saved branch cannot become a retry base (1000.534958ms)
+✔ explicit setup hook failure preserves its changes and starts no child (1339.849625ms)
+✔ large binary handoff bypasses spawnSync stdout buffer without truncating the patch (465.167625ms)
+✔ post-rename admission failure removes the unconfirmed checkpoint and releases its lease (15.276583ms)
+✔ review real post-rename final fault compensates owned checkpoint (348.061041ms)
+✔ review real post-rename claim fault compensates owned checkpoint (348.818084ms)
+✔ review cancel retry waits for terminal-visible gated close and singleflights (206.439375ms)
+✔ review failfast retry waits for terminal-visible gated close and singleflights (351.513041ms)
+✔ review unknown stop cannot be reopened by ordinary retry, including recovery (65.735709ms)
+✔ review user stop cannot be reopened by ordinary retry, including recovery (43.80125ms)
+✔ review unconfirmed succeeded receipt recovers actual usage once independently of delivery (197.892625ms)
+✔ review unconfirmed queued receipt recovers actual usage once independently of delivery (201.320917ms)
+✔ review unconfirmed paused receipt recovers actual usage once independently of delivery (198.418541ms)
+✔ review malformed checkpoint isolation keeps evidence and visible diagnostics (33.023292ms)
+✔ review post-rename broadcast receipt separates stored-visible durability and notification warnings (53.358291ms)
+✔ review fresh user cancellation wins over retry drain authorization (141.174042ms)
+✔ review fresh signal cancellation wins over retry drain authorization (156.330083ms)
+✔ review user-stopped node does not prevent unrelated failed node's legal retry (313.229666ms)
+✔ review old cancelled checkpoint with unknown provenance stays locked (177.290875ms)
+✔ review invalid status checkpoint is diagnosed without executing or replacing safe reference (55.186875ms)
+✔ review invalid dependency checkpoint is diagnosed without executing or replacing safe reference (47.951584ms)
+✔ review invalid usage checkpoint is diagnosed without executing or replacing safe reference (52.698292ms)
+✔ review invalid attempt checkpoint is diagnosed without executing or replacing safe reference (50.923416ms)
+✔ review invalid cycle checkpoint is diagnosed without executing or replacing safe reference (40.929958ms)
+✔ review invalid oversize checkpoint is diagnosed without executing or replacing safe reference (95.98125ms)
+✔ review post-rename ownership loss never compensates over a foreign payload (294.771542ms)
+✔ review actual Fleet stop callback persists user provenance and cannot restart a paused queued child (63.857042ms)
+✔ review user cancellation revokes ordinary failfast retry while old failed epoch is terminal-visible and close-gated (249.968084ms)
+✔ second review joining retry signal aborts after join revokes shared authorization (141.798125ms)
+✔ second review joining retry signal already aborted revokes shared authorization (160.047459ms)
+✔ second review ordered recover reaction preserves canonical pending retry (232.848417ms)
+✔ second review ordered recover reaction preserves canonical pending resume (209.001083ms)
+✔ second review serialized "\\" growth refuses before topology commit and children (205.574ms)
+✔ second review serialized "\u0000" growth refuses before topology commit and children (139.75975ms)
+✔ second review serialized create budget rejects control expansion without admission (17.420584ms)
+✔ second review runtime evidence persists recoverably with complete external evidence and oversized neighbor isolation (139.489584ms)
+✔ second review retry join cannot promote ordinary authority and removes non-aborted caller listeners (34.993125ms)
+✔ second review growing history archives complete immutable chains while full Git handoffs stay intact (530.223166ms)
+✔ second review 128 admitted small tasks and repeated runtime growth keep every real checkpoint recoverable (2198.993709ms)
+✔ real SDK Mesh ready records actual unflushed session path and continuation reuses genuine evidence (276.82375ms)
+✔ real SDK Mesh pause-resume drains actual session close before releasing quota or lease (496.117708ms)
+✔ real SDK Mesh timeout aborts with timeout stopReason, partial result blocks dependencies (366.009ms)
+✔ real SDK Mesh soft maxTurns never succeeds dependencies and full runtime output remains lossless (186.3295ms)
+✔ real SDK Mesh quota wait rechecks current Host authorization and starts zero untrusted provider calls (110.517459ms)
+✔ review actual SDK user cancellation authorization and post-rename claim survive recovery exactly once (276.77575ms)
+✔ background Agent launches obey the configured concurrency queue (257.665458ms)
+✔ stopping a running Agent is terminal even after the child settles (31.373375ms)
+✔ session agent registry survives manager recreation and resumes the same Pi session id (174.739125ms)
+✔ resume failures settle and persist the Agent record (106.116042ms)
+✔ session registry keeps a bounded preview and full output artifact (87.894375ms)
+✔ non-persistent agents are not reconnected after manager recreation (76.070708ms)
+✔ session agent registry fails closed on corruption and foreign project records (3.236375ms)
+✔ settings cap concurrency/depth and debug writes diagnostics (174.920666ms)
+✔ growth guidance names the node allowlist (0.569708ms)
+✔ shared subagent runtime runs, steers, resumes, and preserves conversation (107.306625ms)
+✔ child RPC fails closed on interactive extension UI requests (52.64375ms)
+✔ child extension and skill resources require named settings allowlists (50.36625ms)
+✔ in-process AgentSession reuses a runtime-only Host provider (21.559625ms)
+✔ untrusted shell/context and global+project default packages cannot reactivate; approved resources stay usable (19.846959ms)
+✔ approved extension packages and resources_discover do not grant extra skills/prompts/themes (7.571417ms)
+✔ ready is awaited before prompting; fresh session path is recorded before SDK header flush and genuinely resumes (9.392417ms)
+✔ connect and start reject missing, empty, corrupt, symlink and escaped session evidence without creating files (4.977917ms)
+✔ real SDK shutdown occurs once before API invalidation; concurrent close waits and identity stays child-local (17.618417ms)
+✔ binding and onReady failures finalize created SDK sessions and subscriptions (5.370084ms)
+✔ maxTurns soft wrap-up reports partial/maxTurns (18.026125ms)
+✔ maxTurns hard abort reports partial/maxTurns (15.667875ms)
+✔ cancelled preserves partial output and stopReason (4.731333ms)
+✔ timeout preserves partial output and stopReason (13.696083ms)
+✔ error preserves partial output and stopReason (6.539792ms)
+✔ conversation/output and constructed prompts are bounded UTF-8 with artifact evidence (29.304041ms)
+✔ close during initialization and in-flight prompt drains before finalization (6.440042ms)
+✔ same-PID children answer only on their own bus and reject malformed identity queries (15.537375ms)
+✔ trusted append AGENTS and many-line conversation still obey total and display budgets (16.907458ms)
+✔ failed artifact preflight cannot spawn the legacy hook or leak its temporary prompt (0.702458ms)
+✔ artifact write failure remains an explicit partial error instead of losing the result (5.853792ms)
+✔ provider-entry guard stops retry first turns at maxTurns+5 and restores public callbacks (81.076042ms)
+✔ cancel during async before_agent_start never enters provider and restores stream callback (4.898375ms)
+✔ a successful factory is shut down once when a sibling fails before session creation (15.244834ms)
+✔ conversation multi-part budgets retain 40KiB without silent loss and truncate emoji tails explicitly (11.027125ms)
+✔ large SYSTEM and APPEND_SYSTEM retain managed role and mandatory growth instructions (17.405583ms)
+✔ bridge review B4 actual approved localMesh path factory is child-local before inline factories; independent Host stays live (597.4805ms)
+✔ executes a composed multi-operator workflow with stage handoffs (828.786ms)
+✔ executes positional prompt, parallel worktrees, review evidence, and inherited writer chain (1288.616ms)
+✔ fails a composed workflow without running dependent stages (233.000791ms)
+✔ executes the shipped 18-node consensus topology end to end (3931.137292ms)
+✔ parallel writers use isolated worktrees and produce handoffs (632.489292ms)
+✔ single writer dependency starts from predecessor commit (642.665625ms)
+✔ worktree mode rejects dirty repositories before spawning (57.222209ms)
+✔ worktree setup hook must stay inside the repository (77.439708ms)
+ℹ tests 256
+ℹ suites 0
+ℹ pass 256
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 124613.326375
+
+> @gcoder1991/pi-mesh@0.5.1 test:e2e
+> node --import ./test/support/clean-env.mjs --experimental-strip-types --test --test-concurrency=1 test/e2e/*.test.ts
+
+✔ host mailbox validates recipients and atomically acknowledges (579.774167ms)
+✔ child control extension proposes fenced growth and uses graph membership (256.52825ms)
+✔ corrupt mailbox state fails closed without hiding valid messages (39.402333ms)
+✔ queued foreground waits; foreground has no follow-up; background usage is claimed once and generations notify again (414.751542ms)
+✔ tool/unknown cancellation stays locked; only actual /agents user command authorizes resume; blank ID diagnostics (276.705625ms)
+✔ no-UI session_start restores scheduler; fire checks current trust and never creates a second manager (2303.348834ms)
+✔ Pi loader executes a dependency graph through real child processes (875.52ms)
+✔ async run reports validation errors before returning a run id (25.063584ms)
+✔ Pi loader stores large output as a bounded checkpoint preview (214.787833ms)
+✔ Pi loader preserves writer handoffs and inherited commits (661.43075ms)
+✔ parallel writers launch in separate worktrees (640.5205ms)
+✔ no-change worktree nodes succeed and leave no temporary branch (352.113458ms)
+✔ run lease excludes a second OS process and releases cleanly (1820.879584ms)
+✔ real child process rejects an oversized protocol line (75.882958ms)
+✔ real child process keeps only the bounded stderr tail (53.238208ms)
+✔ real Pi child activates and executes mesh_control (586.698417ms)
+✔ RPC abort escalates when the child ignores cooperative cancellation (3486.842416ms)
+✔ RPC abort terminates the child process group (7492.927291ms)
+✔ real child process reports signal/cancellation (55.573625ms)
+✔ packaged tarball loads offline through Pi extension loader with declared installed dependencies (1213.411792ms)
+✔ Agent passes thinking, parent context, memory, tool denylist, and prompt mode to Pi (91.601916ms)
+✔ Agent scheduling preserves launch options and emits lifecycle events (1122.114042ms)
+✔ Agent foreground, background, wait, steer, resume, notifications, and events share one runtime (366.601375ms)
+✔ Agent resume error identifies conflicting options and recovery paths (1.415459ms)
+✔ Agent enforces project trust and explicit extension/skill allowlists (2.9415ms)
+ℹ tests 25
+ℹ suites 0
+ℹ pass 25
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 26571.972666
+
+> @gcoder1991/pi-mesh@0.5.1 test:types
+> tsc --noEmit
+
+
+> @gcoder1991/pi-mesh@0.5.1 test:package
+> npm pack --dry-run
+
+npm notice
+npm notice 📦  @gcoder1991/pi-mesh@0.5.1
+npm notice Tarball Contents
+npm notice 1.1kB LICENSE
+npm notice 50.9kB README.md
+npm notice 1.1kB agents/analyst.md
+npm notice 1.4kB agents/planner.md
+npm notice 1.1kB agents/qa.md
+npm notice 353B agents/reviewer.md
+npm notice 356B agents/scout.md
+npm notice 321B agents/worker.md
+npm notice 14.5kB docs/optimization-checklist.md
+npm notice 3.8kB docs/parity-matrix.md
+npm notice 5.2kB docs/release-review.md
+npm notice 1.9kB docs/replacement-contract.md
+npm notice 2.3kB docs/replacement-delta.md
+npm notice 46B index.ts
+npm notice 2.3kB package.json
+npm notice 6.5kB src/agents.ts
+npm notice 4.4kB src/bridge-wire.ts
+npm notice 24.1kB src/compat-extension.ts
+npm notice 8.1kB src/consensus-template.ts
+npm notice 2.4kB src/continuation.ts
+npm notice 8.6kB src/control-extension.ts
+npm notice 8.3kB src/conversation-viewer.ts
+npm notice 38.5kB src/extension.ts
+npm notice 2.8kB src/fleet-limiter.ts
+npm notice 12.5kB src/fleet-view.ts
+npm notice 25.8kB src/host-bridge.ts
+npm notice 67.0kB src/manager.ts
+npm notice 1.5kB src/memory.ts
+npm notice 14.0kB src/mesh-tree.ts
+npm notice 1.3kB src/model-resolution.ts
+npm notice 2.4kB src/notifications.ts
+npm notice 11.0kB src/pi-process.ts
+npm notice 7.3kB src/recovery-state.ts
+npm notice 9.0kB src/rpc-child.ts
+npm notice 5.1kB src/run-lease.ts
+npm notice 8.0kB src/runtime-utils.ts
+npm notice 1.9kB src/schedule-menu.ts
+npm notice 7.5kB src/scheduler.ts
+npm notice 1.2kB src/schemas.ts
+npm notice 33.5kB src/session-agents.ts
+npm notice 8.7kB src/settings.ts
+npm notice 17.7kB src/store.ts
+npm notice 4.8kB src/subagent-rpc.ts
+npm notice 37.3kB src/subagent-runtime.ts
+npm notice 1.5kB src/transitions.ts
+npm notice 12.5kB src/workflows.ts
+npm notice 9.2kB src/worktree.ts
+npm notice 6.0kB workflows/consensus.yaml
+npm notice Tarball Details
+npm notice name: @gcoder1991/pi-mesh
+npm notice version: 0.5.1
+npm notice filename: gcoder1991-pi-mesh-0.5.1.tgz
+npm notice package size: 140.4 kB
+npm notice unpacked size: 497.0 kB
+npm notice shasum: 9c24e1cf96c37b0729500010499666d59cefc184
+npm notice integrity: sha512-SR9/K5Nwc2WAk[...]myCDQaTOaiULw==
+npm notice total files: 48
+npm notice
+gcoder1991-pi-mesh-0.5.1.tgz
+
+COMMAND_EXIT=0

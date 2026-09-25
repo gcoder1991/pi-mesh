@@ -1,0 +1,6 @@
+
+> pi-cross-session@2.0.1 typecheck
+> tsc --noEmit
+
+
+COMMAND_EXIT=0

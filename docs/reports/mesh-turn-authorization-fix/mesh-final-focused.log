@@ -1,0 +1,23 @@
+✔ Host send/broadcast share stored callbacks, display labels cannot impersonate child identity, trust refresh keeps one live Manager (209.425792ms)
+✔ background Mesh notifications deduplicate epochs, paused is not completed and foreground does not notify twice (538.790792ms)
+✔ review Host single delivery reports post-rename warning and only genuine no-UI command unlocks recovered user stop (335.129958ms)
+✔ second review Host 32KiB broadcast preserves every mixed receipt (145.372542ms)
+✔ second review Host 32KiB broadcast preserves every mixed receipt with over-budget warnings (157.49225ms)
+✔ second review child 32KiB broadcast preserves every mixed receipt (99.259791ms)
+✔ second review child 32KiB broadcast preserves every mixed receipt with over-budget warnings (103.400959ms)
+✔ predeclared continuation without current Cross authorization fails before original run creation (4.036958ms)
+✔ continuation fixes task budgets, excludes scope/policy/recursive overrides and snapshots text (0.867958ms)
+✔ continuation only admits original fully successful epoch with no run/node stop or retry (0.133083ms)
+✔ missing/old Cross fails closed; async bus response cannot authorize (0.205334ms)
+✔ grouped notifier authorizes only at flush using exact live SDK details, with no serialized token (0.237708ms)
+✔ completion notifier deduplicates and groups results (302.391875ms)
+✔ completion notifier accepts mesh completion messages and wakes an idle Host (0.524042ms)
+✔ deduplicates within/across batches by generation and suppresses only foreground (0.152917ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4514.239791

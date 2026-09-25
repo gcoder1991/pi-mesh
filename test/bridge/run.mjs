@@ -381,7 +381,7 @@ test('frozen Cross sensitive tool gate: actual peer Agent toolResult reason and 
   } finally { await a.close(); await b.close(); }
 });
 
-for (const when of ['idle', 'busy', 'cancelled', 'new-user', 'forged', 'historical-cancel']) test(`continuation actual SDK ${when}: fixed successor only, never arbitrary run`, async () => {
+for (const when of ['idle', 'busy', 'cancelled', 'new-user', 'forged', 'historical-cancel']) test(`continuation actual SDK ${when}: notification turns continue and start runs; cancelled stays gated`, async () => {
   fs.mkdirSync(path.join(agentDir, 'mesh'), { recursive: true });
   fs.writeFileSync(path.join(agentDir, 'mesh/settings.yaml'), JSON.stringify({ joinMode: 'async' }));
   const x = await make(`continuation-${when}`, undefined, ['mesh']);
@@ -432,24 +432,68 @@ for (const when of ['idle', 'busy', 'cancelled', 'new-user', 'forged', 'historic
     const history = x.session.agent.state.messages;
     const continued = history.find(m => m.role === 'toolResult' && m.toolCallId === 'fixed-next');
     const arbitrary = history.find(m => m.role === 'toolResult' && m.toolCallId === 'arbitrary-next');
-    const allowed = when === 'idle' || when === 'busy' || when === 'historical-cancel';
-    assert.equal(continued?.isError, !allowed, JSON.stringify(continued));
-    assert.equal(arbitrary?.isError, true, JSON.stringify(arbitrary));
-    await until(() => x.calls.filter(c => c.layer === 'actualManagedSubagent').length === (allowed ? 2 : 1), 'exact child count');
+    const cont = when === 'idle' || when === 'busy' || when === 'historical-cancel'; // new-user revoked the plan; forged precedes real completion
+    const arb = when !== 'cancelled'; // trusted notification turns may start new runs; cancelled turns stay gated
+    assert.equal(continued?.isError, !cont, JSON.stringify(continued));
+    assert.equal(arbitrary?.isError, !arb, JSON.stringify(arbitrary));
+    await until(() => x.calls.filter(c => c.layer === 'actualManagedSubagent').length === 1 + (cont ? 1 : 0) + (arb ? 1 : 0), 'exact child count');
     const finalRuns = (await x.tool('mesh', { action: 'list' })).details.runs;
-    assert.equal(finalRuns.length, allowed ? 2 : 1);
-    if (allowed) {
-      const next = JSON.parse(fs.readFileSync(path.join(x.root, '.pi/mesh/runs', finalRuns.find(r => r.id !== parentId).id + '.json')));
-      assert.equal(next.nodes[0].task, 'PREDECLARED_FIXED_REVIEW'); assert.equal(next.maxConcurrency, 1); assert.equal(next.maxNodes, 1);
+    assert.equal(finalRuns.length, 1 + (cont ? 1 : 0) + (arb ? 1 : 0));
+    const taskOf = id => JSON.parse(fs.readFileSync(path.join(x.root, '.pi/mesh/runs', id + '.json'))).nodes[0].task;
+    if (cont) {
+      const next = JSON.parse(fs.readFileSync(path.join(x.root, '.pi/mesh/runs', finalRuns.find(r => taskOf(r.id) === 'PREDECLARED_FIXED_REVIEW').id + '.json')));
+      assert.equal(next.maxConcurrency, 1); assert.equal(next.maxNodes, 1);
       assert.equal(next.nodes[0].timeoutMs, 600000); assert.equal(next.nodes[0].retries, 0);
       await assert.rejects(x.tool('mesh', { action: 'continue', runId: parentId }), /expired|revoked|replayed/i);
     }
+    if (arb) assert.ok(finalRuns.some(r => r.id !== parentId && taskOf(r.id) === 'NOT_PREDECLARED'));
     if (when === 'historical-cancel') assert.equal(crossInfo(x).stopped, true, 'continuation must not reopen peer inbox');
     assert.deepEqual(x.errors, []);
-    console.log('CONTINUATION_ACTUAL_EVIDENCE', JSON.stringify({ when, parentId, allowed, runs: finalRuns.length, children: x.calls.filter(c => c.layer === 'actualManagedSubagent').length, continued, arbitrary }));
+    console.log('CONTINUATION_ACTUAL_EVIDENCE', JSON.stringify({ when, parentId, cont, arb, runs: finalRuns.length, children: x.calls.filter(c => c.layer === 'actualManagedSubagent').length, continued, arbitrary }));
   } finally { child.resolve(); host.resolve(); await x.session.abort(); await prompt?.catch(() => {}); await x.close(); }
 });
 
+
+test('adaptive continuation actual SDK: phase continue and notification-turn run both work', async () => {
+  fs.mkdirSync(path.join(agentDir, 'mesh'), { recursive: true });
+  fs.writeFileSync(path.join(agentDir, 'mesh/settings.yaml'), JSON.stringify({ joinMode: 'async' }));
+  const x = await make('adaptive-actual', undefined, ['mesh']), child = hold();
+  let parentId, continued = false, arbitrary = false, prompt;
+  try {
+    x.session.setActiveToolsByName(['mesh']); x.gates.child = child;
+    x.behavior.respond = (layer, context) => {
+      if (layer !== 'host') return {};
+      const results = context.messages.filter(m => m.role === 'toolResult');
+      if (!results.length) return { stopReason: 'toolUse', content: [{ type: 'toolCall', id: 'adaptive-root', name: 'mesh', arguments: { action: 'run', tasks: [{ agent: 'local', task: 'ORIGINAL_ADAPTIVE_TASK' }], autoContinuation: { maxRuns: 2 } } }] };
+      if (context.messages.some(m => m.role === 'user' && JSON.stringify(m).includes('finished: succeeded')) && !continued) {
+        continued = true;
+        return { stopReason: 'toolUse', content: [{ type: 'toolCall', id: 'adaptive-next', name: 'mesh', arguments: { action: 'continue', runId: parentId, phase: 'repair' } }] };
+      }
+      if (continued && !arbitrary) {
+        arbitrary = true;
+        return { stopReason: 'toolUse', content: [{ type: 'toolCall', id: 'adaptive-arbitrary', name: 'mesh', arguments: { action: 'run', tasks: [{ agent: 'local', task: 'UNRELATED' }] } }] };
+      }
+      return {};
+    };
+    prompt = x.session.prompt('User delegates two bounded repair/verify stages for the original task.', { source: 'interactive' });
+    await until(() => x.calls.some(c => c.layer === 'actualManagedSubagent'), 'original child');
+    parentId = (await x.tool('mesh', { action: 'list' })).details.runs[0].id;
+    await prompt; child.resolve();
+    await until(() => continued && arbitrary && !x.session.isStreaming, 'adaptive followUp');
+    const history = x.session.agent.state.messages;
+    assert.equal(history.find(m => m.role === 'toolResult' && m.toolCallId === 'adaptive-next')?.isError, false);
+    assert.equal(history.find(m => m.role === 'toolResult' && m.toolCallId === 'adaptive-arbitrary')?.isError, false);
+    const runs = (await x.tool('mesh', { action: 'list' })).details.runs;
+    assert.equal(runs.length, 3);
+    const taskOf = id => JSON.parse(fs.readFileSync(path.join(x.root, '.pi/mesh/runs', id + '.json'))).nodes[0].task;
+    const nextId = runs.find(r => r.id !== parentId && taskOf(r.id).includes('Original authorized task')).id;
+    const next = JSON.parse(fs.readFileSync(path.join(x.root, '.pi/mesh/runs', nextId + '.json')));
+    assert.match(next.nodes[0].task, /Original authorized task:\nORIGINAL_ADAPTIVE_TASK/);
+    assert.match(next.nodes[0].task, /Current phase: repair/);
+    assert.equal(next.nodes[0].timeoutMs, 600000); assert.equal(next.nodes[0].retries, 0);
+    assert.deepEqual(x.errors, []);
+  } finally { child.resolve(); await x.session.abort(); await prompt?.catch(() => {}); await x.close(); }
+});
 
 function crossInfo(x) {
   const requestId = randomUUID(); let result;
@@ -501,10 +545,10 @@ test('continuation actual SDK all: two independent details/parents each continue
     host.resolve(); await prompt;
     await until(() => attempted === 5 && !x.session.isStreaming, 'both continuations and replay/arbitrary attempts settled');
     const results = actions.map(a => x.session.agent.state.messages.find(m => m.role === 'toolResult' && m.toolCallId === a.id));
-    assert.deepEqual(results.map(r => r?.isError), [false, false, true, true, true], JSON.stringify(results));
-    await until(() => x.calls.filter(c => c.layer === 'actualManagedSubagent').length === 4, 'exactly two original and two fixed children');
+    assert.deepEqual(results.map(r => r?.isError), [false, false, true, true, false], JSON.stringify(results));
+    await until(() => x.calls.filter(c => c.layer === 'actualManagedSubagent').length === 5, 'two original, two fixed children, one notification-turn run');
     const runs = (await x.tool('mesh', { action: 'list' })).details.runs;
-    assert.equal(runs.length, 4);
+    assert.equal(runs.length, 5);
     const successors = results.slice(0, 2).map(r => r.details);
     assert.deepEqual(successors.map(r => r.parentRunId), parentIds);
     for (const r of successors) {
@@ -514,6 +558,6 @@ test('continuation actual SDK all: two independent details/parents each continue
       assert.equal(saved.maxConcurrency, 1); assert.equal(saved.nodes[0].retries, 0);
     }
     assert.deepEqual(x.errors, []);
-    console.log('CONTINUATION_ALL_ACTUAL_EVIDENCE', JSON.stringify({ followUpMode: x.session.followUpMode, parentIds, independentDetails: true, actions, results, children: 4, runs: runs.length }));
+    console.log('CONTINUATION_ALL_ACTUAL_EVIDENCE', JSON.stringify({ followUpMode: x.session.followUpMode, parentIds, independentDetails: true, actions, results, children: 5, runs: runs.length }));
   } finally { children.resolve(); host.resolve(); await x.session.abort(); await prompt?.catch(() => {}); await x.close(); }
 });

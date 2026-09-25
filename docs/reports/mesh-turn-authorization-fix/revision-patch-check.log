@@ -1,0 +1,4 @@
+/Users/relvf/ai/pi-mesh HEAD=250a372686a6433695e0913fef4fd22d8f9fd99c patch=mesh.patch
+COMMAND_EXIT=0
+/Users/relvf/ai/pi-cross-session HEAD=4031d9c98ceb952e7cfc00f5d429653406cbf23d patch=cross.patch
+COMMAND_EXIT=0

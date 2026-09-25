@@ -1,0 +1,6 @@
+Initial direct invocation (Node v24.14.1) stopped BEFORE any SDK test:
+AssertionError: Host and Mesh native imports must match SDK family, not mixed
+actual:   /Users/relvf/ai/pi-mesh/node_modules/@earendil-works/pi-ai
+expected: /Users/relvf/ai/pi-mesh/node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-ai
+Both report version 0.83.0, but the existing bridge test requires identical package identity.
+Resolution: copy current source/test files to an isolated /tmp directory and symlink its dependencies to the existing common SDK family. No npm install, publication or installed node_modules changes.

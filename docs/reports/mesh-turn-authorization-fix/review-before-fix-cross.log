@@ -1,0 +1,169 @@
+TAP version 13
+# Subtest: Mesh completion: private details identity grants only the fixed run once; no broad action authority
+ok 1 - Mesh completion: private details identity grants only the fixed run once; no broad action authority
+  ---
+  duration_ms: 201.484625
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects clone
+ok 2 - Mesh continuation rejects clone
+  ---
+  duration_ms: 20.290167
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects fake-customType
+ok 3 - Mesh continuation rejects fake-customType
+  ---
+  duration_ms: 17.692666
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects cancel-before
+ok 4 - Mesh continuation rejects cancel-before
+  ---
+  duration_ms: 28.206541
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects cancel-after
+ok 5 - Mesh continuation rejects cancel-after
+  ---
+  duration_ms: 16.35425
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects new-user
+ok 6 - Mesh continuation rejects new-user
+  ---
+  duration_ms: 27.973333
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects extension-input
+ok 7 - Mesh continuation rejects extension-input
+  ---
+  duration_ms: 31.176458
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects expired
+ok 8 - Mesh continuation rejects expired
+  ---
+  duration_ms: 15.504583
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects session-start
+ok 9 - Mesh continuation rejects session-start
+  ---
+  duration_ms: 18.789291
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects session-shutdown
+ok 10 - Mesh continuation rejects session-shutdown
+  ---
+  duration_ms: 16.17025
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects different-session
+ok 11 - Mesh continuation rejects different-session
+  ---
+  duration_ms: 17.6885
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects different-cwd
+ok 12 - Mesh continuation rejects different-cwd
+  ---
+  duration_ms: 16.271625
+  type: 'test'
+  ...
+# Subtest: Peer text cannot issue or borrow a completion capability, even with identical notification metadata
+ok 13 - Peer text cannot issue or borrow a completion capability, even with identical notification metadata
+  ---
+  duration_ms: 44.996709
+  type: 'test'
+  ...
+# Subtest: Unknown source cannot bootstrap; late bus replay and per-user plan budget are bounded
+ok 14 - Unknown source cannot bootstrap; late bus replay and per-user plan budget are bounded
+  ---
+  duration_ms: 27.346833
+  type: 'test'
+  ...
+# Subtest: Grouped completions keep distinct run grants; unrelated custom message drops current grants
+ok 15 - Grouped completions keep distinct run grants; unrelated custom message drops current grants
+  ---
+  duration_ms: 40.924167
+  type: 'test'
+  ...
+# Subtest: Gate reservation is not executable after settled/cancelled/expired; failed tool cannot refund it
+ok 16 - Gate reservation is not executable after settled/cancelled/expired; failed tool cannot refund it
+  ---
+  duration_ms: 64.96275
+  type: 'test'
+  ...
+# Subtest: Historical abort keeps peer inbox stopped, but a new user plan survives normal settled and continues
+not ok 17 - Historical abort keeps peer inbox stopped, but a new user plan survives normal settled and continues
+  ---
+  duration_ms: 33.1085
+  type: 'test'
+  location: '/Users/relvf/ai/pi-cross-session/test/mesh-continuation.test.mjs:120:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    false !== true
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/relvf/ai/pi-cross-session/test/mesh-continuation.test.mjs:128:32)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: Independent completion deliveries accumulate only within trusted batch: none
+not ok 18 - Independent completion deliveries accumulate only within trusted batch: none
+  ---
+  duration_ms: 18.259833
+  type: 'test'
+  location: '/Users/relvf/ai/pi-cross-session/test/mesh-continuation.test.mjs:138:66'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + true
+    - undefined
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/relvf/ai/pi-cross-session/test/mesh-continuation.test.mjs:150:14)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: Independent completion deliveries accumulate only within trusted batch: untrusted
+ok 19 - Independent completion deliveries accumulate only within trusted batch: untrusted
+  ---
+  duration_ms: 17.621375
+  type: 'test'
+  ...
+# Subtest: Independent completion deliveries accumulate only within trusted batch: cancel
+ok 20 - Independent completion deliveries accumulate only within trusted batch: cancel
+  ---
+  duration_ms: 17.229875
+  type: 'test'
+  ...
+# Subtest: Independent completion deliveries accumulate only within trusted batch: new-user
+ok 21 - Independent completion deliveries accumulate only within trusted batch: new-user
+  ---
+  duration_ms: 17.701083
+  type: 'test'
+  ...
+1..21
+# tests 21
+# suites 0
+# pass 19
+# fail 2
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1559.947458

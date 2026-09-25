@@ -1,0 +1,546 @@
+
+> pi-cross-session@2.0.1 test
+> node --test --test-concurrency=1 test/*.test.mjs
+
+TAP version 13
+# Subtest: sandbox network-only guard: 12 denials before I/O; descendants inherit guard
+ok 1 - sandbox network-only guard: 12 denials before I/O; descendants inherit guard
+  ---
+  duration_ms: 6.007959
+  type: 'test'
+  ...
+# Subtest: component/I/O fault: serialized registration write fenced by shutdown; independent/idempotent cleanup
+ok 2 - component/I/O fault: serialized registration write fenced by shutdown; independent/idempotent cleanup
+  ---
+  duration_ms: 246.153667
+  type: 'test'
+  ...
+# Subtest: component: overlapping starts/shutdown do not resurrect registrations; listener count returns to baseline
+ok 3 - component: overlapping starts/shutdown do not resurrect registrations; listener count returns to baseline
+  ---
+  duration_ms: 9.313292
+  type: 'test'
+  ...
+# Subtest: Mesh completion: private details identity grants only the fixed run once; no broad action authority
+ok 4 - Mesh completion: private details identity grants only the fixed run once; no broad action authority
+  ---
+  duration_ms: 40.454958
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects clone
+ok 5 - Mesh continuation rejects clone
+  ---
+  duration_ms: 17.189666
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects fake-customType
+ok 6 - Mesh continuation rejects fake-customType
+  ---
+  duration_ms: 17.161375
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects cancel-before
+ok 7 - Mesh continuation rejects cancel-before
+  ---
+  duration_ms: 31.596209
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects cancel-after
+ok 8 - Mesh continuation rejects cancel-after
+  ---
+  duration_ms: 17.328875
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects new-user
+ok 9 - Mesh continuation rejects new-user
+  ---
+  duration_ms: 31.8025
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects extension-input
+ok 10 - Mesh continuation rejects extension-input
+  ---
+  duration_ms: 28.303875
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects expired
+ok 11 - Mesh continuation rejects expired
+  ---
+  duration_ms: 16.67775
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects session-start
+ok 12 - Mesh continuation rejects session-start
+  ---
+  duration_ms: 18.645917
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects session-shutdown
+ok 13 - Mesh continuation rejects session-shutdown
+  ---
+  duration_ms: 15.278958
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects different-session
+ok 14 - Mesh continuation rejects different-session
+  ---
+  duration_ms: 16.084916
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects different-cwd
+ok 15 - Mesh continuation rejects different-cwd
+  ---
+  duration_ms: 15.903583
+  type: 'test'
+  ...
+# Subtest: Peer text cannot issue or borrow a completion capability, even with identical notification metadata
+ok 16 - Peer text cannot issue or borrow a completion capability, even with identical notification metadata
+  ---
+  duration_ms: 42.076875
+  type: 'test'
+  ...
+# Subtest: Unknown source cannot bootstrap; late bus replay and per-user plan budget are bounded
+ok 17 - Unknown source cannot bootstrap; late bus replay and per-user plan budget are bounded
+  ---
+  duration_ms: 27.737834
+  type: 'test'
+  ...
+# Subtest: Grouped completions keep distinct run grants; unrelated custom message drops current grants
+ok 18 - Grouped completions keep distinct run grants; unrelated custom message drops current grants
+  ---
+  duration_ms: 41.939042
+  type: 'test'
+  ...
+# Subtest: Gate reservation is not executable after settled/cancelled/expired; failed tool cannot refund it
+ok 19 - Gate reservation is not executable after settled/cancelled/expired; failed tool cannot refund it
+  ---
+  duration_ms: 58.843625
+  type: 'test'
+  ...
+# Subtest: Historical abort keeps peer inbox stopped, but a new user plan survives normal settled and continues
+ok 20 - Historical abort keeps peer inbox stopped, but a new user plan survives normal settled and continues
+  ---
+  duration_ms: 65.274625
+  type: 'test'
+  ...
+# Subtest: Independent completion deliveries accumulate only within trusted batch: none
+ok 21 - Independent completion deliveries accumulate only within trusted batch: none
+  ---
+  duration_ms: 14.862583
+  type: 'test'
+  ...
+# Subtest: Independent completion deliveries accumulate only within trusted batch: untrusted
+ok 22 - Independent completion deliveries accumulate only within trusted batch: untrusted
+  ---
+  duration_ms: 15.820875
+  type: 'test'
+  ...
+# Subtest: Independent completion deliveries accumulate only within trusted batch: cancel
+ok 23 - Independent completion deliveries accumulate only within trusted batch: cancel
+  ---
+  duration_ms: 14.953625
+  type: 'test'
+  ...
+# Subtest: Independent completion deliveries accumulate only within trusted batch: new-user
+ok 24 - Independent completion deliveries accumulate only within trusted batch: new-user
+  ---
+  duration_ms: 14.857375
+  type: 'test'
+  ...
+# Subtest: Capability scope itself rejects different-session delivery and tool reservation (with valid positive controls)
+ok 25 - Capability scope itself rejects different-session delivery and tool reservation (with valid positive controls)
+  ---
+  duration_ms: 1.202916
+  type: 'test'
+  ...
+# Subtest: Already-reserved claim is revoked by registered session replacement
+ok 26 - Already-reserved claim is revoked by registered session replacement
+  ---
+  duration_ms: 16.461042
+  type: 'test'
+  ...
+# {"evidence":"two OS processes/SDK 0.84.4/Unix IPC","pids":[18990,18991],"calls":2,"responses":2,"normalExits":2,"cleanup":true}
+# Subtest: two OS processes: actual SDK/local provider, mutual Unix sends/history/responses, shutdown and normal EOF cleanup
+ok 27 - two OS processes: actual SDK/local provider, mutual Unix sends/history/responses, shutdown and normal EOF cleanup
+  ---
+  duration_ms: 573.779333
+  type: 'test'
+  ...
+# Subtest: SIGKILL: no cleanup promise; discovery reclaims only verified-dead fixture PID
+ok 28 - SIGKILL: no cleanup promise; discovery reclaims only verified-dead fixture PID
+  ---
+  duration_ms: 774.018333
+  type: 'test'
+  ...
+# Subtest: list_pi: resolves current Git worktree, branch and HEAD; non-Git cwd is null
+ok 29 - list_pi: resolves current Git worktree, branch and HEAD; non-Git cwd is null
+  ---
+  duration_ms: 72.234833
+  type: 'test'
+  ...
+# Subtest: component/IPC: legacy idle submitted, legacy busy refuses BEFORE SDK; new busy queues; duplicate ID
+ok 30 - component/IPC: legacy idle submitted, legacy busy refuses BEFORE SDK; new busy queues; duplicate ID
+  ---
+  duration_ms: 187.864834
+  type: 'test'
+  ...
+# Subtest: component/IPC: authentication, null/empty IDs, invalid text, UTF8, multi-frame, byte cap and endpoint mode
+ok 31 - component/IPC: authentication, null/empty IDs, invalid text, UTF8, multi-frame, byte cap and endpoint mode
+  ---
+  duration_ms: 290.585
+  type: 'test'
+  ...
+# Subtest: component/IPC: exact serialized UTF8 frame boundary
+ok 32 - component/IPC: exact serialized UTF8 frame boundary
+  ---
+  duration_ms: 65.652292
+  type: 'test'
+  ...
+# Subtest: component/IPC: three sessions ambiguity, old ref, invalid tool parameters, refused policy
+ok 33 - component/IPC: three sessions ambiguity, old ref, invalid tool parameters, refused policy
+  ---
+  duration_ms: 14.763208
+  type: 'test'
+  ...
+# Subtest: component/IPC: queue MAX_PENDING=50, short rate, status and total non-refilling budget=256
+ok 34 - component/IPC: queue MAX_PENDING=50, short rate, status and total non-refilling budget=256
+  ---
+  duration_ms: 7169.7135
+  type: 'test'
+  ...
+# Subtest: component/IPC: queued TTL and shutdown/heartbeat synchronous getter failure (real 31s)
+ok 35 - component/IPC: queued TTL and shutdown/heartbeat synchronous getter failure (real 31s)
+  ---
+  duration_ms: 31188.94575
+  type: 'test'
+  ...
+# Subtest: component/IPC: new sender refuses old receiver capability BEFORE message frame
+ok 36 - component/IPC: new sender refuses old receiver capability BEFORE message frame
+  ---
+  duration_ms: 10.957083
+  type: 'test'
+  ...
+# Subtest: component/IPC: receipt loss/absolute timeout are unknown, never auto-retried; shutdown cancels outstanding exchange
+ok 37 - component/IPC: receipt loss/absolute timeout are unknown, never auto-retried; shutdown cancels outstanding exchange
+  ---
+  duration_ms: 5018.755084
+  type: 'test'
+  ...
+# {"evidence":"start fault hit and cleaned","fault":"idle","hits":1,"subscriptions":0}
+# Subtest: review start cleanup: idle, private resources/listeners baseline and other Host intact
+ok 38 - review start cleanup: idle, private resources/listeners baseline and other Host intact
+  ---
+  duration_ms: 68.242459
+  type: 'test'
+  ...
+# {"evidence":"start fault hit and cleaned","fault":"mode","hits":1,"subscriptions":0}
+# Subtest: review start cleanup: mode, private resources/listeners baseline and other Host intact
+ok 39 - review start cleanup: mode, private resources/listeners baseline and other Host intact
+  ---
+  duration_ms: 49.2235
+  type: 'test'
+  ...
+# {"evidence":"start fault hit and cleaned","fault":"tui","hits":1,"subscriptions":0}
+# Subtest: review start cleanup: tui, private resources/listeners baseline and other Host intact
+ok 40 - review start cleanup: tui, private resources/listeners baseline and other Host intact
+  ---
+  duration_ms: 52.14
+  type: 'test'
+  ...
+# {"evidence":"start fault hit and cleaned","fault":"partial-rpc","hits":1,"subscriptions":0}
+# Subtest: review start cleanup: partial-rpc, private resources/listeners baseline and other Host intact
+ok 41 - review start cleanup: partial-rpc, private resources/listeners baseline and other Host intact
+  ---
+  duration_ms: 53.933333
+  type: 'test'
+  ...
+# {"evidence":"start fault hit and cleaned","fault":"write-notify-getter","hits":2,"subscriptions":0}
+# Subtest: review start cleanup: write-notify-getter, private resources/listeners baseline and other Host intact
+ok 42 - review start cleanup: write-notify-getter, private resources/listeners baseline and other Host intact
+  ---
+  duration_ms: 56.722208
+  type: 'test'
+  ...
+# {"evidence":"start fault hit and cleaned","fault":"write-notify-method","hits":2,"subscriptions":0}
+# Subtest: review start cleanup: write-notify-method, private resources/listeners baseline and other Host intact
+ok 43 - review start cleanup: write-notify-method, private resources/listeners baseline and other Host intact
+  ---
+  duration_ms: 60.037667
+  type: 'test'
+  ...
+# Subtest: review dedup: sender-qualified A/B/A across settled, same ID tombstones and no budget refill
+ok 44 - review dedup: sender-qualified A/B/A across settled, same ID tombstones and no budget refill
+  ---
+  duration_ms: 169.745958
+  type: 'test'
+  ...
+# {"evidence":"negative receipt","bad":"wrong-id","code":"invalid_receipt","state":"receipt_unknown","retryable":false}
+# Subtest: review negative receipt wrong-id: correlate before refusal, one send, unknown/no retry
+ok 45 - review negative receipt wrong-id: correlate before refusal, one send, unknown/no retry
+  ---
+  duration_ms: 69.701791
+  type: 'test'
+  ...
+# {"evidence":"negative receipt","bad":"old-hello","code":"invalid_receipt","state":"receipt_unknown","retryable":false}
+# Subtest: review negative receipt old-hello: correlate before refusal, one send, unknown/no retry
+ok 46 - review negative receipt old-hello: correlate before refusal, one send, unknown/no retry
+  ---
+  duration_ms: 65.573125
+  type: 'test'
+  ...
+# {"evidence":"negative receipt","bad":"invalid-metadata","code":"invalid_response","state":"receipt_unknown","retryable":false}
+# Subtest: review negative receipt invalid-metadata: correlate before refusal, one send, unknown/no retry
+ok 47 - review negative receipt invalid-metadata: correlate before refusal, one send, unknown/no retry
+  ---
+  duration_ms: 65.118708
+  type: 'test'
+  ...
+# {"evidence":"exchange lstat deadline","entered":true,"hits":2,"elapsed":5311.8393750000005,"settledMs":5002.569167000001,"settled":true,"connects":1,"sends":0}
+# {"evidence":"late lstat released","entered":true,"hits":2,"connects":1,"sends":0,"noConnectionGrowth":true}
+# Subtest: review ordinary send deadline includes HIT delayed exchange lstat; late release cannot connect/send
+ok 48 - review ordinary send deadline includes HIT delayed exchange lstat; late release cannot connect/send
+  ---
+  duration_ms: 5487.248834
+  type: 'test'
+  ...
+# {"evidence":"raw pipelined frames","scenario":"coalesced-near-hello","bytes":1080672,"statuses":["ready","accepted"],"admitted":1}
+# Subtest: review raw per-frame IPC pipeline: coalesced-near-hello
+ok 49 - review raw per-frame IPC pipeline: coalesced-near-hello
+  ---
+  duration_ms: 73.649292
+  type: 'test'
+  ...
+# {"evidence":"raw pipelined frames","scenario":"fragmented-near-message","bytes":1049044,"statuses":["ready","accepted"],"admitted":1}
+# Subtest: review raw per-frame IPC pipeline: fragmented-near-message
+ok 50 - review raw per-frame IPC pipeline: fragmented-near-message
+  ---
+  duration_ms: 31.021542
+  type: 'test'
+  ...
+# {"evidence":"raw pipelined frames","scenario":"BOM-raw-exact","bytes":1048772,"statuses":["ready","accepted"],"admitted":1}
+# Subtest: review raw per-frame IPC pipeline: BOM-raw-exact
+ok 51 - review raw per-frame IPC pipeline: BOM-raw-exact
+  ---
+  duration_ms: 30.763834
+  type: 'test'
+  ...
+# {"evidence":"raw pipelined frames","scenario":"BOM-raw-over","bytes":1048775,"statuses":["message_too_large"],"admitted":0}
+# Subtest: review raw per-frame IPC pipeline: BOM-raw-over
+ok 52 - review raw per-frame IPC pipeline: BOM-raw-over
+  ---
+  duration_ms: 25.042583
+  type: 'test'
+  ...
+# {"evidence":"raw pipelined frames","scenario":"partial-multibyte-over","bytes":1049045,"statuses":["ready","message_too_large"],"admitted":0}
+# Subtest: review raw per-frame IPC pipeline: partial-multibyte-over
+ok 53 - review raw per-frame IPC pipeline: partial-multibyte-over
+  ---
+  duration_ms: 22.793125
+  type: 'test'
+  ...
+# {"evidence":"raw pipelined frames","scenario":"valid-then-invalid-utf8","bytes":666,"statuses":["ready","accepted"],"admitted":1}
+# Subtest: review raw per-frame IPC pipeline: valid-then-invalid-utf8
+ok 54 - review raw per-frame IPC pipeline: valid-then-invalid-utf8
+  ---
+  duration_ms: 22.511125
+  type: 'test'
+  ...
+# {"evidence":"raw pipelined frames","scenario":"valid-then-third","bytes":667,"statuses":["ready","accepted"],"admitted":1}
+# Subtest: review raw per-frame IPC pipeline: valid-then-third
+ok 55 - review raw per-frame IPC pipeline: valid-then-third
+  ---
+  duration_ms: 19.313166
+  type: 'test'
+  ...
+# Subtest: review component: unknown/toolUse/error ending drops queue; internal cancelled/peer continuations never gain tool authority
+ok 56 - review component: unknown/toolUse/error ending drops queue; internal cancelled/peer continuations never gain tool authority
+  ---
+  duration_ms: 275.486541
+  type: 'test'
+  ...
+# {"evidence":"default retry backoff abort","callsAfterAbort":1,"oldSignalAborted":false,"states":["dropped_cancelled","dropped_cancelled"]}
+# {"evidence":"retry abort no replay with user/reopen","calls":3,"errors":1,"successors":0}
+# Subtest: review real SDK DEFAULT retry: abort in actual backoff drops two queued peers without replay
+ok 57 - review real SDK DEFAULT retry: abort in actual backoff drops two queued peers without replay
+  ---
+  duration_ms: 327.477917
+  type: 'test'
+  ...
+# {"evidence":"retry peer tool","name":"Agent","executions":0,"result":{"role":"toolResult","toolCallId":"fixture-call-5","toolName":"Agent","content":[{"type":"text","text":"Peer-only/cancelled turn cannot authorize task creation, resume, growth or policy changes; ask the local user"}],"details":{},"isError":true,"timestamp":1789868908537}}
+# {"evidence":"retry tool control","name":"Agent","calls":5,"peerExecutions":0,"userExecutions":1}
+# Subtest: review real SDK DEFAULT retry: peer Agent remains explicitly blocked; genuine user executes
+ok 58 - review real SDK DEFAULT retry: peer Agent remains explicitly blocked; genuine user executes
+  ---
+  duration_ms: 2052.911667
+  type: 'test'
+  ...
+# {"evidence":"inbound stop vs user authority","name":"Agent","executions":1,"calls":3,"stopped":true}
+# Subtest: review real SDK: abort latch stays inbound-only; new user Agent works WITHOUT resume
+ok 59 - review real SDK: abort latch stays inbound-only; new user Agent works WITHOUT resume
+  ---
+  duration_ms: 41.075542
+  type: 'test'
+  ...
+# {"evidence":"retry peer tool","name":"send_subagent","executions":0,"result":{"role":"toolResult","toolCallId":"fixture-call-13","toolName":"send_subagent","content":[{"type":"text","text":"Peer-only/cancelled turn cannot authorize task creation, resume, growth or policy changes; ask the local user"}],"details":{},"isError":true,"timestamp":1789868910631}}
+# {"evidence":"retry tool control","name":"send_subagent","calls":5,"peerExecutions":0,"userExecutions":1}
+# Subtest: review real SDK DEFAULT retry: peer send_subagent remains explicitly blocked; genuine user executes
+ok 60 - review real SDK DEFAULT retry: peer send_subagent remains explicitly blocked; genuine user executes
+  ---
+  duration_ms: 2063.464542
+  type: 'test'
+  ...
+# {"evidence":"inbound stop vs user authority","name":"send_subagent","executions":1,"calls":3,"stopped":true}
+# Subtest: review real SDK: abort latch stays inbound-only; new user send_subagent works WITHOUT resume
+ok 61 - review real SDK: abort latch stays inbound-only; new user send_subagent works WITHOUT resume
+  ---
+  duration_ms: 58.116667
+  type: 'test'
+  ...
+# {"evidence":"successful retry followed by serial extension queue","calls":4,"errors":1,"successfulResponses":3}
+# Subtest: review real SDK DEFAULT retry success: terminal stop evidence flushes two peers one-at-a-time
+ok 62 - review real SDK DEFAULT retry success: terminal stop evidence flushes two peers one-at-a-time
+  ---
+  duration_ms: 2070.616167
+  type: 'test'
+  ...
+# {"evidence":"known send_subagent no retry","calls":4,"peerExecutions":0,"userExecutions":1}
+# Subtest: review real SDK known send_subagent: direct peer blocked without retry; genuine user positive control
+ok 63 - review real SDK known send_subagent: direct peer blocked without retry; genuine user positive control
+  ---
+  duration_ms: 38.60325
+  type: 'test'
+  ...
+# {"evidence":"F1 after HIT heartbeat cleanup","rows":[{"name":"Agent","hits":1,"executions":0,"result":{"role":"toolResult","toolCallId":"fixture-call-1","toolName":"Agent","content":[{"type":"text","text":"Peer-only/cancelled turn cannot authorize task creation, resume, growth or policy changes; ask the local user"}],"details":{},"isError":true,"timestamp":1789868943444},"calls":2},{"name":"send_subagent","hits":1,"executions":0,"result":{"role":"toolResult","toolCallId":"fixture-call-2","toolName":"send_subagent","content":[{"type":"text","text":"Peer-only/cancelled turn cannot authorize task creation, resume, growth or policy changes; ask the local user"}],"details":{},"isError":true,"timestamp":1789868943444},"calls":2}]}
+# {"evidence":"F1 user positive controls inbox still gone","calls":8,"peerExecutions":[0,0],"userExecutions":[1,1],"errors":[]}
+# Subtest: second F1 real SDK: heartbeat WRITE cleanup cannot grant peer Agent/send_subagent; fresh user works with inbox gone
+ok 64 - second F1 real SDK: heartbeat WRITE cleanup cannot grant peer Agent/send_subagent; fresh user works with inbox gone
+  ---
+  duration_ms: 30097.956791
+  type: 'test'
+  ...
+# {"evidence":"F2 actual downstream handled","first":"interactive","observed":[{"text":"consume without agent","source":"interactive","idle":true,"signal":false},{"text":"independent extension request","source":"extension","idle":true,"signal":false}],"executions":0,"result":{"role":"toolResult","toolCallId":"fixture-call-9","toolName":"Agent","content":[{"type":"text","text":"Peer-only/cancelled turn cannot authorize task creation, resume, growth or policy changes; ask the local user"}],"details":{},"isError":true,"timestamp":1789868943500},"calls":2,"stopped":true}
+# Subtest: second F2 real SDK downstream handled interactive: next idle input replaces stale source, NOT inbound stop
+ok 65 - second F2 real SDK downstream handled interactive: next idle input replaces stale source, NOT inbound stop
+  ---
+  duration_ms: 48.33525
+  type: 'test'
+  ...
+# {"evidence":"F2 actual downstream handled","first":"extension","observed":[{"text":"user run to cancel","source":"interactive","idle":true,"signal":false},{"text":"consume without agent","source":"extension","idle":true,"signal":false},{"text":"new genuine user WITHOUT resume","source":"interactive","idle":true,"signal":false}],"executions":1,"result":{"role":"toolResult","toolCallId":"fixture-call-12","toolName":"Agent","content":[{"type":"text","text":"inert execution"}],"isError":false,"timestamp":1789868943548},"calls":3,"stopped":true}
+# Subtest: second F2 real SDK downstream handled extension: next idle input replaces stale source, NOT inbound stop
+ok 66 - second F2 real SDK downstream handled extension: next idle input replaces stale source, NOT inbound stop
+  ---
+  duration_ms: 41.420917
+  type: 'test'
+  ...
+# {"evidence":"published startup peer authority","hits":1,"submissions":1,"results":[{"block":true,"reason":"Peer-only/cancelled turn cannot authorize task creation, resume, growth or policy changes; ask the local user"},{"block":true,"reason":"Peer-only/cancelled turn cannot authorize task creation, resume, growth or policy changes; ask the local user"},{"block":true,"reason":"Peer-only/cancelled turn cannot authorize task creation, resume, growth or policy changes; ask the local user"},{"block":true,"reason":"Peer-only/cancelled turn cannot authorize task creation, resume, growth or policy changes; ask the local user"}]}
+# Subtest: second authority scope: closed peer/unknown/cancelled continuations gated; idle/active/owned preflight cannot be relabelled; managed and never-bound unaffected
+ok 67 - second authority scope: closed peer/unknown/cancelled continuations gated; idle/active/owned preflight cannot be relabelled; managed and never-bound unaffected
+  ---
+  duration_ms: 107.908459
+  type: 'test'
+  ...
+# (node:27078) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/relvf/ai/pi-cross-session/lib/contract.ts is not specified and it doesn't parse as CommonJS.
+# Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+# To eliminate this warning, add "type": "module" to /Users/relvf/ai/pi-cross-session/package.json.
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: component: default Host-only identity; same PID Host unaffected; RPC default-off / no listener timeout / unsubscribe
+ok 68 - component: default Host-only identity; same PID Host unaffected; RPC default-off / no listener timeout / unsubscribe
+  ---
+  duration_ms: 74.607458
+  type: 'test'
+  ...
+# Subtest: real SDK/IPC: Host RPC exact identities, single reply/duplicate, bridge handled without model/history; no handler refusal
+ok 69 - real SDK/IPC: Host RPC exact identities, single reply/duplicate, bridge handled without model/history; no handler refusal
+  ---
+  duration_ms: 168.351917
+  type: 'test'
+  ...
+# Subtest: component: bridge version/TTL/hops/budget rejection; async handled is too late; peer-only sensitive tool gate
+ok 70 - component: bridge version/TTL/hops/budget rejection; async handled is too late; peer-only sensitive tool gate
+  ---
+  duration_ms: 219.113167
+  type: 'test'
+  ...
+# Subtest: component: synchronous submit exception and unconfirmed async SDK submission diagnostic stay honest
+ok 71 - component: synchronous submit exception and unconfirmed async SDK submission diagnostic stay honest
+  ---
+  duration_ms: 5211.076541
+  type: 'test'
+  ...
+# Subtest: component/RPC: exact remote32 is never resolved as a peer display name
+ok 72 - component/RPC: exact remote32 is never resolved as a peer display name
+  ---
+  duration_ms: 19.252833
+  type: 'test'
+  ...
+# Subtest: component: synchronous handler claim is exclusive; abort during admission cannot enqueue after abort
+ok 73 - component: synchronous handler claim is exclusive; abort during admission cannot enqueue after abort
+  ---
+  duration_ms: 89.462
+  type: 'test'
+  ...
+# {"evidence":"cross-SDK shutdown RPC contract","outcome":"bounded missing-reply rejection","elapsed":51.160167,"remoteInjections":0,"cleanup":true}
+# Subtest: component: invalidated SDK runtime during RPC cleanup cannot leak an unhandled reply rejection
+ok 74 - component: invalidated SDK runtime during RPC cleanup cannot leak an unhandled reply rejection
+  ---
+  duration_ms: 73.245625
+  type: 'test'
+  ...
+# {"evidence":"real SDK/local provider/Unix IPC/history","scenario":"normal-release","calls":2,"completed":2,"aborted":0}
+# Subtest: real SDK 0.84.4 + Unix IPC: normal-release
+ok 75 - real SDK 0.84.4 + Unix IPC: normal-release
+  ---
+  duration_ms: 185.583208
+  type: 'test'
+  ...
+# {"evidence":"real SDK/local provider/Unix IPC/history","scenario":"abort-release","calls":1,"completed":0,"aborted":1}
+# Subtest: real SDK 0.84.4 + Unix IPC: abort-release
+ok 76 - real SDK 0.84.4 + Unix IPC: abort-release
+  ---
+  duration_ms: 345.886417
+  type: 'test'
+  ...
+# {"evidence":"real SDK/local provider/Unix IPC/history","scenario":"abort-then-user","calls":3,"completed":2,"aborted":1}
+# Subtest: real SDK 0.84.4 + Unix IPC: abort-then-user
+ok 77 - real SDK 0.84.4 + Unix IPC: abort-then-user
+  ---
+  duration_ms: 362.1965
+  type: 'test'
+  ...
+# {"evidence":"real SDK preflight/serialized queue","calls":3,"responses":3}
+# Subtest: real SDK: preflight without active signal refuses, then busy two messages flush serially
+ok 78 - real SDK: preflight without active signal refuses, then busy two messages flush serially
+  ---
+  duration_ms: 47.64575
+  type: 'test'
+  ...
+# Subtest: real SDK: managed child-local identity disables registration without affecting same-PID Host
+ok 79 - real SDK: managed child-local identity disables registration without affecting same-PID Host
+  ---
+  duration_ms: 17.057375
+  type: 'test'
+  ...
+# Subtest: real SDK reload: old endpoint/ref removed, new incarnation, other Session remains independent
+ok 80 - real SDK reload: old endpoint/ref removed, new incarnation, other Session remains independent
+  ---
+  duration_ms: 31.700083
+  type: 'test'
+  ...
+# {"evidence":"real SDK tool preflight/inert fixture Agent","calls":4,"peerExecutions":0,"userExecutions":1,"noChildCreated":true}
+# Subtest: real SDK tool_call: peer-only turn blocks fixture Agent entry; actual user turn can execute it
+ok 81 - real SDK tool_call: peer-only turn blocks fixture Agent entry; actual user turn can execute it
+  ---
+  duration_ms: 131.575416
+  type: 'test'
+  ...
+1..81
+# tests 81
+# suites 0
+# pass 81
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 103563.448834
+
+COMMAND_EXIT=0

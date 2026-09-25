@@ -145,6 +145,35 @@ for (const route of ["Host", "child"] as const) for (const longWarning of [false
   } finally { await handlers.get("session_shutdown")?.(); await manager.shutdown(); if (oldDir === undefined) delete process.env.PI_CODING_AGENT_DIR; else process.env.PI_CODING_AGENT_DIR = oldDir; fs.rmSync(root, { recursive: true, force: true }); }
 });
 
+test("authorized adaptive continuation creates only fixed phases of the original task", async () => {
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "mesh-adaptive-"))), oldDir = process.env.PI_CODING_AGENT_DIR;
+  const start = SubagentRuntime.prototype.start, notices: any[] = [], handlers = new Map<string, any>();
+  let tool: any, bound = "", stages = 0;
+  process.env.PI_CODING_AGENT_DIR = path.join(root, "agent-dir");
+  try {
+    fs.mkdirSync(path.join(process.env.PI_CODING_AGENT_DIR, "mesh"), { recursive: true });
+    fs.writeFileSync(path.join(process.env.PI_CODING_AGENT_DIR, "mesh", "settings.yaml"), "joinMode: async\n");
+    SubagentRuntime.prototype.start = function () { stages++; return { completion: Promise.resolve({ exitCode: 0, signal: null, output: "done", stderr: "", usage: emptyUsage() }), close: async () => {}, abort() {} } as any; };
+    const permit = Object.freeze({ bind(id: string) { bound = id; }, complete() { return true; }, claim() { return true; }, advance(_call: string, id: string) { bound = id; return true; } });
+    registerPiMesh({ registerTool(value: any) { if (value.name === "mesh") tool = value; }, getAllTools: () => [], getCommands: () => [], events: { emit(_name: string, request: any) { request.reply(permit); }, on: () => () => {} }, registerCommand() {}, registerShortcut() {}, sendMessage(message: any) { notices.push(message); }, sendUserMessage() {}, on(name: string, handler: any) { handlers.set(name, handler); } } as any);
+    const ctx: any = { cwd: root, mode: "print", hasUI: false, isProjectTrusted: () => true, sessionManager: { getSessionId: () => "adaptive-host" }, modelRegistry: { getAvailable: () => [] } };
+    const execute = (params: any) => tool.execute("host", params, undefined, undefined, ctx);
+    const original = await execute({ action: "run", tasks: [{ agent: "worker", task: "original objective" }], autoContinuation: { maxRuns: 2 } });
+    assert.equal(bound, original.details.run.id);
+    await until(() => notices.length === 1); assert.match(notices[0].content, /phase repair, verify, or load-test/);
+    await assert.rejects(execute({ action: "continue", runId: bound, phase: "repair", tasks: [{ agent: "other", task: "unrelated" }] }), /only action\/runId/);
+    const next = await execute({ action: "continue", runId: bound, phase: "repair" });
+    assert.notEqual(next.details.run.id, original.details.run.id);
+    await until(() => stages === 2 && notices.length === 2);
+    const output = await execute({ action: "status", runId: next.details.run.id });
+    assert.match(output.content[0].text, /succeeded/);
+  } finally {
+    await handlers.get("session_shutdown")?.(); SubagentRuntime.prototype.start = start;
+    if (oldDir === undefined) delete process.env.PI_CODING_AGENT_DIR; else process.env.PI_CODING_AGENT_DIR = oldDir;
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("predeclared continuation without current Cross authorization fails before original run creation", async () => {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "mesh-no-continuation-authority-")));
   const handlers = new Map<string, any>(); let tool: any;
@@ -156,6 +185,8 @@ test("predeclared continuation without current Cross authorization fails before 
     await assert.rejects(execute(input), /no run created/);
     await assert.rejects(execute({ ...input, async: false }), /initial background/);
     await assert.rejects(execute({ ...input, continuationTasks: [{ agent: "worker", task: "fixed", cwd: "/other" }] }), /only agent\/task/);
+    await assert.rejects(execute({ action: "run", tasks: input.tasks, autoContinuation: { maxRuns: 2 } }), /no run created/);
+    await assert.rejects(execute({ action: "run", tasks: input.tasks, autoContinuation: { maxRuns: 2 }, async: false }), /initial background/);
     assert.equal((await execute({ action: "list" })).details.count, 0);
   } finally { await handlers.get("session_shutdown")?.(); fs.rmSync(root, { recursive: true, force: true }); }
 });

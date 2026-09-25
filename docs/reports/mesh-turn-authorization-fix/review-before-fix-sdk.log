@@ -1,0 +1,58 @@
+BRIDGE_SOURCES {"source":"/private/tmp/cross-before-review.LIQc5a","crossHashes":{"extensions/cross-session.ts":"129da110fd52c5000f57029e10caa23be902c3c031540efab33624cfdb29c2a9","lib/contract.ts":"a7a8a5b883ddbe0961228f3c93b99ae9bfa29414e755f7f3b8d13a4977200e10","lib/mesh-continuation.ts":"d173f18357ef2bac70b113d24219b8773c2f8904361b3a2d103082c0a4fb98f1"},"family":{"@earendil-works/pi-coding-agent":{"root":"/Users/relvf/ai/pi-mesh/node_modules/@earendil-works/pi-coding-agent","version":"0.83.0"},"@earendil-works/pi-agent-core":{"root":"/Users/relvf/ai/pi-mesh/node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-agent-core","version":"0.83.0"},"@earendil-works/pi-ai":{"root":"/Users/relvf/ai/pi-mesh/node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-ai","version":"0.83.0"},"@earendil-works/pi-tui":{"root":"/Users/relvf/ai/pi-mesh/node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-tui","version":"0.83.0"},"typebox":{"root":"/Users/relvf/ai/pi-mesh/node_modules/typebox","version":"1.1.38"}},"node":"v24.14.1","platform":"darwin/arm64","privateAgentDir":"/private/tmp/pm-test-pKAzaM/agent","runtimeDir":"/tmp/pi-peers-501-db9e3c8ff94a"}
+✖ continuation actual SDK historical-cancel: fixed successor only, never arbitrary run (409.265958ms)
+BRIDGE_PROVIDER_TOTALS {"total":20,"managed":4,"host":16,"nonerrorResponses":19,"errorResponses":0,"aborted":1}
+✖ continuation actual SDK all: two independent details/parents each continue once in one batch (398.06775ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 819.73425
+
+✖ failing tests:
+
+test at test/bridge/run.mjs:384:94
+✖ continuation actual SDK historical-cancel: fixed successor only, never arbitrary run (409.265958ms)
+  AssertionError [ERR_ASSERTION]: {"role":"toolResult","toolCallId":"fixed-next","toolName":"mesh","content":[{"type":"text","text":"Peer-only/cancelled turn cannot authorize task creation, resume, growth or policy changes; ask the local user"}],"details":{},"isError":true,"timestamp":1789869059762}
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///private/tmp/mesh-review-sdk.pQBti2/test/bridge/run.mjs:436:12)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/bridge/run.mjs:461:1
+✖ continuation actual SDK all: two independent details/parents each continue once in one batch (398.06775ms)
+  AssertionError [ERR_ASSERTION]: [{"role":"toolResult","toolCallId":"batch-action-0","toolName":"mesh","content":[{"type":"text","text":"Started fixed continuation e3dee3a0-9d48-434b-846c-6a93283f945d for 4649d242-d4e0-4b95-9ce9-ac1fa4251454. End the turn if waiting; no polling."}],"details":{"action":"continue","parentRunId":"4649d242-d4e0-4b95-9ce9-ac1fa4251454","run":{"id":"e3dee3a0-9d48-434b-846c-6a93283f945d","status":"running","revision":4,"cwd":"/private/tmp/pm-test-pKAzaM/t/bridge-real-Y7DhPo/continuation-all","operator":"sequence","counts":{"running":1},"nodeCount":1,"checkpointPath":"/private/tmp/pm-test-pKAzaM/t/bridge-real-Y7DhPo/continuation-all/.pi/mesh/runs/e3dee3a0-9d48-434b-846c-6a93283f945d.json"}},"isError":false,"timestamp":1789869060088},{"role":"toolResult","toolCallId":"batch-action-1","toolName":"mesh","content":[{"type":"text","text":"Peer-only/cancelled turn cannot authorize task creation, resume, growth or policy changes; ask the local user"}],"details":{},"isError":true,"timestamp":1789869060105},{"role":"toolResult","toolCallId":"batch-action-2","toolName":"mesh","content":[{"type":"text","text":"Peer-only/cancelled turn cannot authorize task creation, resume, growth or policy changes; ask the local user"}],"details":{},"isError":true,"timestamp":1789869060146},{"role":"toolResult","toolCallId":"batch-action-3","toolName":"mesh","content":[{"type":"text","text":"Peer-only/cancelled turn cannot authorize task creation, resume, growth or policy changes; ask the local user"}],"details":{},"isError":true,"timestamp":1789869060147},{"role":"toolResult","toolCallId":"batch-action-4","toolName":"mesh","content":[{"type":"text","text":"Peer-only/cancelled turn cannot authorize task creation, resume, growth or policy changes; ask the local user"}],"details":{},"isError":true,"timestamp":1789869060148}]
+  + actual - expected
+  
+    [
+      false,
+  -   false,
+      true,
+      true,
+      true,
+  +   true
+    ]
+  
+      at TestContext.<anonymous> (file:///private/tmp/mesh-review-sdk.pQBti2/test/bridge/run.mjs:504:12)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [Array],
+    expected: [Array],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+COMMAND_EXIT=1 (expected regression failure against preserved pre-review Cross)

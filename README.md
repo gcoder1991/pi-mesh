@@ -327,9 +327,24 @@ reopen Cross peer reception or unlock Direct/Mesh cancellations. Other sensitive
 entries (arbitrary `run`, `resume`, `retry_failed`, `recover`, growth, bridge,
 Direct and configuration tools) are **not** granted by this mechanism.
 
-This deliberately does not infer authorization for arbitrary remediation from
-child output. Existing runs without a predeclared plan, unknown next stages,
-workflows and Direct notifications still need fresh local user authorization.
+For adaptive work on **one original task**, the initial genuine user turn can
+instead opt into `{ "autoContinuation": {} }` (or `{ "autoContinuation":
+{ "maxRuns": 2 } }` to cap stages). After each successful first-attempt
+background stage, its genuine completion allows
+`{"action":"continue","runId":"<stage-run-id>","phase":"repair"}`
+(`verify` and `load-test` are the other phases). Mesh creates a new sequential,
+10-minute, zero-retry task using the *unchanged original task and agent*, the
+selected phase and the previous run ID. The model cannot pass arbitrary new
+task text, change agents, worktree, policy, root or model on the notification
+turn. Adaptive chains have no count or time cap: they stop when the Host stops
+calling `continue`, and any failed/retried/cancelled stage, new user input,
+session replacement or reload revokes the whole chain immediately. This is an
+opt-in delegation from the original user turn, not permission inferred from
+child output.
+
+Existing runs without either predeclared fixed tasks or this explicit adaptive
+mode, unrelated work, workflows and Direct notifications still need fresh local
+user authorization.
 Both updated source extensions must be loaded; missing/old Cross fails closed
 before creating a run that requests `continuationTasks`. Reload does not restore
 old permits. The boundary remains trusted same-process extensions, not a sandbox

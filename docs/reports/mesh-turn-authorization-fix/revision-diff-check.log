@@ -1,0 +1,5 @@
+Mesh: git diff --check
+COMMAND_EXIT=0
+
+Cross: git diff --check
+COMMAND_EXIT=0

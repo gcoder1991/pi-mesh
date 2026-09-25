@@ -1,0 +1,150 @@
+TAP version 13
+# Subtest: Mesh completion: private details identity grants only the fixed run once; no broad action authority
+ok 1 - Mesh completion: private details identity grants only the fixed run once; no broad action authority
+  ---
+  duration_ms: 194.893833
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects clone
+ok 2 - Mesh continuation rejects clone
+  ---
+  duration_ms: 19.50225
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects fake-customType
+ok 3 - Mesh continuation rejects fake-customType
+  ---
+  duration_ms: 16.62175
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects cancel-before
+ok 4 - Mesh continuation rejects cancel-before
+  ---
+  duration_ms: 28.899834
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects cancel-after
+ok 5 - Mesh continuation rejects cancel-after
+  ---
+  duration_ms: 18.40175
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects new-user
+ok 6 - Mesh continuation rejects new-user
+  ---
+  duration_ms: 30.37875
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects extension-input
+ok 7 - Mesh continuation rejects extension-input
+  ---
+  duration_ms: 28.699167
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects expired
+ok 8 - Mesh continuation rejects expired
+  ---
+  duration_ms: 16.507625
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects session-start
+ok 9 - Mesh continuation rejects session-start
+  ---
+  duration_ms: 17.379708
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects session-shutdown
+ok 10 - Mesh continuation rejects session-shutdown
+  ---
+  duration_ms: 15.497375
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects different-session
+ok 11 - Mesh continuation rejects different-session
+  ---
+  duration_ms: 16.542625
+  type: 'test'
+  ...
+# Subtest: Mesh continuation rejects different-cwd
+ok 12 - Mesh continuation rejects different-cwd
+  ---
+  duration_ms: 15.547
+  type: 'test'
+  ...
+# Subtest: Peer text cannot issue or borrow a completion capability, even with identical notification metadata
+ok 13 - Peer text cannot issue or borrow a completion capability, even with identical notification metadata
+  ---
+  duration_ms: 54.120458
+  type: 'test'
+  ...
+# Subtest: Unknown source cannot bootstrap; late bus replay and per-user plan budget are bounded
+ok 14 - Unknown source cannot bootstrap; late bus replay and per-user plan budget are bounded
+  ---
+  duration_ms: 34.38075
+  type: 'test'
+  ...
+# Subtest: Grouped completions keep distinct run grants; unrelated custom message drops current grants
+ok 15 - Grouped completions keep distinct run grants; unrelated custom message drops current grants
+  ---
+  duration_ms: 63.178209
+  type: 'test'
+  ...
+# Subtest: Gate reservation is not executable after settled/cancelled/expired; failed tool cannot refund it
+ok 16 - Gate reservation is not executable after settled/cancelled/expired; failed tool cannot refund it
+  ---
+  duration_ms: 86.849
+  type: 'test'
+  ...
+# Subtest: Historical abort keeps peer inbox stopped, but a new user plan survives normal settled and continues
+ok 17 - Historical abort keeps peer inbox stopped, but a new user plan survives normal settled and continues
+  ---
+  duration_ms: 84.541334
+  type: 'test'
+  ...
+# Subtest: Independent completion deliveries accumulate only within trusted batch: none
+ok 18 - Independent completion deliveries accumulate only within trusted batch: none
+  ---
+  duration_ms: 26.98625
+  type: 'test'
+  ...
+# Subtest: Independent completion deliveries accumulate only within trusted batch: untrusted
+ok 19 - Independent completion deliveries accumulate only within trusted batch: untrusted
+  ---
+  duration_ms: 24.402583
+  type: 'test'
+  ...
+# Subtest: Independent completion deliveries accumulate only within trusted batch: cancel
+ok 20 - Independent completion deliveries accumulate only within trusted batch: cancel
+  ---
+  duration_ms: 23.588042
+  type: 'test'
+  ...
+# Subtest: Independent completion deliveries accumulate only within trusted batch: new-user
+ok 21 - Independent completion deliveries accumulate only within trusted batch: new-user
+  ---
+  duration_ms: 40.713458
+  type: 'test'
+  ...
+# Subtest: Capability scope itself rejects different-session delivery and tool reservation (with valid positive controls)
+ok 22 - Capability scope itself rejects different-session delivery and tool reservation (with valid positive controls)
+  ---
+  duration_ms: 1.951417
+  type: 'test'
+  ...
+# Subtest: Already-reserved claim is revoked by registered session replacement
+ok 23 - Already-reserved claim is revoked by registered session replacement
+  ---
+  duration_ms: 28.93375
+  type: 'test'
+  ...
+1..23
+# tests 23
+# suites 0
+# pass 23
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1743.890166
+
+COMMAND_EXIT=0

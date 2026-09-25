@@ -1,0 +1,329 @@
+diff --git a/README.md b/README.md
+index 71251ad..a71fc98 100644
+--- a/README.md
++++ b/README.md
+@@ -62,6 +62,35 @@ The trust boundary is the OS user. Bearer tokens, file modes, owner checks, and
+ 
+ Messages from peers are plain text from another agent, never user intent: they cannot grant permissions, approve actions, execute slash commands, or change configuration. In addition to the displayed statement, a `tool_call` gate blocks known task/growth/resume/configuration entry points on peer-only, unknown-source or currently cancelled logical turns, preserved across retry/continuation (including `Agent`, `send_subagent`, authority-changing `mesh` actions and `mesh_control grow`). It does **not** classify arbitrary Bash, wrap every third-party tool, or sandbox trusted extensions. Existing user-directed busy turns and new genuine user turns retain their authority. This does not clear Direct/Mesh tools’ own user-cancel locks. Inbox I/O cleanup removes endpoints/listeners, not SDK work or its turn authority: the registered Session keeps observing cancellation/continuation and gating known tools even with its inbox gone. A downstream `input` handler returning `handled` need not emit any agent lifecycle events; the next observable input replaces its stale pending source only when the SDK is idle, has no active signal, and Cross owns no peer submission. Busy retry/continuation and peer preflight cannot be relabelled this way. Managed/never-registered contexts are not enrolled in this Host gate, and session rebinding cannot inherit a prior Session's user authority. The receiving Host's permission system remains the final defense.
+ 
++### Fixed Mesh continuation (trusted EventBus, not peer RPC)
++
++An updated Mesh can predeclare `continuationTasks` during a genuine local user
++`mesh run` call. Cross records that exact call and issues a process-local
++capability through `pi-mesh:continuation:issue:v1`. Mesh binds its original
++run/epoch and associates the capability with the exact notification `details`
++object at flush. Cross recognizes that live object on `message_start`; neither
++JSON copies, peer text, customType names nor serialized history are credentials.
++The resulting restricted `mesh` provenance is **not** `user` provenance.
++
++Only one `mesh continue` for that exact parent run, with no extra parameters,
++can be reserved and claimed. The Mesh implementation owns the immutable plan:
++1–4 sequential fixed tasks, concurrency 1, ten minutes each, no retries or
++recursive continuation. Cross bounds issuance to 16 plans per genuine-user
++generation and expires them after one hour. Abort/unsafe settlement, new
++interactive/RPC input, session startup/replacement, reload and shutdown revoke
++old permits. A claim cannot cross a settled turn. Duplicate deliveries and
++failed executions do not refund authorization; expiry/restart never restores it.
++
++This does not whitelist all Mesh actions, grant arbitrary `run`, growth,
++resume/configuration/Direct permissions, clear cancellation locks, enable peer
++reception, or depend on the opt-in bridge RPC flag. Mesh verifies original-epoch
++all-first-attempt success and its own current Host/root/cancel fences before
++creation. Unplanned follow-up tasks still require a new local user instruction.
++Both updated extensions must be loaded; an absent capability always fails closed.
++Trusted extensions sharing the EventBus remain outside the security sandbox,
++as in the existing Cross contract. SDKs that stop preserving live message
++`details` identity fail closed rather than falling back to serialized tokens.
++
+ Receipts are deliberately limited:
+ 
+ - `queued`: accepted only into volatile extension memory; may expire or be dropped on abort/shutdown/crash.
+diff --git a/extensions/cross-session.ts b/extensions/cross-session.ts
+index 7c46c25..3ae54dc 100644
+--- a/extensions/cross-session.ts
++++ b/extensions/cross-session.ts
+@@ -9,6 +9,8 @@ import { join } from "node:path";
+ import { promisify, TextDecoder } from "node:util";
+ import { CAPABILITY, RPC_SEND, RPC_INFO, RECEIVED, bridgeEnvelope, validId, validInstance, type SendRequest } from "../lib/contract";
+ 
++import { MESH_CONTINUATION, MeshContinuations } from "../lib/mesh-continuation";
++
+ const REGISTRATION_VERSION = 2;
+ const WIRE_VERSION = 1;
+ const MAX_FRAME_BYTES = 1_048_576;
+@@ -468,7 +470,10 @@ export default function (pi: ExtensionAPI) {
+   let turnCancelled = false;
+   let terminalSuccess = false;
+   let phase: "idle" | "preflight" | "busy" = "idle";
+-  let provenance: "user" | "peer" | "unknown" = "unknown";
++  const continuations = new MeshContinuations();
++  let offContinuation: (() => void) | undefined;
++  const continuationScope = (ctx: ExtensionContext) => ({ sessionId: ctx.sessionManager.getSessionId(), cwd: ctx.cwd });
++  let provenance: "user" | "peer" | "mesh" | "unknown" = "unknown";
+   let inputSource: "user" | "unknown" = "unknown";
+   let activeSignal: AbortSignal | undefined;
+   let unwatch = () => {};
+@@ -511,7 +516,7 @@ export default function (pi: ExtensionAPI) {
+     status(key, reason);
+   }
+   function latch() {
+-    stopped = true; turnCancelled = true;
++    stopped = true; turnCancelled = true; continuations.revoke();
+     for (const entry of [...pending]) dropPending(entry.key, "dropped_cancelled");
+   }
+   function submit(details: IncomingDetails, key: string) {
+@@ -995,6 +1000,7 @@ export default function (pi: ExtensionAPI) {
+ 
+   pi.on("session_start", (_event, ctx) => {
+     // Fence immediately, including while an earlier asynchronous start is running.
++    continuations.revoke(); offContinuation?.(); offContinuation = undefined;
+     const requestedEpoch = ++epoch; shuttingDown = true; incarnationAbort.abort();
+     authoritySessionId = undefined; unwatch(); unwatch = () => {}; activeSignal = undefined;
+     submittedKey = undefined; provenance = "unknown"; inputSource = "unknown";
+@@ -1072,6 +1078,7 @@ export default function (pi: ExtensionAPI) {
+       await writeRegistration(ctx);
+       if (shuttingDown || epoch !== startingEpoch) { await cleanup(); return; }
+       authoritySessionId = sessionId;
++      offContinuation = pi.events.on(MESH_CONTINUATION, request => continuations.issue(request));
+       heartbeat = setInterval(() => void writeRegistration().catch(() => { void cleanup(); }), HEARTBEAT_MS);
+       heartbeat.unref();
+       void livePeers().catch(() => {});
+@@ -1091,6 +1098,7 @@ export default function (pi: ExtensionAPI) {
+ 
+   pi.on("input", (event, ctx) => {
+     if (!observes(ctx)) return;
++    if (event.source === "interactive" || event.source === "rpc") continuations.revoke();
+     // A downstream input handler may consume preflight without any SDK run.
+     // Only a new observable idle input can replace that pending source; never
+     // overwrite a busy retry/continuation or our own submitted peer preflight.
+@@ -1111,6 +1119,14 @@ export default function (pi: ExtensionAPI) {
+     setCurrent(ctx, { status: "busy" });
+     await writeRegistration(ctx);
+   });
++  pi.on("message_start", (event, ctx) => {
++    if (!observes(ctx)) return;
++    const message = event.message;
++    if (message.role !== "custom" && message.role !== "user") return;
++    if (continuations.message(message.role === "custom" ? message.details : undefined,
++      phase === "busy" && provenance !== "peer" && !turnCancelled && !!activeSignal && !activeSignal.aborted,
++      continuationScope(ctx))) provenance = "mesh";
++  });
+   pi.on("message_end", (event, ctx) => {
+     if (!observes(ctx)) return;
+     const message = event.message;
+@@ -1130,6 +1146,7 @@ export default function (pi: ExtensionAPI) {
+     const safe = terminalSuccess && !!activeSignal && !activeSignal.aborted && provenance !== "unknown" && !turnCancelled && !stopped;
+     if (!safe) latch(); // Includes error/backoff cancellation and unobserved terminal outcome.
+     unwatch(); unwatch = () => {}; activeSignal = undefined;
++    continuations.settle();
+     phase = "idle"; provenance = "unknown"; submittedKey = undefined;
+     const settledEpoch = ++epoch;
+     setCurrent(ctx, { status: "idle" });
+@@ -1150,7 +1167,11 @@ export default function (pi: ExtensionAPI) {
+   });
+   pi.on("tool_call", (event, ctx) => {
+     if (!observes(ctx)) return;
+-    if (provenance === "user" && !turnCancelled) return;
++    if (provenance === "user" && !turnCancelled && !(event.toolName === "mesh" && event.input.action === "continue")) {
++      if (event.toolName === "mesh") continuations.note(event.toolCallId, event.input, continuationScope(ctx));
++      return;
++    }
++    if (event.toolName === "mesh" && provenance === "mesh" && !turnCancelled && !ctx.signal?.aborted && continuations.allow(event.toolCallId, event.input, continuationScope(ctx))) return;
+     // Explicit known authority-bearing entry points, not a classifier for arbitrary Bash.
+     const sensitive = ["Agent", "agent", "subagent", "steer_subagent", "send_subagent", "send_user_message", "set_active_tools", "set_config"].includes(event.toolName) ||
+       event.toolName === "mesh" && !["list_agents", "status", "list", "handoff_list", "message_inbox", "message_ack", "growth_list"].includes(String(event.input.action)) ||
+@@ -1171,5 +1192,5 @@ export default function (pi: ExtensionAPI) {
+     description: "Show bounded local admission/submission diagnostics (not delivery success)",
+     handler: async (_args, ctx) => ctx.ui.notify(JSON.stringify({ stopped, phase, remainingBudget: budget, pending: pending.length, messages: [...statuses.values()] }), "info"),
+   });
+-  pi.on("session_shutdown", () => { epoch++; shuttingDown = true; incarnationAbort.abort(); lifecycle = lifecycle.catch(() => {}).then(cleanup); return lifecycle; });
++  pi.on("session_shutdown", () => { continuations.revoke(); offContinuation?.(); offContinuation = undefined; epoch++; shuttingDown = true; incarnationAbort.abort(); lifecycle = lifecycle.catch(() => {}).then(cleanup); return lifecycle; });
+ }
+diff --git a/lib/mesh-continuation.ts b/lib/mesh-continuation.ts
+new file mode 100644
+index 0000000..e9aec64
+--- /dev/null
++++ b/lib/mesh-continuation.ts
+@@ -0,0 +1,64 @@
++// Trusted in-process EventBus protocol, not a wire/RPC or customType authority.
++// No capabilities are persisted or exposed to the model. Mesh owns the fixed
++// plan and verifies the exact successful run epoch; Cross owns turn authority.
++export const MESH_CONTINUATION = "pi-mesh:continuation:issue:v1";
++const TTL = 60 * 60 * 1000;
++const LIMIT = 16;
++type Grant = { valid: () => boolean; runId: string; scope: Scope; consume: (id: string) => void };
++type Scope = { sessionId: string; cwd: string };
++export type MeshPermit = { bind(runId: string): void; complete(details: object): boolean; claim(callId: string): boolean };
++export class MeshContinuations {
++  private generation = 0;
++  private issued = 0;
++  private turn = 0;
++  private calls = new Map<string, { input: string; scope: Scope }>();
++  private deliveries = new WeakMap<object, Grant[]>();
++  private active: Grant[] = [];
++  revoke(): void { this.generation++; this.issued = 0; this.calls.clear(); this.deliveries = new WeakMap(); this.active = []; }
++  settle(): void { this.turn++; this.active = []; this.calls.clear(); }
++  note(callId: string, input: Record<string, unknown>, scope: Scope): void {
++    if (typeof callId !== "string" || !callId || input.action !== "run" || !Array.isArray(input.continuationTasks) || !input.continuationTasks.length || input.async === false || this.calls.size >= LIMIT) return;
++    this.calls.set(callId, { input: JSON.stringify(input), scope: { ...scope } });
++  }
++  issue(request: any): void {
++    const call = this.calls.get(request?.callId);
++    if (!call) return;
++    this.calls.delete(request.callId);
++    if (request.version !== 1 || typeof request.reply !== "function" || request.input !== call.input || request.sessionId !== call.scope.sessionId || request.cwd !== call.scope.cwd || this.issued >= LIMIT) return;
++    this.issued++;
++    const generation = this.generation, expires = Date.now() + TTL;
++    let delivered = false, used = false, execution: string | undefined, executionTurn: number | undefined;
++    const valid = () => generation === this.generation && Date.now() < expires && !used;
++    const grant = { valid, runId: "", scope: call.scope, consume: (id: string) => { used = true; execution = id; executionTurn = this.turn; } };
++    request.reply(Object.freeze({
++      bind: (runId: string) => { if (valid() && !grant.runId && typeof runId === "string") grant.runId = runId; },
++      complete: (details: object) => {
++        if (!valid() || !grant.runId || delivered || !details || typeof details !== "object") return false;
++        delivered = true;
++        this.deliveries.set(details, [...(this.deliveries.get(details) ?? []), grant]);
++        return true;
++      },
++      claim: (id: string) => {
++        if (!used || execution === undefined || executionTurn !== this.turn || generation !== this.generation || Date.now() >= expires || execution !== id) return false;
++        execution = undefined;
++        return true;
++      },
++    } satisfies MeshPermit));
++  }
++  message(details: unknown, eligible: boolean, scope: Scope): boolean {
++    this.turn++;
++    this.active = []; // An unrelated custom/user message cannot borrow a prior wakeup.
++    if (!details || typeof details !== "object") return false;
++    const grants = this.deliveries.get(details) ?? [];
++    this.deliveries.delete(details); // One SDK delivery, including rejected deliveries.
++    if (eligible) this.active = grants.filter(grant => grant.valid() && grant.scope.sessionId === scope.sessionId && grant.scope.cwd === scope.cwd);
++    return this.active.length > 0;
++  }
++  allow(callId: string, input: Record<string, unknown>, scope: Scope): boolean {
++    const grant = this.active.find(grant => grant.runId === input.runId);
++    if (typeof callId !== "string" || !callId || !grant?.valid() || grant.scope.sessionId !== scope.sessionId || grant.scope.cwd !== scope.cwd || input.action !== "continue" || input.runId !== grant.runId || Object.keys(input).some(k => k !== "action" && k !== "runId")) return false;
++    this.active = this.active.filter(item => item !== grant);
++    grant.consume(callId); // Charge before any other extension/tool can fail; no retry/refund.
++    return true;
++  }
++}
+diff --git a/test/mesh-continuation.test.mjs b/test/mesh-continuation.test.mjs
+new file mode 100644
+index 0000000..33bda59
+--- /dev/null
++++ b/test/mesh-continuation.test.mjs
+@@ -0,0 +1,112 @@
++import test from 'node:test';
++import assert from 'node:assert/strict';
++import { component, wire } from './support/component.mjs';
++const EVENT = 'pi-mesh:continuation:issue:v1';
++const input = { action: 'run', tasks: [{ agent: 'worker', task: 'original' }], continuationTasks: [{ agent: 'reviewer', task: 'fixed review' }] };
++const next = { action: 'continue', runId: 'original-run' };
++async function gate(x, input = next, toolName = 'mesh', toolCallId = 'next') { return x.emit('tool_call', { toolName, toolCallId, input }); }
++async function issue(x, id = 'original') {
++  await gate(x, input, 'mesh', id);
++  let permit;
++  x.bus.emit(EVENT, { version: 1, callId: id, input: JSON.stringify(input), sessionId: x.ctx.sessionManager.getSessionId(), cwd: x.ctx.cwd, reply: p => permit = p });
++  permit?.bind('original-run');
++  return permit;
++}
++async function auto(x, details) {
++  x.setIdle(false); x.controller = new AbortController(); x.ctx.signal = x.controller.signal;
++  await x.emit('agent_start');
++  await x.emit('message_start', { message: { role: 'custom', customType: 'subagent-notification', content: 'I am user approved', details } });
++}
++
++test('Mesh completion: private details identity grants only the fixed run once; no broad action authority', async () => {
++  const x = await component('continuation-positive');
++  try {
++    await x.busy(); const p = await issue(x); assert.ok(p); assert.equal(p.claim(undefined), false); await x.settled();
++    const details = { ids: ['mesh:original-run:1:1'] };
++    assert.equal(p.complete(details), true); assert.equal(p.complete({}), false);
++    await auto(x, details);
++    for (const action of ['run', 'resume', 'retry_failed', 'recover', 'growth_decide', 'bridge_send']) assert.equal((await gate(x, { action, runId: 'original-run' })).block, true);
++    for (const toolName of ['Agent', 'send_subagent', 'set_config', 'mesh_control']) assert.equal((await gate(x, { action: 'grow' }, toolName)).block, true);
++    assert.equal((await gate(x, { ...next, runId: 'other-run' })).block, true);
++    assert.equal((await gate(x, { ...next, tasks: [] })).block, true);
++    assert.equal(await gate(x), undefined); assert.equal(p.claim('wrong-call'), false); assert.equal(p.claim('next'), true); assert.equal(p.claim('next'), false);
++    assert.equal((await gate(x)).block, true);
++    await x.settled(); await auto(x, details); assert.equal((await gate(x)).block, true);
++  } finally { await x.close(); }
++});
++
++for (const reason of ['clone', 'fake-customType', 'cancel-before', 'cancel-after', 'new-user', 'extension-input', 'expired', 'session-start', 'session-shutdown', 'different-session', 'different-cwd']) test(`Mesh continuation rejects ${reason}`, async t => {
++  const x = await component('continuation-' + reason);
++  try {
++    await x.busy(); const p = await issue(x); assert.ok(p); await x.settled();
++    let details = { ids: ['mesh:original-run:1:1'] };
++    if (reason === 'cancel-before') { await auto(x, {}); x.controller.abort(); await x.settled(false); }
++    assert.equal(p.complete(details), reason !== 'cancel-before');
++    if (reason === 'clone') details = structuredClone(details);
++    if (reason === 'fake-customType') details = { ...details, authorized: true, customType: 'pi-mesh:continuation:issue:v1' };
++    if (reason === 'new-user') { await x.busy(); await x.settled(); }
++    if (reason === 'extension-input') {
++      // No issue without a genuine input, even when an extension copies the request.
++      await x.busy('extension'); assert.equal(await issue(x, 'fake-issue'), undefined); await x.settled();
++    }
++    if (reason === 'expired') { const now = Date.now(); t.mock.method(Date, 'now', () => now + 3_600_001); }
++    if (reason === 'session-start') await x.emit('session_start');
++    if (reason === 'session-shutdown') await x.emit('session_shutdown');
++    if (reason === 'different-session') { x.ctx.sessionManager.getSessionId = () => 'other'; assert.equal(p.claim('next'), false); return; }
++    if (reason === 'different-cwd') x.ctx.cwd += '/other';
++    await auto(x, details);
++    if (reason === 'cancel-after') x.controller.abort();
++    assert.equal((await gate(x))?.block, true); assert.equal(p.claim('next'), false);
++  } finally { t.mock.restoreAll(); await x.close(); }
++});
++
++test('Peer text cannot issue or borrow a completion capability, even with identical notification metadata', async () => {
++  const a = await component('continuation-sender'), x = await component('continuation-peer');
++  try {
++    await x.busy(); const p = await issue(x); await x.settled(); const details = {}; assert.ok(p.complete(details));
++    assert.equal((await wire(a, x, undefined)).status, 'submitted');
++    await auto(x, details); assert.equal(await issue(x, 'peer-issue'), undefined); assert.equal((await gate(x)).block, true); assert.equal(p.claim('next'), false);
++  } finally { await x.close(); await a.close(); }
++});
++
++test('Unknown source cannot bootstrap; late bus replay and per-user plan budget are bounded', async () => {
++  const x = await component('continuation-bounds');
++  try {
++    await x.busy('extension'); assert.equal(await issue(x), undefined); await x.settled(false);
++    await x.busy();
++    for (let i = 0; i < 16; i++) assert.ok(await issue(x, 'call-' + i));
++    assert.equal(await issue(x, 'over-budget'), undefined);
++    await x.settled(); assert.equal(await issue(x, 'late'), undefined);
++  } finally { await x.close(); }
++});
++
++test('Grouped completions keep distinct run grants; unrelated custom message drops current grants', async () => {
++  const x = await component('continuation-group');
++  try {
++    await x.busy();
++    const a = await issue(x, 'first');
++    const otherInput = { ...input, continuationTasks: [{ agent: 'qa', task: 'other fixed test' }] };
++    await gate(x, otherInput, 'mesh', 'second');
++    let b; x.bus.emit(EVENT, { version: 1, callId: 'second', input: JSON.stringify(otherInput), sessionId: x.ctx.sessionManager.getSessionId(), cwd: x.ctx.cwd, reply: p => b = p }); b.bind('other-run');
++    await x.settled(); const details = {}; assert.ok(a.complete(details)); assert.ok(b.complete(details)); await auto(x, details);
++    assert.equal(await gate(x), undefined); assert.equal(a.claim('next'), true);
++    assert.equal(await gate(x, { action: 'continue', runId: 'other-run' }, 'mesh', 'other'), undefined); assert.ok(b.claim('other'));
++    await x.settled(); await x.busy(); const c = await issue(x, 'third'); await x.settled(); const nextDetails = {}; assert.ok(c.complete(nextDetails)); await auto(x, nextDetails);
++    await x.emit('message_start', { message: { role: 'custom', customType: 'unrelated', details: {} } });
++    assert.equal((await gate(x)).block, true);
++  } finally { await x.close(); }
++});
++
++test('Gate reservation is not executable after settled/cancelled/expired; failed tool cannot refund it', async t => {
++  for (const reason of ['settled', 'cancelled', 'expired']) {
++    const x = await component('continuation-claim-' + reason);
++    try {
++      await x.busy(); const p = await issue(x); await x.settled(); const details = {}; p.complete(details); await auto(x, details);
++      assert.equal(await gate(x), undefined);
++      if (reason === 'settled') await x.settled();
++      if (reason === 'cancelled') x.controller.abort();
++      if (reason === 'expired') { const now = Date.now(); t.mock.method(Date, 'now', () => now + 3_600_001); }
++      assert.equal(p.claim('next'), false); assert.equal(p.complete({}), false); assert.equal((await gate(x)).block, true);
++    } finally { t.mock.restoreAll(); await x.close(); }
++  }
++});

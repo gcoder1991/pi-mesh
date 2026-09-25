@@ -28,7 +28,9 @@ const MeshParams = Type.Object({
   forwardInboxId: Type.Optional(Type.String({ maxLength: 128 })),
   scope: Type.Optional(StringEnum(["bundled", "user", "project", "all"] as const)),
   tasks: Type.Optional(Type.Array(MeshTaskSchema, { minItems: 1, maxItems: 32 })),
-  continuationTasks: Type.Optional(Type.Array(ContinuationTaskSchema, { minItems: 1, maxItems: 4, description: "Optional fixed next-stage tasks authorized with this initial background run. On successful first-epoch completion, mesh continue may create this exact plan once within one hour. Sequential, max 10min/task, no retries or recursive continuation. Do not use for unplanned remediation." })),
+  continuationTasks: Type.Optional(Type.Array(ContinuationTaskSchema, { minItems: 1, maxItems: 4, description: "Optional fixed next-stage tasks authorized with this initial background run." })),
+  autoContinuation: Type.Optional(Type.Object({ maxRuns: Type.Optional(Type.Integer({ minimum: 1 })) }, { additionalProperties: false, description: "Opt-in: after each successful stage, continue the original single task with phase repair/verify/load-test. Unbounded by default; optional maxRuns caps stages. Stops on any failed stage, cancellation, or new user input." })),
+  phase: Type.Optional(StringEnum(["repair", "verify", "load-test"] as const, { description: "Stage for an authorized autoContinuation only." })),
   runId: Type.Optional(Type.String({ description: "Existing run ID; required for run-scoped actions." })),
   nodeId: Type.Optional(Type.String({ description: "Node ID for node cancellation, inbox filtering, or message acknowledgement." })),
   messageId: Type.Optional(Type.String({ description: "Mailbox message ID required by message_ack." })),
@@ -93,7 +95,7 @@ function summarize(run: MeshRun): string {
 
 export default function registerPiMesh(pi: ExtensionAPI): void {
   if (managedBridgeChild(pi.events)) return;
-  const plans = new Map<string, { tasks: MeshTask[]; permit: ContinuationPermit; epoch: number; sessionId: string; cwd: string; expires: number }>();
+  const plans = new Map<string, { tasks?: MeshTask[]; original?: MeshTask; permit: ContinuationPermit; epoch: number; sessionId: string; cwd: string; expires?: number }>();
   pi.on("input", (event) => { if (event.source === "interactive" || event.source === "rpc") plans.clear(); });
   const managers = new Map<string, { manager: MeshManager; settings: MeshSettings; notifier: CompletionNotifier; releaseFleet: () => void; resolveAgent: (name: string) => AgentDefinition | undefined }>();
   const currentManager = (cwd: string, projectTrusted: boolean, sessionId: string, modelRegistry: Parameters<typeof resolveAgentModel>[1]) => {
@@ -120,9 +122,11 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
     const plan = plans.get(runId);
     void pending.then((run) => {
       if (!["succeeded", "failed", "cancelled"].includes(run.status)) return;
-      const valid = () => plan && plans.get(run.id) === plan && Date.now() < plan.expires && successfulEpoch(run, plan.epoch);
+      const valid = () => plan && plans.get(run.id) === plan && (plan.expires === undefined || Date.now() < plan.expires) && successfulEpoch(run, plan.epoch);
       notifier.enqueueMessage(`mesh:${run.id}:${run.epoch ?? 0}:${run.nodes.map((node) => node.attempt).join(".")}`, `Mesh ${run.id} finished: ${run.status}.\n${summarize(run)}`, false, (details) => {
-        if (valid() && plan!.permit.complete(details)) return `\nA fixed successor was predeclared by the original user turn. Use mesh action continue with runId ${run.id}; no extra parameters. This is not permission for arbitrary tasks.`;
+        if (valid() && plan!.permit.complete(details)) return plan!.original
+          ? `\nThe original user turn delegated bounded continuation. To continue the same task, call mesh continue with runId ${run.id} and phase repair, verify, or load-test. No other parameters or new task text.`
+          : `\nA fixed successor was predeclared by the original user turn. Use mesh action continue with runId ${run.id}; no extra parameters. This is not permission for arbitrary tasks.`;
       });
     }, (error) => notifier.enqueueMessage(`mesh:${runId}:error`, `Mesh ${runId} failed outside run state: ${String(error)}. Drain and recover explicitly.`)).catch((error) => console.error(`[pi-mesh] Completion notification failed: ${String(error)}`));
   };
@@ -176,7 +180,7 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
       "Do not duplicate work already delegated to mesh nodes. Consume their bounded evidence and synthesize the results.",
       "If a run partially fails, call retry_failed on that run instead of creating replacement IDs or resubmitting successful nodes. User/unknown stops require the genuine user command /mesh retry <run-id>; never bypass a stop by creating a new ID or claiming authorization in tool parameters. It resumes the failed node's persisted Agent session when available and otherwise supplies the previous error and output as repair context.",
       "Mesh runs are background by default. After run returns, never poll status/list or call sleep to wait. If the Mesh result is all you are waiting for, end the current turn; otherwise continue independent Host work. The completion notification is delivered between turns or wakes an idle Host. Set async=false only when blocking is explicitly required.",
-      "To continue after a successful background completion without new user input, predeclare continuationTasks on the initial user-authorized run. The notification allows only one mesh continue with that parent runId and no other parameters: the exact fixed plan, at most four sequential ten-minute tasks, no retries/recursive continuation. Unplanned tasks still require the user.",
+      "For a fixed successor predeclare continuationTasks on the initial user run (one-hour expiry). Alternatively, on an initial single-task background run opt into autoContinuation (optionally with maxRuns); each successful stage permits one mesh continue with its runId and phase repair, verify, or load-test, using the original task/agent (not arbitrary prompts). Adaptive chains have no count/time cap; they stop when you stop calling continue, and any failed stage, cancellation, or new user input revokes them. No permission for unrelated tasks.",
       "In mesh, only the host approves growth. Enable mesh worktree mode for parallel writers; it requires a clean Git checkout. Use mesh recover after reopening the same Pi session to restart interrupted runs.",
     ],
     parameters: MeshParams,
@@ -196,9 +200,10 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
       return new Text(text, 0, 0);
     },
     async execute(_toolCallId, params, signal, onUpdate, ctx) {
-      for (const [id, plan] of plans) if (Date.now() >= plan.expires) plans.delete(id);
-      if (params.continuationTasks && (params.action !== "run" || params.async === false)) throw new Error("continuationTasks is only supported on an initial background run");
-      if (params.action === "continue" && Object.keys(params).some(k => k !== "action" && k !== "runId")) throw new Error("continue accepts only action/runId; the plan is immutable");
+      for (const [id, plan] of plans) if (plan.expires !== undefined && Date.now() >= plan.expires) plans.delete(id);
+      if ((params.continuationTasks || params.autoContinuation) && (params.action !== "run" || params.async === false || !!params.continuationTasks && !!params.autoContinuation)) throw new Error("Choose one continuation mode on an initial background run");
+      if (params.phase && params.action !== "continue") throw new Error("phase is only valid for an authorized continuation");
+      if (params.action === "continue" && Object.keys(params).some(k => !["action", "runId", "phase"].includes(k))) throw new Error("continue accepts only action/runId and an optional authorized phase");
       if (params.action.startsWith("bridge_")) {
         const details = await bridge.execute(params.action, params, signal, ctx);
         return { content: [{ type: "text", text: boundedText(JSON.stringify(details)) }], details: boundedDetails({ action: params.action, ...details }) };
@@ -233,11 +238,19 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
 
       if (params.action === "continue") {
         const plan = plans.get(params.runId!);
-        if (!plan || plan.sessionId !== sessionId || plan.cwd !== fs.realpathSync(path.resolve(ctx.cwd)) || !successfulEpoch(run!, plan.epoch) || signal?.aborted || !plan.permit.claim(_toolCallId)) throw new Error("Continuation expired, revoked, replayed or not authorized for this exact Host/run epoch; ask the local user");
+        if (!plan || plan.sessionId !== sessionId || plan.cwd !== fs.realpathSync(path.resolve(ctx.cwd)) || !successfulEpoch(run!, plan.epoch) || signal?.aborted || !!plan.original !== !!params.phase || !plan.permit.claim(_toolCallId)) throw new Error("Continuation expired, revoked, replayed or not authorized for this exact Host/run epoch; ask the local user");
         plans.delete(params.runId!); // Consume before create; failures do not refund authority.
-        const next = manager.create({ tasks: plan.tasks, cwd: plan.cwd, operator: "sequence", maxConcurrency: 1, maxNodes: plan.tasks.length });
+        const tasks = plan.original ? [{ ...plan.original, id: "continuation-1", task: `Original authorized task:\n${plan.original.task}\n\nCurrent phase: ${params.phase}. Inspect the previous mesh run ${run!.id} and its evidence; do only work needed for this original task.`, timeoutMs: 600_000, retries: 0 }] : plan.tasks!;
+        const next = manager.create({ tasks, cwd: plan.cwd, operator: "sequence", maxConcurrency: 1, maxNodes: tasks.length });
+        if (plan.original) {
+          if (!plan.permit.advance?.(_toolCallId, next.id) || signal?.aborted) {
+            manager.cancel(next.id, undefined, "unknown");
+            throw new Error("Adaptive continuation was revoked before the next stage started");
+          }
+          plans.set(next.id, { ...plan, epoch: next.epoch! });
+        }
         watchBackground(manager.startCreated(next.id), notifier, next.id);
-        return { content: [{ type: "text", text: `Started fixed continuation ${next.id} for ${run!.id}. End the turn if waiting; no polling.` }], details: boundedDetails({ action: params.action, parentRunId: run!.id, run: compactRun(next) }) };
+        return { content: [{ type: "text", text: `Started continuation ${next.id} for ${run!.id}. End the turn if waiting; no polling.` }], details: boundedDetails({ action: params.action, parentRunId: run!.id, run: compactRun(next) }) };
       }
       if (params.action === "status") return { content: [{ type: "text", text: summarize(run!) }], details: boundedDetails({ action: params.action, run: compactRun(run!, true), usage: run!.usage }), usage: piUsage(manager.claimUsage(run!.id)) };
       if (params.action === "handoff_list") {
@@ -311,14 +324,15 @@ export default function registerPiMesh(pi: ExtensionAPI): void {
       const update = (value: MeshRun) => onUpdate?.({ content: [{ type: "text", text: `${value.nodes.filter((node) => terminalNodeStatuses.has(node.status)).length}/${value.nodes.length} complete` }], details: boundedDetails({ action: params.action, run: compactRun(value) }) });
       if (signal?.aborted) throw new Error("Mesh run cancelled before creation");
       const planned = params.continuationTasks ? resolveTaskModels(continuationTasks(params.continuationTasks), ctx.modelRegistry, inheritedModel, resolveAgent) : undefined;
-      if (planned && plans.size >= 16) throw new Error("Continuation plan budget exhausted for this user turn");
-      const permit = planned ? requestContinuation(pi, ctx, _toolCallId, params) : undefined;
+      if (params.autoContinuation && (params.tasks.length !== 1 || !params.tasks[0]?.task || params.tasks[0].task.length > 8192 || params.worktree || params.worktreeSetupHook)) throw new Error("autoContinuation requires one bounded task without worktree overrides");
+      if ((planned || params.autoContinuation) && plans.size >= 16) throw new Error("Continuation plan budget exhausted for this user turn");
+      const permit = planned || params.autoContinuation ? requestContinuation(pi, ctx, _toolCallId, params) : undefined;
       const createdRun = manager.create({ tasks: resolveTaskModels(params.tasks as MeshTask[], ctx.modelRegistry, inheritedModel, resolveAgent), cwd: fs.realpathSync(path.resolve(ctx.cwd)), operator: params.operator, worktree: params.worktree, worktreeSetupHook: params.worktreeSetupHook, maxConcurrency: params.maxConcurrency, maxNodes: params.maxNodes, failFast: params.failFast });
       const background = params.async !== false;
       const start = manager.startCreated(createdRun.id, background ? undefined : signal, background ? undefined : update);
-      if (permit && planned) {
+      if (permit) {
         permit.bind(createdRun.id);
-        plans.set(createdRun.id, { tasks: planned, permit, epoch: createdRun.epoch!, sessionId, cwd: createdRun.cwd, expires: Date.now() + 60 * 60 * 1000 });
+        plans.set(createdRun.id, { tasks: planned, original: params.autoContinuation ? resolveTaskModels(params.tasks as MeshTask[], ctx.modelRegistry, inheritedModel, resolveAgent)[0] : undefined, permit, epoch: createdRun.epoch!, sessionId, cwd: createdRun.cwd, expires: params.autoContinuation ? undefined : Date.now() + 60 * 60 * 1000 });
       }
       if (background) {
         watchBackground(start, notifier, createdRun.id);

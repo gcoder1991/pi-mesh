@@ -1,0 +1,28 @@
+{
+  "mesh": {
+    "root": "/Users/relvf/ai/pi-mesh",
+    "baseCommit": "250a372686a6433695e0913fef4fd22d8f9fd99c",
+    "files": {
+      "README.md": "596b1437b7496418029d7728fe7a7ba4c40e7ed58cd65f949225156f17e01fa4",
+      "src/extension.ts": "9bb9719fe933377c067185096ffdd14c477db85753dd448e60a81c7bf7b04951",
+      "src/notifications.ts": "dd8625f9c6f3e6a4a963c75aa0e4d9aec8fd3e2599eae3214a4a6cae8cc2d63c",
+      "src/continuation.ts": "e2c94db9eb7a7070d95ea2cc7f24b27f1e5fd67e2c5720488debc6b1ea1b413d",
+      "test/unit/continuation.test.ts": "687f60b1dde2dbdc77965dab125eacc9f47405ab4f068b82cfd13ede10506acf",
+      "test/unit/extension.test.ts": "79c915adaa7530de664ebe04784d9cba8d10900c87db73887a57674c4a92d502",
+      "test/integration/mesh-host.test.ts": "315bd4da21f0957ebaa095c97040a378274581152c003fe500d964d7abdc600b",
+      "test/bridge/run.mjs": "c7b36fbe450cbe39a5d7386f32013275ceffe6aeef32d654f1fab4ec1df9e6d5"
+    },
+    "patchSha256": "2cec9a33293e4f0402fd01d01a580a4239fad57b826339c4b7c1350f1164aa01"
+  },
+  "cross": {
+    "root": "/Users/relvf/ai/pi-cross-session",
+    "baseCommit": "4031d9c98ceb952e7cfc00f5d429653406cbf23d",
+    "files": {
+      "README.md": "8cecca50970c5ea209f0c66913e8ab39626742536b52f18b6709e88a2a61cf05",
+      "extensions/cross-session.ts": "52ed1b9d76ec654af93e6f5f2434b1d2c56e952f89dc90a1f6492bd4eb8db039",
+      "lib/mesh-continuation.ts": "4fb07484038f55984c328ea13fa373d9541ab6349414fa5d07587f60645a18c5",
+      "test/mesh-continuation.test.mjs": "8731349399815e1971981d91130a2e2a819222e750dbecc3a4ee6f90e7fbfa9c"
+    },
+    "patchSha256": "7334ac1daaca5f1888dcb3d0bab96ea88c21295ac74afff132c0943cea4dd074"
+  }
+}
