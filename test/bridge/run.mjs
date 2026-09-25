@@ -21,7 +21,7 @@ assert.ok(process.env.PI_MESH_TEST_PRIVATE_ROOT, 'Use the guarded Mesh wrapper/c
 const privateRoot = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'bridge-real-')));
 const cross = path.join(privateRoot, 'cross'); fs.mkdirSync(cross);
 const crossHashes = {};
-for (const relative of ['extensions/cross-session.ts', 'lib/contract.ts', 'lib/mesh-continuation.ts']) {
+for (const relative of ['extensions/cross-session.ts', 'lib/contract.ts', 'lib/mesh-continuation.ts', 'lib/ipc-path.ts']) {
   const bytes = fs.readFileSync(path.join(source, relative)); const target = path.join(cross, relative);
   fs.mkdirSync(path.dirname(target), { recursive: true }); fs.writeFileSync(target, bytes);
   crossHashes[relative] = createHash('sha256').update(bytes).digest('hex');
@@ -58,13 +58,13 @@ async function until(predicate, label) { const end = Date.now() + 8000; while (D
 function hold() { let resolve; const promise = new Promise(r => resolve = r); return { promise, resolve }; }
 async function make(name, lifecycle, allowedTools = []) {
   const root = path.join(privateRoot, name); fs.mkdirSync(path.join(root, '.pi/agents'), { recursive: true });
+  fs.mkdirSync(path.join(agentDir, 'mesh'), { recursive: true });
   fs.writeFileSync(path.join(root, '.pi/agents/local.md'), '---\ndescription: Local deterministic SDK child\nmodel: bridge-local/test\ntools: read\n---\nReturn local evidence; no agents.\n');
   if (lifecycle) {
     const key = `bridge-lifecycle-${name}`, file = path.join(root, 'lifecycle.ts');
     globalThis[key] = lifecycle;
     fs.writeFileSync(file, `export default pi => { for (const event of ['before_agent_start', 'agent_end', 'session_shutdown']) pi.on(event, async (_e, ctx) => { const state = globalThis[${JSON.stringify(key)}]; state.events.push({ event, idle: ctx.isIdle(), signalAborted: ctx.signal?.aborted }); const gate = state[event]; if (gate) { gate.entered = true; await gate.promise; } }); };`);
     fs.writeFileSync(path.join(root, '.pi/agents/local.md'), `---\ndescription: Local deterministic SDK child\nmodel: bridge-local/test\ntools: read\nextensions: ${key}\npersist_session: true\n---\nReturn local evidence; no agents.\n`);
-    fs.mkdirSync(path.join(agentDir, 'mesh'), { recursive: true });
     const settingsFile = path.join(agentDir, 'mesh/settings.yaml');
     const prior = fs.existsSync(settingsFile) ? JSON.parse(fs.readFileSync(settingsFile)) : {};
     fs.writeFileSync(settingsFile, JSON.stringify({ ...prior, childExtensions: { ...prior.childExtensions, [key]: file } }));
@@ -120,7 +120,7 @@ test('two SDK Hosts: bidirectional bridge evidence, actual Direct active then ca
   const a = await make('A'), b = await make('B');
   const heldChild = hold(), heldHost = hold(); let childPending, childAbort;
   try {
-    const created = await a.tool('mesh', { action: 'run', tasks: [{ id: 'node', agent: 'local', task: 'Produce actual local evidence' }] });
+    const created = await a.tool('mesh', { action: 'run', async: false, tasks: [{ id: 'node', agent: 'local', task: 'Produce actual local evidence' }] });
     assertForegroundUsage(created, a.calls, 'bidirectional Mesh attempt1');
     const run = created.details.run;
     for (let i = 0; i < 2; i++) assert.equal((await a.tool('mesh', { action: 'status', runId: run.id })).usage, undefined);
@@ -186,7 +186,7 @@ test('actual active Direct and Mesh consume same generation/attempt hints, inclu
   const meshGate = hold(), directGate = hold(); const ac = new AbortController(), bc = new AbortController(); let meshPending, directPending;
   try {
     a.gates.child = meshGate; b.gates.child = directGate;
-    meshPending = a.tool('mesh', { action: 'run', tasks: [{ id: 'node', agent: 'local', task: 'Hold active Mesh, consume existing mailbox only when hinted' }] }, ac.signal);
+    meshPending = a.tool('mesh', { action: 'run', async: false, tasks: [{ id: 'node', agent: 'local', task: 'Hold active Mesh, consume existing mailbox only when hinted' }] }, ac.signal);
     let directId; const off = b.bus.on('subagents:created', e => directId = e.id);
     directPending = b.tool('Agent', { prompt: 'Hold active Direct for hint consumption', description: 'active consumption', subagent_type: 'local' }, bc.signal);
     await until(() => a.calls.length === 1 && b.calls.length === 1 && directId, 'both actual providers running'); off();

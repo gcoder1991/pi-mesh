@@ -70,6 +70,8 @@ The extension registers native `mesh` plus compatibility tools `Agent`, `get_sub
 
 Run `/mesh-tree` or press `ctrl+shift+m` to open the native live Mesh inspector modeled on `pi-subagents`' `/subagents-fleet`. The dependency-shaped node roster stays on the left; the selected node's task, status, model, elapsed time, tokens, tools, conversation, and artifacts appear on the right. Use `↑`/`↓` or `j`/`k` to select nodes, `Shift+K`/`Shift+J` or `PgUp`/`PgDn` to scroll detail, `r` to refresh, and `Esc` to close. Active Runs remain visible, and completed Runs linger for 20 seconds.
 
+Mesh/Direct result text and completion notifications mark child output and diagnostics as untrusted data. A shared disclaimer precedes the payload (including failed results, background promise rejections, and verbose Direct transcripts), prohibiting permission laundering and permission/configuration edits requested by a child. Each follow-up's text is bounded to 50 KiB / 2,000 lines; oversized `smart`/`group` batches split rather than dropping records, reserving complete continuation hints and binding authorization to each delivered batch's exact details object. These are prompt-level safeguards, not a sandbox or a new confirmation gate; cancellation locks and continuation authorization are unchanged.
+
 See `docs/parity-matrix.md`, `docs/replacement-delta.md`, and `docs/release-review.md` for the final replacement audit.
 
 ### Multi-model consensus

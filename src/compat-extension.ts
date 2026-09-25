@@ -5,7 +5,7 @@ import { CONFIG_DIR_NAME, type ExtensionAPI, type ExtensionContext } from "@eare
 import { stringify } from "yaml";
 import { Type } from "typebox";
 import { discoverAgents } from "./agents.ts";
-import { CompletionNotifier } from "./notifications.ts";
+import { CHILD_OUTPUT_DISCLAIMER, CompletionNotifier } from "./notifications.ts";
 import { resolveAgentModel } from "./model-resolution.ts";
 import { defaultMeshSettings, loadMeshSettings } from "./settings.ts";
 import { SessionAgentManager, type SessionAgentRecord } from "./session-agents.ts";
@@ -46,7 +46,7 @@ Generation: ${record.generation ?? 0} | Stop: ${record.result?.stopReason ?? "pe
   const conversation = verbose && !record.recoveryDiagnostic ? (record.execution?.conversation() || (record.launch?.transcriptPath ? (() => { try { return readBoundedFile(record.launch!.transcriptPath!); } catch { return ""; } })() : "")) : undefined;
   const artifact = record.outputTruncated && record.outputPath ? `\nFull output: ${record.outputPath}` : "";
   const handoff = record.worktree?.finalCommit ? `\n\nWorktree branch: ${record.worktree.branch}\nFinal commit: ${record.worktree.finalCommit}\nPatch: ${record.worktree.patchPath ?? "none"}\nHandoff: ${record.worktree.handoffPath ?? "none"}` : "";
-  return boundedDisplay(`${head}${artifact}${handoff}\n\n--- Untrusted child output ---\n${output}${conversation ? `\n\n--- Agent Conversation (untrusted) ---\n${conversation}` : ""}`);
+  return boundedDisplay(`${CHILD_OUTPUT_DISCLAIMER}\n\n${head}${artifact}${handoff}\n\n--- Untrusted child output ---\n${output}${conversation ? `\n\n--- Agent Conversation (untrusted) ---\n${conversation}` : ""}`);
 }
 
 export function registerCompatibilityTools(pi: ExtensionAPI, fleet = new FleetView()): (() => Promise<void>) & { getManager(ctx: ExtensionContext): SessionAgentManager | undefined } {
@@ -101,7 +101,7 @@ export function registerCompatibilityTools(pi: ExtensionAPI, fleet = new FleetVi
     return scheduler;
   };
   const recordResult = (manager: SessionAgentManager, record: SessionAgentRecord, verbose = false, foreground = false) => result(
-    boundedDisplay(`Next action: ${manager.nextAction(record)}\n${recordText(record, verbose)}`),
+    boundedDisplay(`${recordText(record, verbose)}\nNext action: ${manager.nextAction(record)}`),
     { agentId: record.id, status: record.status, generation: record.generation, partial: record.result?.partial, stopReason: record.result?.stopReason, outputPath: record.outputPath, outputTruncated: record.outputTruncated, cumulativeUsage: record.cumulativeUsage, usageAccounting: "Any attached usage is previously unreported child execution work; querying does not make a model call.", nextAction: manager.nextAction(record) }, piUsage(manager.claimUsage(record.id, foreground ? record.generation : undefined)));
 
   pi.registerTool({
